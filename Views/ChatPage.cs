@@ -51,6 +51,11 @@ namespace ZaloWP81.Views
         private TextBlock _replyContentText;
         private ZaloChatMessage _replyTarget;
 
+        private MediaElement _voicePlayer;
+        private ZaloChatMessage _activeVoiceMsg;
+        private Image _activeVoicePlayIcon;
+        private TextBlock _activeVoiceStatusText;
+
         public ChatPage(string conversationKey = null)
         {
             BuildUI();
@@ -63,7 +68,7 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -94,14 +99,50 @@ namespace ZaloWP81.Views
             Grid.SetRow(_drawerContainer, 3);
             rootGrid.Children.Add(_drawerContainer);
 
+            // Global Voice Audio Player
+            _voicePlayer = new MediaElement { AutoPlay = true, Width = 0, Height = 0, Visibility = Visibility.Collapsed };
+            _voicePlayer.MediaEnded += (s, e) => ResetActiveVoicePlayer();
+            _voicePlayer.MediaFailed += (s, e) =>
+            {
+                if (_activeVoiceStatusText != null) _activeVoiceStatusText.Text = "Không thể phát âm thanh";
+                ResetActiveVoicePlayer();
+            };
+            _voicePlayer.CurrentStateChanged += (s, e) =>
+            {
+                if (_voicePlayer.CurrentState == MediaElementState.Paused || _voicePlayer.CurrentState == MediaElementState.Stopped)
+                {
+                    ResetActiveVoicePlayer();
+                }
+            };
+            rootGrid.Children.Add(_voicePlayer);
+
             this.Content = rootGrid;
+        }
+
+        private void ResetActiveVoicePlayer()
+        {
+            if (_activeVoicePlayIcon != null)
+            {
+                try
+                {
+                    _activeVoicePlayIcon.Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_play_clean_white.png"));
+                }
+                catch { }
+            }
+            if (_activeVoiceStatusText != null && _activeVoiceStatusText.Text == "Đang phát...")
+            {
+                _activeVoiceStatusText.Text = "Chạm để nghe";
+            }
+            _activeVoiceMsg = null;
+            _activeVoicePlayIcon = null;
+            _activeVoiceStatusText = null;
         }
 
         private FrameworkElement CreateTopHeader()
         {
             var headerBorder = new Border
             {
-                Padding = new Thickness(4, 0, 10, 0)
+                Padding = new Thickness(4, 6, 10, 6)
             };
             var gradient = new LinearGradientBrush
             {
@@ -113,17 +154,17 @@ namespace ZaloWP81.Views
             headerBorder.Background = gradient;
 
             var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             // Back Button (Pure Touch Border)
-            var backBtn = CreateTouchBorder(40, 44);
+            var backBtn = CreateTouchBorder(42, 48);
             var backArrow = new TextBlock
             {
                 Text = "←",
-                FontSize = 22,
+                FontSize = 24,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
@@ -139,13 +180,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
-            // Recipient Avatar (36x36 Circle)
-            var avatarGrid = new Grid { Width = 36, Height = 36, VerticalAlignment = VerticalAlignment.Center };
-            _recipientAvatar = new Ellipse { Width = 36, Height = 36, Fill = _activeBlue };
+            // Recipient Avatar (42x42 Circle)
+            var avatarGrid = new Grid { Width = 42, Height = 42, VerticalAlignment = VerticalAlignment.Center };
+            _recipientAvatar = new Ellipse { Width = 42, Height = 42, Fill = _activeBlue };
             _recipientInitial = new TextBlock
             {
                 Text = "Z",
-                FontSize = 15,
+                FontSize = 18,
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -156,11 +197,11 @@ namespace ZaloWP81.Views
             Grid.SetColumn(avatarGrid, 1);
             header.Children.Add(avatarGrid);
 
-            // Recipient Title (White Bold 16.5)
+            // Recipient Title (White Bold 18)
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
-                FontSize = 16.5,
+                FontSize = 18,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -171,12 +212,12 @@ namespace ZaloWP81.Views
             header.Children.Add(_titleBlock);
 
             // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage)
-            var moreBtn = CreateTouchBorder(42, 44);
+            var moreBtn = CreateTouchBorder(44, 48);
             var moreIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png")),
-                Width = 24,
-                Height = 24,
+                Width = 26,
+                Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -225,7 +266,14 @@ namespace ZaloWP81.Views
             replyGrid.Children.Add(replyTextStack);
 
             var closeReplyBtn = CreateTouchBorder(32, 32);
-            closeReplyBtn.Child = new TextBlock { Text = "✕", FontSize = 14, Foreground = _timeColor, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            closeReplyBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_close_clean_gray.png")),
+                Width = 14,
+                Height = 14,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             closeReplyBtn.Tapped += (s, e) => SetReplyTarget(null);
             Grid.SetColumn(closeReplyBtn, 1);
             replyGrid.Children.Add(closeReplyBtn);
@@ -341,7 +389,7 @@ namespace ZaloWP81.Views
                     var voiceMsg = new ZaloChatMessage
                     {
                         FromMe = true,
-                        Text = "🎙️ Tin nhắn thoại (0:05)",
+                        Text = "Tin nhắn thoại (0:05)",
                         Ts = nowMs,
                         MsgType = "chat.voice"
                     };
@@ -882,13 +930,18 @@ namespace ZaloWP81.Views
             bool isSticker = msg.IsSticker || msg.MsgType == "chat.sticker" || msg.MsgType == "5"
                 || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("sticker_")));
 
-            bool isPhoto = !isSticker && (msg.HasMedia || msg.MsgType == "chat.photo"
+            bool isVoice = msg.HasVoice || msg.MsgType == "chat.voice" || msg.MsgType == "31" || msg.MsgType == "chat.audio"
+                || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.EndsWith(".aac", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.Contains("voice")));
+
+            bool isVideo = !isVoice && (msg.HasVideo || msg.MsgType == "chat.video.msg" || msg.MsgType == "chat.video" || msg.MsgType == "44" || msg.MsgType == "32"
+                || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".mov", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".3gp", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.Contains("video"))));
+
+            bool isFile = !isVoice && !isVideo && (msg.HasFile || msg.MsgType == "share.file" || msg.MsgType == "46" || !string.IsNullOrWhiteSpace(msg.FileName));
+
+            bool isPhoto = !isSticker && !isVoice && !isVideo && !isFile && (msg.HasMedia || msg.MsgType == "chat.photo"
                 || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.StartsWith("http") || msg.MediaUrl.Contains("res-zalo") || msg.MediaUrl.Contains("photo")
                     || msg.MediaUrl.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
                     || msg.MediaUrl.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))));
-
-            bool isVoice = msg.HasVoice || msg.MsgType == "chat.voice" || msg.MsgType == "31";
-            bool isFile = msg.HasFile || msg.MsgType == "share.file" || msg.MsgType == "46";
 
             if (isSticker)
             {
@@ -897,19 +950,19 @@ namespace ZaloWP81.Views
                     Background = new SolidColorBrush(Colors.White),
                     BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)),
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(15),
-                    Padding = new Thickness(8),
-                    MaxWidth = 260
+                    CornerRadius = new CornerRadius(16),
+                    Padding = new Thickness(10),
+                    MaxWidth = 280
                 };
                 var stickerImg = new Image
                 {
-                    Width = 96,
-                    Height = 96,
+                    Width = 104,
+                    Height = 104,
                     Stretch = Stretch.Uniform
                 };
                 stickerCard.Child = stickerImg;
 
-                var ring = new ProgressRing { Width = 30, Height = 30, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                var ring = new ProgressRing { Width = 32, Height = 32, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 BindMessageImage(stickerImg, ring, null, msg);
 
                 stickerCard.PointerPressed += (s, e) => stickerCard.Opacity = 0.7;
@@ -921,6 +974,90 @@ namespace ZaloWP81.Views
                 };
                 stack.Children.Add(stickerCard);
             }
+            else if (isVideo)
+            {
+                var videoCard = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x1E, 0x29, 0x3B)),
+                    BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(14),
+                    Padding = new Thickness(4),
+                    MaxWidth = 300
+                };
+                var videoGrid = new Grid { MinWidth = 160, MinHeight = 140, MaxWidth = 292, MaxHeight = 300 };
+
+                var videoThumb = new Image
+                {
+                    Stretch = Stretch.UniformToFill,
+                    MaxWidth = 292,
+                    MaxHeight = 300,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                videoGrid.Children.Add(videoThumb);
+
+                var ring = new ProgressRing
+                {
+                    Width = 36,
+                    Height = 36,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsActive = false,
+                    Visibility = Visibility.Collapsed
+                };
+                videoGrid.Children.Add(ring);
+
+                // Play Overlay Icon (Official 56x56 Zalo Video Play Icon)
+                var playOverlay = new Image
+                {
+                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_csc_filevideo_play.png")),
+                    Width = 56,
+                    Height = 56,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                videoGrid.Children.Add(playOverlay);
+
+                // Video Badge
+                var videoBadge = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xB3, 0x00, 0x00, 0x00)),
+                    CornerRadius = new CornerRadius(4),
+                    Padding = new Thickness(8, 3, 8, 3),
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    Margin = new Thickness(8)
+                };
+                videoBadge.Child = new TextBlock { Text = "Video", Foreground = new SolidColorBrush(Colors.White), FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+                videoGrid.Children.Add(videoBadge);
+
+                videoCard.Child = videoGrid;
+
+                BindMessageImage(videoThumb, ring, null, msg);
+
+                videoCard.PointerPressed += (s, e) => videoCard.Opacity = 0.7;
+                videoCard.PointerReleased += (s, e) => videoCard.Opacity = 1.0;
+                videoCard.PointerCanceled += (s, e) => videoCard.Opacity = 1.0;
+                videoCard.Tapped += async (s, e) =>
+                {
+                    try
+                    {
+                        string vUrl = msg.ViewerUrl ?? msg.MediaUrl;
+                        if (string.IsNullOrEmpty(vUrl)) return;
+                        if (Uri.TryCreate(vUrl, UriKind.Absolute, out Uri vUri))
+                        {
+                            await Windows.System.Launcher.LaunchUriAsync(vUri);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        await new MessageDialog("Không thể phát video: " + ex.Message, "Video").ShowAsync();
+                    }
+                };
+                stack.Children.Add(videoCard);
+            }
             else if (isPhoto)
             {
                 var photoCard = new Border
@@ -928,18 +1065,18 @@ namespace ZaloWP81.Views
                     Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xED, 0xF2, 0xF7)),
                     BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(12),
+                    CornerRadius = new CornerRadius(14),
                     Padding = new Thickness(4),
-                    MaxWidth = 260
+                    MaxWidth = 300
                 };
                 var photoStack = new StackPanel();
 
-                var imgGrid = new Grid { MinWidth = 140, MinHeight = 140, MaxWidth = 252, MaxHeight = 280 };
+                var imgGrid = new Grid { MinWidth = 140, MinHeight = 140, MaxWidth = 292, MaxHeight = 320 };
                 var photoImg = new Image
                 {
                     Stretch = Stretch.Uniform,
-                    MaxWidth = 252,
-                    MaxHeight = 280,
+                    MaxWidth = 292,
+                    MaxHeight = 320,
                     HorizontalAlignment = HorizontalAlignment.Center,
                     VerticalAlignment = VerticalAlignment.Center
                 };
@@ -965,7 +1102,10 @@ namespace ZaloWP81.Views
                     VerticalAlignment = VerticalAlignment.Center,
                     Visibility = Visibility.Collapsed
                 };
-                retryBtn.Child = new TextBlock { Text = "⚠️ Tải lại ảnh", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) };
+                var retryStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                retryStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_white.png")), Width = 16, Height = 16, Margin = new Thickness(0, 0, 6, 0) });
+                retryStack.Children.Add(new TextBlock { Text = "Tải lại ảnh", FontSize = 12.5, Foreground = new SolidColorBrush(Colors.White), VerticalAlignment = VerticalAlignment.Center });
+                retryBtn.Child = retryStack;
                 imgGrid.Children.Add(retryBtn);
 
                 if (msg.HasHdPhoto)
@@ -990,7 +1130,7 @@ namespace ZaloWP81.Views
                     var captionBlock = new TextBlock
                     {
                         Text = msg.Text,
-                        FontSize = 14,
+                        FontSize = 15,
                         Foreground = _textDark,
                         TextWrapping = TextWrapping.Wrap,
                         Margin = new Thickness(6, 4, 6, 4)
@@ -1019,40 +1159,122 @@ namespace ZaloWP81.Views
                     Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
                     BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(14),
-                    Padding = new Thickness(14, 10, 14, 10),
-                    MaxWidth = 260
+                    CornerRadius = new CornerRadius(16),
+                    Padding = new Thickness(14, 12, 14, 12),
+                    MaxWidth = 310
                 };
                 var voiceStack = new StackPanel { Orientation = Orientation.Horizontal };
                 var playCircle = new Border
                 {
-                    Width = 32,
-                    Height = 32,
-                    CornerRadius = new CornerRadius(16),
+                    Width = 42,
+                    Height = 42,
+                    CornerRadius = new CornerRadius(21),
                     Background = _activeBlue,
-                    Margin = new Thickness(0, 0, 10, 0)
+                    Margin = new Thickness(0, 0, 12, 0),
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                playCircle.Child = new TextBlock
+                var playIcon = new Image
                 {
-                    Text = "▶",
-                    FontSize = 12,
-                    Foreground = new SolidColorBrush(Colors.White),
+                    Source = new BitmapImage(new Uri((_activeVoiceMsg == msg && _voicePlayer.CurrentState == MediaElementState.Playing)
+                        ? "ms-appx:///Assets/Icons/ic_pause_clean_white.png"
+                        : "ms-appx:///Assets/Icons/ic_play_clean_white.png")),
+                    Width = 20,
+                    Height = 20,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(2, 0, 0, 0)
+                    VerticalAlignment = VerticalAlignment.Center
                 };
+                playCircle.Child = playIcon;
                 voiceStack.Children.Add(playCircle);
 
                 var voiceInfo = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-                voiceInfo.Children.Add(new TextBlock { Text = "Tin nhắn thoại", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-                voiceInfo.Children.Add(new TextBlock { Text = "Chạm để nghe", FontSize = 12, Foreground = _timeColor });
+                voiceInfo.Children.Add(new TextBlock { Text = "Tin nhắn thoại", FontSize = 16, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+                var statusText = new TextBlock
+                {
+                    Text = (_activeVoiceMsg == msg && _voicePlayer.CurrentState == MediaElementState.Playing) ? "Đang phát..." : "Chạm để nghe",
+                    FontSize = 13,
+                    Foreground = _timeColor,
+                    Margin = new Thickness(0, 2, 0, 0)
+                };
+                voiceInfo.Children.Add(statusText);
                 voiceStack.Children.Add(voiceInfo);
                 voiceCard.Child = voiceStack;
 
+                voiceCard.PointerPressed += (s, e) => voiceCard.Opacity = 0.7;
+                voiceCard.PointerReleased += (s, e) => voiceCard.Opacity = 1.0;
+                voiceCard.PointerCanceled += (s, e) => voiceCard.Opacity = 1.0;
                 voiceCard.Tapped += async (s, e) =>
                 {
-                    var md = new MessageDialog("Đang phát tin nhắn thoại...", "Thoại");
-                    await md.ShowAsync();
+                    if (_activeVoiceMsg == msg && _voicePlayer.CurrentState == MediaElementState.Playing)
+                    {
+                        _voicePlayer.Pause();
+                        ResetActiveVoicePlayer();
+                        return;
+                    }
+
+                    ResetActiveVoicePlayer();
+                    _activeVoiceMsg = msg;
+                    _activeVoicePlayIcon = playIcon;
+                    _activeVoiceStatusText = statusText;
+                    playIcon.Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_pause_clean_white.png"));
+                    statusText.Text = "Đang tải...";
+
+                    try
+                    {
+                        string audioUrl = msg.MediaUrl ?? msg.ViewerUrl;
+                        if (string.IsNullOrEmpty(audioUrl))
+                        {
+                            statusText.Text = "Không có dữ liệu âm thanh";
+                            ResetActiveVoicePlayer();
+                            return;
+                        }
+
+                        byte[] bytes = null;
+                        if (ZaloApp.Session != null)
+                        {
+                            try { bytes = await ZaloApp.Session.Http.DownloadBytesAsync(audioUrl, CancellationToken.None); }
+                            catch { }
+                        }
+                        if (bytes == null)
+                        {
+                            using (var hc = new System.Net.Http.HttpClient())
+                            {
+                                bytes = await hc.GetByteArrayAsync(audioUrl);
+                            }
+                        }
+
+                        if (bytes != null && bytes.Length > 0)
+                        {
+                            var stream = new InMemoryRandomAccessStream();
+                            using (var writer = new DataWriter(stream))
+                            {
+                                writer.WriteBytes(bytes);
+                                await writer.StoreAsync();
+                                await writer.FlushAsync();
+                                writer.DetachStream();
+                            }
+                            stream.Seek(0);
+                            string mime = "audio/mp4";
+                            if (audioUrl.EndsWith(".wav", StringComparison.OrdinalIgnoreCase)) mime = "audio/wav";
+                            else if (audioUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase)) mime = "audio/mp3";
+                            else if (audioUrl.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)) mime = "audio/aac";
+                            else if (audioUrl.EndsWith(".amr", StringComparison.OrdinalIgnoreCase)) mime = "audio/amr";
+
+                            _voicePlayer.SetSource(stream, mime);
+                            _voicePlayer.Play();
+                            statusText.Text = "Đang phát...";
+                        }
+                        else
+                        {
+                            _voicePlayer.Source = new Uri(audioUrl);
+                            _voicePlayer.Play();
+                            statusText.Text = "Đang phát...";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        statusText.Text = "Lỗi: " + ex.Message;
+                        ResetActiveVoicePlayer();
+                    }
                 };
                 stack.Children.Add(voiceCard);
             }
@@ -1063,27 +1285,109 @@ namespace ZaloWP81.Views
                     Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
                     BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(14),
-                    Padding = new Thickness(14, 10, 14, 10),
-                    MaxWidth = 270
+                    CornerRadius = new CornerRadius(16),
+                    Padding = new Thickness(14, 12, 14, 12),
+                    MaxWidth = 310
                 };
                 var fileStack = new StackPanel { Orientation = Orientation.Horizontal };
                 var fileIconBox = new Border
                 {
-                    Width = 34,
-                    Height = 34,
-                    CornerRadius = new CornerRadius(8),
+                    Width = 42,
+                    Height = 42,
+                    CornerRadius = new CornerRadius(10),
                     Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF4, 0xFA)),
-                    Margin = new Thickness(0, 0, 10, 0)
+                    Margin = new Thickness(0, 0, 12, 0),
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                fileIconBox.Child = new TextBlock { Text = "📁", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                fileIconBox.Child = new Image
+                {
+                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/im_downloadfile.png")),
+                    Width = 26,
+                    Height = 26,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
                 fileStack.Children.Add(fileIconBox);
 
-                var fileTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 190 };
-                fileTextStack.Children.Add(new TextBlock { Text = msg.Text ?? "Tập tin", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
-                fileTextStack.Children.Add(new TextBlock { Text = "Chạm để tải về", FontSize = 12, Foreground = _activeBlue });
+                var fileTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 210 };
+                string dispName = !string.IsNullOrWhiteSpace(msg.FileName) ? msg.FileName : (!string.IsNullOrWhiteSpace(msg.Text) && msg.Text != "[Tập tin]" ? msg.Text : "Tập tin đính kèm");
+                fileTextStack.Children.Add(new TextBlock { Text = dispName, FontSize = 15.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
+                var fileStatus = new TextBlock { Text = "Chạm để tải về", FontSize = 13, Foreground = _activeBlue, Margin = new Thickness(0, 2, 0, 0) };
+                fileTextStack.Children.Add(fileStatus);
                 fileStack.Children.Add(fileTextStack);
                 fileCard.Child = fileStack;
+
+                fileCard.PointerPressed += (s, e) => fileCard.Opacity = 0.7;
+                fileCard.PointerReleased += (s, e) => fileCard.Opacity = 1.0;
+                fileCard.PointerCanceled += (s, e) => fileCard.Opacity = 1.0;
+                fileCard.Tapped += async (s, e) =>
+                {
+                    string fUrl = msg.ViewerUrl ?? msg.MediaUrl;
+                    if (string.IsNullOrEmpty(fUrl)) return;
+                    fileStatus.Text = "Đang tải về…";
+
+                    try
+                    {
+                        byte[] bytes = null;
+                        if (ZaloApp.Session != null)
+                        {
+                            try { bytes = await ZaloApp.Session.Http.DownloadBytesAsync(fUrl, CancellationToken.None); }
+                            catch { }
+                        }
+                        if (bytes == null)
+                        {
+                            using (var hc = new System.Net.Http.HttpClient())
+                            {
+                                bytes = await hc.GetByteArrayAsync(fUrl);
+                            }
+                        }
+
+                        if (bytes != null && bytes.Length > 0)
+                        {
+                            string safeName = string.IsNullOrWhiteSpace(msg.FileName) ? "Zalo_File" : msg.FileName;
+                            foreach (char c in System.IO.Path.GetInvalidFileNameChars())
+                            {
+                                safeName = safeName.Replace(c, '_');
+                            }
+
+                            StorageFolder folder = null;
+                            try
+                            {
+                                folder = await ApplicationData.Current.LocalFolder.CreateFolderAsync("Downloads", CreationCollisionOption.OpenIfExists);
+                            }
+                            catch
+                            {
+                                folder = ApplicationData.Current.LocalFolder;
+                            }
+
+                            StorageFile file = await folder.CreateFileAsync(safeName, CreationCollisionOption.GenerateUniqueName);
+                            using (var outStream = await file.OpenStreamForWriteAsync())
+                            {
+                                await outStream.WriteAsync(bytes, 0, bytes.Length);
+                            }
+
+                            fileStatus.Text = "Đã tải về máy";
+                            fileStatus.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x16, 0xA3, 0x4A));
+
+                            var md = new MessageDialog($"Đã tải tệp về thiết bị:\n{file.Name}", "Tải tệp thành công");
+                            md.Commands.Add(new UICommand("Mở tệp", async cmd =>
+                            {
+                                try { await Windows.System.Launcher.LaunchFileAsync(file); }
+                                catch (Exception exLaunch) { await new MessageDialog("Không thể mở tệp: " + exLaunch.Message).ShowAsync(); }
+                            }));
+                            md.Commands.Add(new UICommand("Đóng"));
+                            await md.ShowAsync();
+                        }
+                        else
+                        {
+                            fileStatus.Text = "Tải thất bại";
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        fileStatus.Text = "Lỗi: " + ex.Message;
+                    }
+                };
                 stack.Children.Add(fileCard);
             }
             else
@@ -1094,15 +1398,15 @@ namespace ZaloWP81.Views
                     Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
                     BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(15),
-                    Padding = new Thickness(14, 9, 14, 9),
-                    MaxWidth = 290
+                    CornerRadius = new CornerRadius(16),
+                    Padding = new Thickness(14, 10, 14, 10),
+                    MaxWidth = 310
                 };
 
                 var textBlock = new TextBlock
                 {
                     Text = msg.Text ?? string.Empty,
-                    FontSize = 15,
+                    FontSize = 16.5,
                     Foreground = _textDark,
                     TextWrapping = TextWrapping.Wrap
                 };
@@ -1140,18 +1444,18 @@ namespace ZaloWP81.Views
                 stack.Children.Add(bubbleBorder);
             }
 
-            // Timestamp and Status (✓ Đã gửi)
+            // Timestamp and Status
             var timeStack = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Margin = new Thickness(0, 3, 0, 0)
+                Margin = new Thickness(0, 4, 0, 0)
             };
 
             timeStack.Children.Add(new TextBlock
             {
                 Text = msg.TimeText ?? string.Empty,
-                FontSize = 11,
+                FontSize = 12,
                 Foreground = _timeColor
             });
 
@@ -1159,8 +1463,8 @@ namespace ZaloWP81.Views
             {
                 timeStack.Children.Add(new TextBlock
                 {
-                    Text = "  ✓ Đã gửi",
-                    FontSize = 11,
+                    Text = "  Đã gửi",
+                    FontSize = 12,
                     Foreground = _timeColor
                 });
             }

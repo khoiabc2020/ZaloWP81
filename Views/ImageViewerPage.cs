@@ -154,8 +154,9 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed
             };
-            var retryStack = new StackPanel { Orientation = Orientation.Horizontal };
-            retryStack.Children.Add(new TextBlock { Text = "⚠️ Không tải được ảnh. Chạm để thử lại", Foreground = new SolidColorBrush(Colors.White), FontSize = 13.5 });
+            var retryStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            retryStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_white.png")), Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0) });
+            retryStack.Children.Add(new TextBlock { Text = "Không tải được ảnh. Chạm để thử lại", Foreground = new SolidColorBrush(Colors.White), FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
             _retryBtn.Child = retryStack;
             _retryBtn.Tapped += (s, e) => LoadImage();
             imageContainer.Children.Add(_retryBtn);

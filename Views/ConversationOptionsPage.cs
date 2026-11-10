@@ -27,7 +27,7 @@ namespace ZaloWP81.Views
 
         private TextBlock _nameText;
         private TextBlock _subtitleText;
-        private TextBlock _muteIconText;
+        private Image _muteIconImage;
         private TextBlock _muteLabelText;
         private TextBlock _aliasStatusText;
         private TextBlock _mediaCountText;
@@ -66,8 +66,8 @@ namespace ZaloWP81.Views
             if (_conversation == null) return;
             if (_muteLabelText != null)
                 _muteLabelText.Text = _conversation.IsMuted ? "Bật thông báo" : "Tắt thông báo";
-            if (_muteIconText != null)
-                _muteIconText.Text = _conversation.IsMuted ? "🔕" : "🔔";
+            if (_muteIconImage != null)
+                _muteIconImage.Source = new BitmapImage(new Uri(_conversation.IsMuted ? "ms-appx:///Assets/Icons/ic_bell_mute_clean_gray.png" : "ms-appx:///Assets/Icons/ic_bell_clean_gray.png"));
         }
 
         private void UpdateAliasText()
@@ -182,13 +182,13 @@ namespace ZaloWP81.Views
             };
             var profileStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Stretch };
 
-            // Avatar 100x100
-            var avatarGrid = new Grid { Width = 100, Height = 100, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 14) };
-            var avatarBg = new Ellipse { Width = 100, Height = 100, Fill = _conversation?.AvatarColor ?? _activeBlue };
+            // Avatar 108x108
+            var avatarGrid = new Grid { Width = 108, Height = 108, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 14) };
+            var avatarBg = new Ellipse { Width = 108, Height = 108, Fill = _conversation?.AvatarColor ?? _activeBlue };
             var initial = new TextBlock
             {
                 Text = _conversation?.Initial ?? "?",
-                FontSize = 32,
+                FontSize = 36,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -199,7 +199,7 @@ namespace ZaloWP81.Views
 
             if (_conversation?.AvatarImageBrush != null)
             {
-                var imgEllipse = new Ellipse { Width = 100, Height = 100, Fill = _conversation.AvatarImageBrush };
+                var imgEllipse = new Ellipse { Width = 108, Height = 108, Fill = _conversation.AvatarImageBrush };
                 avatarGrid.Children.Add(imgEllipse);
             }
             profileStack.Children.Add(avatarGrid);
@@ -219,7 +219,7 @@ namespace ZaloWP81.Views
             _subtitleText = new TextBlock
             {
                 Text = ZaloApp.IsFriend(_conversation?.ThreadId) ? "" : "Người lạ",
-                FontSize = 12.5,
+                FontSize = 13.5,
                 Foreground = _textSub,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 4, 0, 0)
@@ -227,29 +227,31 @@ namespace ZaloWP81.Views
             profileStack.Children.Add(_subtitleText);
 
             // 4 Quick Action Buttons
-            var actionsGrid = new Grid { Margin = new Thickness(0, 20, 0, 0) };
+            var actionsGrid = new Grid { Margin = new Thickness(0, 22, 0, 0) };
             for (int i = 0; i < 4; i++) actionsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             // Button 0: Tìm tin nhắn
-            var btnSearch = CreateQuickActionButton("🔍", "Tìm tin nhắn");
+            var btnSearch = CreateQuickActionButton("ms-appx:///Assets/Icons/ic_search_clean_gray.png", "Tìm tin nhắn");
             btnSearch.Tapped += (s, e) => ShowSearchDialog();
             Grid.SetColumn(btnSearch, 0);
             actionsGrid.Children.Add(btnSearch);
 
             // Button 1: Trang cá nhân
-            var btnProfile = CreateQuickActionButton("👤", "Trang cá nhân");
+            var btnProfile = CreateQuickActionButton("ms-appx:///Assets/Icons/ic_user_clean_gray.png", "Trang cá nhân");
             btnProfile.Tapped += (s, e) => OpenFriendProfile();
             Grid.SetColumn(btnProfile, 1);
             actionsGrid.Children.Add(btnProfile);
 
             // Button 2: Đổi hình nền
-            var btnWp = CreateQuickActionButton("🖼️", "Đổi hình nền");
+            var btnWp = CreateQuickActionButton("ms-appx:///Assets/Icons/ic_wallpaper_clean_gray.png", "Đổi hình nền");
             btnWp.Tapped += (s, e) => ShowWallpaperDialog();
             Grid.SetColumn(btnWp, 2);
             actionsGrid.Children.Add(btnWp);
 
             // Button 3: Tắt / Bật thông báo
-            var btnMute = CreateQuickActionButton("🔔", "Tắt thông báo", out _muteIconText, out _muteLabelText);
+            string muteIconUri = _conversation?.IsMuted == true ? "ms-appx:///Assets/Icons/ic_bell_mute_clean_gray.png" : "ms-appx:///Assets/Icons/ic_bell_clean_gray.png";
+            string muteLabel = _conversation?.IsMuted == true ? "Bật thông báo" : "Tắt thông báo";
+            var btnMute = CreateQuickActionButton(muteIconUri, muteLabel, out _muteIconImage, out _muteLabelText);
             btnMute.Tapped += async (s, e) =>
             {
                 if (_conversation == null) return;
@@ -282,13 +284,20 @@ namespace ZaloWP81.Views
             aliasGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             aliasGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var aliasIcon = new TextBlock { Text = "✏️", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+            var aliasIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_edit_clean_gray.png")),
+                Width = 24,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             Grid.SetColumn(aliasIcon, 0);
             aliasGrid.Children.Add(aliasIcon);
 
             var aliasTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            aliasTextStack.Children.Add(new TextBlock { Text = "Đổi tên gợi nhớ", FontSize = 16, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            _aliasStatusText = new TextBlock { Text = "Đang tải...", FontSize = 12, Foreground = _textSub, Margin = new Thickness(0, 3, 0, 0) };
+            aliasTextStack.Children.Add(new TextBlock { Text = "Đổi tên gợi nhớ", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            _aliasStatusText = new TextBlock { Text = "Đang tải...", FontSize = 13, Foreground = _textSub, Margin = new Thickness(0, 3, 0, 0) };
             aliasTextStack.Children.Add(_aliasStatusText);
             Grid.SetColumn(aliasTextStack, 1);
             aliasGrid.Children.Add(aliasTextStack);
@@ -318,15 +327,22 @@ namespace ZaloWP81.Views
             mediaHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             mediaHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var mediaIcon = new TextBlock { Text = "📁", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+            var mediaIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_gray.png")),
+                Width = 24,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             Grid.SetColumn(mediaIcon, 0);
             mediaHeaderGrid.Children.Add(mediaIcon);
 
-            var mediaTitle = new TextBlock { Text = "Ảnh, file, link", FontSize = 16, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            var mediaTitle = new TextBlock { Text = "Ảnh, file, link", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(mediaTitle, 1);
             mediaHeaderGrid.Children.Add(mediaTitle);
 
-            _mediaCountText = new TextBlock { Text = "", FontSize = 12.5, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            _mediaCountText = new TextBlock { Text = "", FontSize = 13, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(_mediaCountText, 2);
             mediaHeaderGrid.Children.Add(_mediaCountText);
 
@@ -342,7 +358,7 @@ namespace ZaloWP81.Views
             _mediaSummaryText = new TextBlock
             {
                 Text = "Nội dung đã tải trong cuộc trò chuyện sẽ xuất hiện tại đây.",
-                FontSize = 13,
+                FontSize = 13.5,
                 Foreground = _textSub,
                 TextWrapping = TextWrapping.Wrap
             };
@@ -370,11 +386,18 @@ namespace ZaloWP81.Views
             commonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             commonGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var cgIcon = new TextBlock { Text = "👥", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+            var cgIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_clean_gray.png")),
+                Width = 24,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
             Grid.SetColumn(cgIcon, 0);
             commonGrid.Children.Add(cgIcon);
 
-            var cgTitle = new TextBlock { Text = "Xem nhóm chung", FontSize = 16, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            var cgTitle = new TextBlock { Text = "Xem nhóm chung", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(cgTitle, 1);
             commonGrid.Children.Add(cgTitle);
 
@@ -387,7 +410,7 @@ namespace ZaloWP81.Views
             _commonGroupsStatusText = new TextBlock
             {
                 Text = "Chạm để tìm các nhóm bạn và người này cùng tham gia.",
-                FontSize = 12.5,
+                FontSize = 13,
                 Foreground = _textSub,
                 Margin = new Thickness(38, 6, 0, 0),
                 TextWrapping = TextWrapping.Wrap
@@ -414,7 +437,7 @@ namespace ZaloWP81.Views
             hGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             hGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var hTitle = new TextBlock { Text = "Ẩn trò chuyện", FontSize = 16, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            var hTitle = new TextBlock { Text = "Ẩn trò chuyện", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(hTitle, 0);
             hGrid.Children.Add(hTitle);
 
@@ -428,7 +451,7 @@ namespace ZaloWP81.Views
             _hiddenStatusText = new TextBlock
             {
                 Text = "Đang tải trạng thái ẩn...",
-                FontSize = 11.5,
+                FontSize = 12.5,
                 Foreground = _textSub,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 4, 0, 0)
@@ -490,13 +513,14 @@ namespace ZaloWP81.Views
             this.Content = rootGrid;
         }
 
-        private Border CreateQuickActionButton(string icon, string label)
+        private Border CreateQuickActionButton(string iconUri, string label)
         {
-            TextBlock dummyIcon, dummyLabel;
-            return CreateQuickActionButton(icon, label, out dummyIcon, out dummyLabel);
+            Image dummyIcon;
+            TextBlock dummyLabel;
+            return CreateQuickActionButton(iconUri, label, out dummyIcon, out dummyLabel);
         }
 
-        private Border CreateQuickActionButton(string icon, string label, out TextBlock iconBlock, out TextBlock labelBlock)
+        private Border CreateQuickActionButton(string iconUri, string label, out Image iconImage, out TextBlock labelBlock)
         {
             var btnBorder = new Border
             {
@@ -507,26 +531,27 @@ namespace ZaloWP81.Views
 
             var circle = new Border
             {
-                Width = 48,
-                Height = 48,
-                CornerRadius = new CornerRadius(24),
+                Width = 54,
+                Height = 54,
+                CornerRadius = new CornerRadius(27),
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF6, 0xF8)),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
-            iconBlock = new TextBlock
+            iconImage = new Image
             {
-                Text = icon,
-                FontSize = 20,
+                Source = new BitmapImage(new Uri(iconUri)),
+                Width = 26,
+                Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            circle.Child = iconBlock;
+            circle.Child = iconImage;
             btnStack.Children.Add(circle);
 
             labelBlock = new TextBlock
             {
                 Text = label,
-                FontSize = 11,
+                FontSize = 12.5,
                 Foreground = _textDark,
                 TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,

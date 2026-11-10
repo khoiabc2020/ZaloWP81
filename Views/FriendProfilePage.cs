@@ -193,17 +193,21 @@ namespace ZaloWP81.Views
             var chatBtn = new Border
             {
                 Background = _activeBlue,
-                CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(22, 9, 22, 9),
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(22, 10, 22, 10),
                 Margin = new Thickness(0, 0, 10, 0)
             };
-            chatBtn.Child = new TextBlock
+            var chatBtnStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            chatBtnStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chat_clean_white.png")), Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+            chatBtnStack.Children.Add(new TextBlock
             {
-                Text = "💬  Nhắn tin",
+                Text = "Nhắn tin",
                 Foreground = new SolidColorBrush(Colors.White),
-                FontSize = 14,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold
-            };
+                FontSize = 15.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            chatBtn.Child = chatBtnStack;
             chatBtn.PointerPressed += (s, e) => chatBtn.Opacity = 0.6;
             chatBtn.PointerReleased += (s, e) => chatBtn.Opacity = 1.0;
             chatBtn.PointerCanceled += (s, e) => chatBtn.Opacity = 1.0;
@@ -218,16 +222,20 @@ namespace ZaloWP81.Views
             var callBtn = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81)),
-                CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(22, 9, 22, 9)
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(22, 10, 22, 10)
             };
-            callBtn.Child = new TextBlock
+            var callBtnStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            callBtnStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_call_clean_white.png")), Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0), VerticalAlignment = VerticalAlignment.Center });
+            callBtnStack.Children.Add(new TextBlock
             {
-                Text = "📞  Gọi thoại",
+                Text = "Gọi thoại",
                 Foreground = new SolidColorBrush(Colors.White),
-                FontSize = 14,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold
-            };
+                FontSize = 15.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            callBtn.Child = callBtnStack;
             callBtn.PointerPressed += (s, e) => callBtn.Opacity = 0.6;
             callBtn.PointerReleased += (s, e) => callBtn.Opacity = 1.0;
             callBtn.PointerCanceled += (s, e) => callBtn.Opacity = 1.0;
@@ -294,18 +302,24 @@ namespace ZaloWP81.Views
             card3Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             card3Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var groupIcon = new TextBlock { Text = "👥", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+            var groupIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_clean_blue.png")),
+                Width = 24,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(groupIcon, 0);
             card3Grid.Children.Add(groupIcon);
 
             var groupTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
-            groupTextStack.Children.Add(new TextBlock { Text = "Xem nhóm chung", FontSize = 15, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            var mutualCountText = new TextBlock { Text = "Chạm để kiểm tra nhóm cùng tham gia", FontSize = 12, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) };
+            groupTextStack.Children.Add(new TextBlock { Text = "Xem nhóm chung", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            var mutualCountText = new TextBlock { Text = "Chạm để kiểm tra nhóm cùng tham gia", FontSize = 13, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) };
             groupTextStack.Children.Add(mutualCountText);
             Grid.SetColumn(groupTextStack, 1);
             card3Grid.Children.Add(groupTextStack);
 
-            var chevron1 = new TextBlock { Text = "›", FontSize = 20, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var chevron1 = new TextBlock { Text = "›", FontSize = 22, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(chevron1, 2);
             card3Grid.Children.Add(chevron1);
 
@@ -329,13 +343,19 @@ namespace ZaloWP81.Views
             card4Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             card4Grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var postIcon = new TextBlock { Text = "📰", FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
+            var postIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_gray.png")),
+                Width = 24,
+                Height = 24,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(postIcon, 0);
             card4Grid.Children.Add(postIcon);
 
             var postTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 0, 0) };
-            postTextStack.Children.Add(new TextBlock { Text = "Nhật ký bạn bè", FontSize = 15, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            var postStatusText = new TextBlock { Text = "Chạm để xem bài đăng gần đây", FontSize = 12, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) };
+            postTextStack.Children.Add(new TextBlock { Text = "Nhật ký bạn bè", FontSize = 16.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            var postStatusText = new TextBlock { Text = "Chạm để xem bài đăng gần đây", FontSize = 13, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) };
             postTextStack.Children.Add(postStatusText);
             Grid.SetColumn(postTextStack, 1);
             card4Grid.Children.Add(postTextStack);

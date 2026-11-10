@@ -806,8 +806,8 @@ namespace ZaloLite
                 return null;
             }
         }
-        public bool HasVoice { get { return (MsgType == "chat.voice" || MsgType == "31") && MediaUri != null; } }
-        public bool HasVideo { get { return (MsgType == "chat.video.msg" || MsgType == "44") && MediaUri != null; } }
+        public bool HasVoice { get { return (MsgType == "chat.voice" || MsgType == "31" || MsgType == "chat.audio" || (!string.IsNullOrEmpty(MediaUrl) && (MediaUrl.EndsWith(".aac", StringComparison.OrdinalIgnoreCase) || MediaUrl.EndsWith(".m4a", StringComparison.OrdinalIgnoreCase) || MediaUrl.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) || MediaUrl.Contains("voice")))) && MediaUri != null; } }
+        public bool HasVideo { get { return (MsgType == "chat.video.msg" || MsgType == "chat.video" || MsgType == "44" || MsgType == "32" || (!string.IsNullOrEmpty(MediaUrl) && (MediaUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase) || MediaUrl.EndsWith(".mov", StringComparison.OrdinalIgnoreCase) || MediaUrl.Contains("video")))) && MediaUri != null; } }
         public Visibility VideoPlayerVisibility { get { return HasVideo && !_playbackFailed ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility VoicePlayerVisibility { get { return HasVoice && !_playbackFailed ? Visibility.Visible : Visibility.Collapsed; } }
         public Visibility PlaybackRetryVisibility { get { return _playbackFailed ? Visibility.Visible : Visibility.Collapsed; } }
@@ -834,7 +834,7 @@ namespace ZaloLite
             Raise("VoicePlayerVisibility");
             Raise("PlaybackRetryVisibility");
         }
-        public bool HasFile { get { return (MsgType == "share.file" || MsgType == "46") && MediaUri != null; } }
+        public bool HasFile { get { return (MsgType == "share.file" || MsgType == "46" || !string.IsNullOrWhiteSpace(FileName)) && MediaUri != null; } }
         public bool IsSticker { get { return MsgType == "chat.sticker" || MsgType == "5"; } }
         public bool HasMedia
         {

@@ -213,17 +213,16 @@ namespace ZaloWP81.Views
                 BorderThickness = new Thickness(2),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            var checkText = new TextBlock
+            var checkIcon = new Image
             {
-                Text = "✓",
-                FontSize = 14,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_check_clean_white.png")),
+                Width = 14,
+                Height = 14,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = Visibility.Collapsed
             };
-            checkIndicator.Child = checkText;
+            checkIndicator.Child = checkIcon;
             Grid.SetColumn(checkIndicator, 2);
             grid.Children.Add(checkIndicator);
 
@@ -235,14 +234,14 @@ namespace ZaloWP81.Views
                     _selectedFriendIds.Remove(friend.UserId);
                     checkIndicator.Background = new SolidColorBrush(Colors.Transparent);
                     checkIndicator.BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xBD, 0xC3, 0xC7));
-                    checkText.Visibility = Visibility.Collapsed;
+                    checkIcon.Visibility = Visibility.Collapsed;
                 }
                 else
                 {
                     _selectedFriendIds.Add(friend.UserId);
                     checkIndicator.Background = _activeBlue;
                     checkIndicator.BorderBrush = _activeBlue;
-                    checkText.Visibility = Visibility.Visible;
+                    checkIcon.Visibility = Visibility.Visible;
                 }
                 _selectedCountText.Text = $"Đã chọn: {_selectedFriendIds.Count} thành viên";
             };

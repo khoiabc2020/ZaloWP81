@@ -214,22 +214,22 @@ namespace ZaloWP81.Views
             var actionGrid = new Grid();
             for (int i = 0; i < 4; i++) actionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var col0 = CreateActionColumn("ms-appx:///Assets/Icons/ic_search_white.png", "Tìm tin nhắn", Color.FromArgb(0xFF, 0x25, 0x63, 0xEB));
+            var col0 = CreateActionColumn("ms-appx:///Assets/Icons/ic_search_clean_white.png", "Tìm tin nhắn", Color.FromArgb(0xFF, 0x25, 0x63, 0xEB));
             col0.Tapped += (s, e) => PromptSearchMessages();
             Grid.SetColumn(col0, 0);
             actionGrid.Children.Add(col0);
 
-            var col1 = CreateActionColumn("ms-appx:///Assets/Icons/ic_link_blue.png", "Link mời", Color.FromArgb(0xFF, 0x05, 0x96, 0x69));
+            var col1 = CreateActionColumn("ms-appx:///Assets/Icons/ic_link_clean_white.png", "Link mời", Color.FromArgb(0xFF, 0x05, 0x96, 0x69));
             col1.Tapped += (s, e) => ShowGroupInviteLink();
             Grid.SetColumn(col1, 1);
             actionGrid.Children.Add(col1);
 
-            var col2 = CreateActionColumn("ms-appx:///Assets/Icons/ic_photo_gray.png", "Đổi hình nền", Color.FromArgb(0xFF, 0xD9, 0x77, 0x06));
+            var col2 = CreateActionColumn("ms-appx:///Assets/Icons/ic_wallpaper_clean_white.png", "Đổi hình nền", Color.FromArgb(0xFF, 0xD9, 0x77, 0x06));
             col2.Tapped += (s, e) => ShowWallpaperPicker();
             Grid.SetColumn(col2, 2);
             actionGrid.Children.Add(col2);
 
-            var col3 = CreateActionColumn("ms-appx:///Assets/Icons/ic_mute_gray.png", "Tắt thông báo", Color.FromArgb(0xFF, 0x64, 0x74, 0x8B));
+            var col3 = CreateActionColumn("ms-appx:///Assets/Icons/ic_bell_mute_clean_white.png", "Tắt thông báo", Color.FromArgb(0xFF, 0x64, 0x74, 0x8B));
             col3.Tapped += async (s, e) =>
             {
                 if (_conversation != null)
@@ -355,10 +355,13 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
                 CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(10, 7, 10, 7),
+                Padding = new Thickness(10, 8, 10, 8),
                 Margin = new Thickness(0, 0, 4, 0)
             };
-            createNoteBtn.Child = new TextBlock { Text = "📝 Ghi chú", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center };
+            var noteBtnStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            noteBtnStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_note_clean_blue.png")), Width = 16, Height = 16, Margin = new Thickness(0, 0, 6, 0) });
+            noteBtnStack.Children.Add(new TextBlock { Text = "Ghi chú", FontSize = 13.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, VerticalAlignment = VerticalAlignment.Center });
+            createNoteBtn.Child = noteBtnStack;
             createNoteBtn.Tapped += (s, e) => CreateGroupNote_Click();
             Grid.SetColumn(createNoteBtn, 0);
             boardActionsRow.Children.Add(createNoteBtn);
@@ -367,10 +370,13 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
                 CornerRadius = new CornerRadius(10),
-                Padding = new Thickness(10, 7, 10, 7),
+                Padding = new Thickness(10, 8, 10, 8),
                 Margin = new Thickness(4, 0, 0, 0)
             };
-            createPollBtn.Child = new TextBlock { Text = "📊 Tạo bình chọn", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center };
+            var pollBtnStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            pollBtnStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_poll_clean_blue.png")), Width = 16, Height = 16, Margin = new Thickness(0, 0, 6, 0) });
+            pollBtnStack.Children.Add(new TextBlock { Text = "Tạo bình chọn", FontSize = 13.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, VerticalAlignment = VerticalAlignment.Center });
+            createPollBtn.Child = pollBtnStack;
             createPollBtn.Tapped += (s, e) => CreateGroupPoll_Click();
             Grid.SetColumn(createPollBtn, 1);
             boardActionsRow.Children.Add(createPollBtn);
@@ -653,14 +659,16 @@ namespace ZaloWP81.Views
                     itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                    var iconBlock = new TextBlock
+                    var iconImg = new Image
                     {
-                        Text = string.IsNullOrEmpty(entry.Icon) ? (entry.PollId > 0 ? "📊" : "📌") : entry.Icon,
-                        FontSize = 18,
-                        VerticalAlignment = VerticalAlignment.Top
+                        Source = new BitmapImage(new Uri(entry.PollId > 0 ? "ms-appx:///Assets/Icons/ic_poll_clean_blue.png" : "ms-appx:///Assets/Icons/ic_pin_clean_blue.png")),
+                        Width = 20,
+                        Height = 20,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        HorizontalAlignment = HorizontalAlignment.Left
                     };
-                    Grid.SetColumn(iconBlock, 0);
-                    itemGrid.Children.Add(iconBlock);
+                    Grid.SetColumn(iconImg, 0);
+                    itemGrid.Children.Add(iconImg);
 
                     var infoStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
                     infoStack.Children.Add(new TextBlock
@@ -774,11 +782,13 @@ namespace ZaloWP81.Views
                     itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                     itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                    var calIcon = new TextBlock
+                    var calIcon = new Image
                     {
-                        Text = "📅",
-                        FontSize = 18,
-                        VerticalAlignment = VerticalAlignment.Top
+                        Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_calendar_clean_blue.png")),
+                        Width = 20,
+                        Height = 20,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        HorizontalAlignment = HorizontalAlignment.Left
                     };
                     Grid.SetColumn(calIcon, 0);
                     itemGrid.Children.Add(calIcon);
@@ -1401,17 +1411,17 @@ namespace ZaloWP81.Views
 
             var iconBox = new Border
             {
-                Width = 44,
-                Height = 44,
-                CornerRadius = new CornerRadius(22),
+                Width = 52,
+                Height = 52,
+                CornerRadius = new CornerRadius(26),
                 Background = new SolidColorBrush(color),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             var img = new Image
             {
                 Source = new BitmapImage(new Uri(iconUri)),
-                Width = 22,
-                Height = 22,
+                Width = 26,
+                Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1421,7 +1431,7 @@ namespace ZaloWP81.Views
             var text = new TextBlock
             {
                 Text = label,
-                FontSize = 11,
+                FontSize = 12.5,
                 Foreground = _textDark,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 6, 0, 0),
