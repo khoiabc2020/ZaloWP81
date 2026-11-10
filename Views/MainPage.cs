@@ -71,7 +71,7 @@ namespace ZaloWP81.Views
             }
 
             ZaloApp.SetDispatcher(Dispatcher);
-            EnsureSampleConversations();
+            CleanupMockConversations();
             RefreshConversations();
             RefreshFriends();
             RefreshProfile();
@@ -81,107 +81,31 @@ namespace ZaloWP81.Views
             ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
         }
 
-        private void EnsureSampleConversations()
+        private void CleanupMockConversations()
         {
-            if (ZaloApp.Conversations.Count > 0) return;
-
-            long nowMs = DateTime.UtcNow.Ticks / 10000;
-            var c1 = new ZaloConversation
-            {
-                Key = "group_aio2026",
-                Name = "AIO2026",
-                IsGroup = true,
-                GroupMemberCount = 120,
-                LastText = "Thành viên đã tham gia nhóm",
-                LastTs = nowMs,
-                AvatarUrl = "ms-appx:///Assets/Avatars/avatar_aio2026.png"
+            var mockKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase) 
+            { 
+                "group_aio2026", "group_shopee", "group_zaloai", 
+                "user_sondoan", "user_duykhanh", "user_bachoang", 
+                "user_nguyenvanduc", "user_pussy" 
             };
-            ZaloApp.Conversations.Add(c1);
-
-            var c2 = new ZaloConversation
+            var mocks = ZaloApp.Conversations.Where(c => mockKeys.Contains(c.Key) || c.Name == "AIO2026" || c.Name == "pUssY" || (c.Name != null && c.Name.Contains("SĂN SALE"))).ToList();
+            bool changed = false;
+            foreach (var m in mocks)
             {
-                Key = "group_shopee",
-                Name = "SĂN SALE SHOPEE NHÀ C...",
-                IsGroup = true,
-                GroupMemberCount = 450,
-                LastText = "Ưu đãi siêu hội mua sắm",
-                LastTs = nowMs - 7200000
-            };
-            ZaloApp.Conversations.Add(c2);
-
-            var c3 = new ZaloConversation
+                ZaloApp.Conversations.Remove(m);
+                changed = true;
+            }
+            var mockFriends = ZaloApp.Friends.Where(f => mockKeys.Contains(f.UserId) || f.Name == "pUssY" || f.Name == "Sơn Đoàn").ToList();
+            foreach (var f in mockFriends)
             {
-                Key = "group_zaloai",
-                Name = "Zalo AI - AI VIET NAM",
-                IsGroup = true,
-                GroupMemberCount = 85,
-                LastText = "Zalo AI trợ lý ảo",
-                LastTs = nowMs - 86400000,
-                AvatarUrl = "ms-appx:///Assets/Avatars/avatar_zalo_ai.png"
-            };
-            ZaloApp.Conversations.Add(c3);
-
-            var c4 = new ZaloConversation
+                ZaloApp.Friends.Remove(f);
+                changed = true;
+            }
+            if (changed)
             {
-                Key = "user_sondoan",
-                Name = "Sơn Đoàn",
-                IsGroup = false,
-                LastText = "Alo cậu ơi",
-                LastTs = nowMs - 86400000
-            };
-            ZaloApp.Conversations.Add(c4);
-
-            var c5 = new ZaloConversation
-            {
-                Key = "user_duykhanh",
-                Name = "Duy Khánh",
-                IsGroup = false,
-                LastText = "Hôm nay có đi không?",
-                LastTs = nowMs - 172800000
-            };
-            ZaloApp.Conversations.Add(c5);
-
-            var c6 = new ZaloConversation
-            {
-                Key = "user_bachoang",
-                Name = "Bác Hoàng",
-                IsGroup = false,
-                LastText = "Bác vừa gửi file nhé",
-                LastTs = nowMs - 259200000
-            };
-            ZaloApp.Conversations.Add(c6);
-
-            var c7 = new ZaloConversation
-            {
-                Key = "user_nguyenvanduc",
-                Name = "Nguyễn Văn Đức",
-                IsGroup = false,
-                LastText = "[Ảnh động]",
-                LastTs = nowMs
-            };
-            c7.Messages.Add(new ZaloChatMessage { Text = ";-)", FromMe = true, Ts = nowMs - 180000 });
-            c7.Messages.Add(new ZaloChatMessage { Text = ";-)", FromMe = true, Ts = nowMs - 120000 });
-            c7.Messages.Add(new ZaloChatMessage { Text = "https://ot145.dlfl.vn/b3a20e6445b8c5e6", FromMe = true, Ts = nowMs, MsgType = "chat.sticker", MediaUrl = "ms-appx:///Assets/Emoticons/Emoji/emo_05.png" });
-            ZaloApp.Conversations.Add(c7);
-
-            var c8 = new ZaloConversation
-            {
-                Key = "user_pussy",
-                Name = "pUssY",
-                IsGroup = false,
-                LastText = "Test app",
-                LastTs = nowMs - 36000000
-            };
-            ZaloApp.Conversations.Add(c8);
-
-            // Sample Friends
-            if (ZaloApp.Friends.Count == 0)
-            {
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_sondoan", Name = "Sơn Đoàn", Subtitle = "0912 345 678" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_duykhanh", Name = "Duy Khánh", Subtitle = "0987 654 321" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_bachoang", Name = "Bác Hoàng", Subtitle = "0903 112 233" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_nguyenvanduc", Name = "Nguyễn Văn Đức", Subtitle = "0977 889 900" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_pussy", Name = "pUssY", Subtitle = "0944 556 677" });
+                _ = ZaloApp.SaveCachedConversationsAsync();
+                _ = ZaloApp.SaveCachedFriendsAsync();
             }
         }
 
@@ -935,10 +859,53 @@ namespace ZaloWP81.Views
                 list = list.Where(c => ZaloFormat.SearchContains(c.Name, norm));
             }
 
+            int count = 0;
             foreach (var conv in list)
             {
                 var item = CreateConversationItem(conv);
                 _conversationStack.Children.Add(item);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                var emptyCard = new Border
+                {
+                    Padding = new Thickness(24, 48, 24, 48),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                var emptyStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+                var emptyImg = new Image
+                {
+                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_tab_message_o.png")),
+                    Width = 44,
+                    Height = 44,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 0, 0, 12),
+                    Opacity = 0.5
+                };
+                emptyStack.Children.Add(emptyImg);
+                emptyStack.Children.Add(new TextBlock
+                {
+                    Text = "Chưa có cuộc trò chuyện nào",
+                    FontSize = 16,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = _textDark,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                emptyStack.Children.Add(new TextBlock
+                {
+                    Text = "Bấm dấu + ở trên để bắt đầu nhắn tin hoặc tạo nhóm mới.",
+                    FontSize = 13,
+                    Foreground = _textSub,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 6, 0, 0),
+                    MaxWidth = 260,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                emptyCard.Child = emptyStack;
+                _conversationStack.Children.Add(emptyCard);
             }
 
             UpdateUnreadBadge();
@@ -1133,10 +1100,43 @@ namespace ZaloWP81.Views
                 friends = friends.Where(f => ZaloFormat.SearchContains(f.Name, norm));
             }
 
+            int count = 0;
             foreach (var friend in friends)
             {
                 var item = CreateFriendItem(friend);
                 _friendStack.Children.Add(item);
+                count++;
+            }
+
+            if (count == 0)
+            {
+                var emptyCard = new Border
+                {
+                    Padding = new Thickness(24, 40, 24, 40),
+                    HorizontalAlignment = HorizontalAlignment.Center
+                };
+                var emptyStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+                emptyStack.Children.Add(new TextBlock
+                {
+                    Text = "Chưa có bạn bè trong danh bạ",
+                    FontSize = 15.5,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = _textDark,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                emptyStack.Children.Add(new TextBlock
+                {
+                    Text = "Nhấn 'Lời mời kết bạn' ở trên để kết bạn với mọi người qua số điện thoại.",
+                    FontSize = 12.5,
+                    Foreground = _textSub,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    Margin = new Thickness(0, 6, 0, 0),
+                    MaxWidth = 260,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                emptyCard.Child = emptyStack;
+                _friendStack.Children.Add(emptyCard);
             }
         }
 

@@ -172,7 +172,10 @@ namespace ZaloWP81.Views
             {
                 if (_conversation != null)
                 {
-                    NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
+                    if (_conversation.IsGroup)
+                        NavigationManager.NavigateTo(new GroupInfoPage(_conversation.Key));
+                    else
+                        NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
                 }
             };
             Grid.SetColumn(moreBtn, 3);

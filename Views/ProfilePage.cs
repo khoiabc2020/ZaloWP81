@@ -13,22 +13,30 @@ namespace ZaloWP81.Views
     public sealed class ProfilePage : Page
     {
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF));
-        private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x20, 0x21, 0x24));
-        private readonly SolidColorBrush _textSub = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x77, 0x7C));
+        private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x21, 0x2B));
+        private readonly SolidColorBrush _textSub = new SolidColorBrush(Color.FromArgb(0xFF, 0x7A, 0x84, 0x90));
 
-        private TextBox _nameBox;
-        private TextBox _statusBox;
+        private TextBlock _profileName;
+        private TextBlock _profileUid;
+        private TextBlock _profilePhone;
+        private TextBlock _profileDobText;
+        private TextBlock _profileGenderText;
+        private TextBlock _profileStatus;
+        private TextBlock _profileInitial;
+        private Ellipse _profileAvatar;
+        private TextBlock _profileFeedback;
 
         public ProfilePage()
         {
             BuildUI();
+            ShowProfile();
         }
 
         private void BuildUI()
         {
             var rootGrid = new Grid
             {
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA))
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF4, 0xF6, 0xF8))
             };
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -48,7 +56,15 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = CreateTouchButton("←", 22, Colors.White, 44, 44);
+            var backBtn = CreateTouchBorder(44, 44);
+            backBtn.Child = new TextBlock
+            {
+                Text = "←",
+                FontSize = 22,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             backBtn.Tapped += (s, e) => NavigationManager.GoBack();
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
@@ -69,146 +85,172 @@ namespace ZaloWP81.Views
             Grid.SetRow(headerBorder, 0);
             rootGrid.Children.Add(headerBorder);
 
-            // 2. Body
+            // 2. ScrollViewer Body
             var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
             var stack = new StackPanel();
 
-            var session = ZaloApp.Session;
-
-            // Avatar Card
-            var avatarCard = new Border
+            // Card 1: Avatar & Main Profile Header
+            var card1 = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(16, 20, 16, 20),
-                Margin = new Thickness(0, 0, 0, 14)
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(20),
+                Margin = new Thickness(0, 0, 0, 12)
             };
-            var avatarStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var card1Stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
-            var avatarGrid = new Grid { Width = 84, Height = 84, HorizontalAlignment = HorizontalAlignment.Center };
-            var avatarEllipse = new Ellipse
+            var avatarGrid = new Grid { Width = 92, Height = 92, Margin = new Thickness(0, 2, 0, 12), HorizontalAlignment = HorizontalAlignment.Center };
+            var avatarBg = new Ellipse { Width = 92, Height = 92, Fill = _activeBlue };
+            _profileInitial = new TextBlock
             {
-                Width = 84,
-                Height = 84,
-                Fill = _activeBlue
-            };
-            var initial = new TextBlock
-            {
-                Text = ZaloAvatar.InitialOf(session?.DisplayName ?? "Zalo"),
-                FontSize = 32,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Text = "Z",
                 Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 34,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            avatarGrid.Children.Add(avatarEllipse);
-            avatarGrid.Children.Add(initial);
+            _profileAvatar = new Ellipse { Width = 92, Height = 92 };
+            avatarGrid.Children.Add(avatarBg);
+            avatarGrid.Children.Add(_profileInitial);
+            avatarGrid.Children.Add(_profileAvatar);
+            card1Stack.Children.Add(avatarGrid);
 
-            if (!string.IsNullOrEmpty(session?.AvatarUrl))
+            _profileName = new TextBlock
             {
-                try
-                {
-                    var img = new Ellipse
-                    {
-                        Width = 84,
-                        Height = 84,
-                        Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(session.AvatarUrl)), Stretch = Stretch.UniformToFill }
-                    };
-                    avatarGrid.Children.Add(img);
-                }
-                catch { }
-            }
-
-            avatarStack.Children.Add(avatarGrid);
-
-            var nameHeader = new TextBlock
-            {
-                Text = session?.DisplayName ?? "Người dùng Zalo",
-                FontSize = 20,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Text = "Người dùng Zalo",
+                FontSize = 21,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 12, 0, 2)
+                TextAlignment = TextAlignment.Center
             };
-            avatarStack.Children.Add(nameHeader);
+            card1Stack.Children.Add(_profileName);
 
-            var phoneHeader = new TextBlock
+            var subHeader = new TextBlock
             {
-                Text = session?.PhoneNumber ?? "Chưa công khai",
-                FontSize = 13.5,
+                Text = "Thông tin hồ sơ của bạn",
+                FontSize = 13,
                 Foreground = _textSub,
+                Margin = new Thickness(0, 4, 0, 12),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
-            avatarStack.Children.Add(phoneHeader);
+            card1Stack.Children.Add(subHeader);
 
-            avatarCard.Child = avatarStack;
-            stack.Children.Add(avatarCard);
+            // Change Avatar Button
+            var changeAvatarBtn = new Border
+            {
+                Background = new SolidColorBrush(Colors.Transparent),
+                Padding = new Thickness(14, 6, 14, 6),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            changeAvatarBtn.Child = new TextBlock { Text = "Đổi ảnh đại diện", FontSize = 13, Foreground = _activeBlue, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+            changeAvatarBtn.PointerPressed += (s, e) => changeAvatarBtn.Opacity = 0.6;
+            changeAvatarBtn.PointerReleased += (s, e) => changeAvatarBtn.Opacity = 1.0;
+            changeAvatarBtn.PointerCanceled += (s, e) => changeAvatarBtn.Opacity = 1.0;
+            changeAvatarBtn.Tapped += async (s, e) =>
+            {
+                var md = new MessageDialog("Chọn ảnh đại diện từ bộ sưu tập:", "Đổi ảnh đại diện");
+                md.Commands.Add(new UICommand("Hình 1", cmd => SetAvatar("ms-appx:///Assets/Backgrounds/bg_01.png")));
+                md.Commands.Add(new UICommand("Hình 2", cmd => SetAvatar("ms-appx:///Assets/Backgrounds/bg_02.png")));
+                md.Commands.Add(new UICommand("Đóng"));
+                await md.ShowAsync();
+            };
+            card1Stack.Children.Add(changeAvatarBtn);
 
-            // Information Card
-            var infoCard = new Border
+            // Edit Profile Button
+            var editProfileBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(16, 8, 16, 8),
+                Margin = new Thickness(0, 10, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            editProfileBtn.Child = new TextBlock { Text = "Chỉnh sửa hồ sơ", FontSize = 13.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
+            editProfileBtn.PointerPressed += (s, e) => editProfileBtn.Opacity = 0.6;
+            editProfileBtn.PointerReleased += (s, e) => editProfileBtn.Opacity = 1.0;
+            editProfileBtn.PointerCanceled += (s, e) => editProfileBtn.Opacity = 1.0;
+            editProfileBtn.Tapped += (s, e) => ShowEditProfileDialog();
+            card1Stack.Children.Add(editProfileBtn);
+
+            card1.Child = card1Stack;
+            stack.Children.Add(card1);
+
+            // Card 2: Profile Fields (Zalo ID, SĐT, Ngày sinh, Giới tính)
+            var card2 = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(16, 16, 16, 16),
-                Margin = new Thickness(0, 0, 0, 16)
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(16, 4, 16, 4),
+                Margin = new Thickness(0, 0, 0, 12)
             };
-            var infoStack = new StackPanel();
+            var card2Stack = new StackPanel();
 
-            infoStack.Children.Add(new TextBlock { Text = "Tên hiển thị:", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textSub });
-            _nameBox = new TextBox
+            _profileUid = new TextBlock { FontSize = 14, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            card2Stack.Children.Add(CreateFieldRow("Zalo ID", _profileUid));
+            card2Stack.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)) });
+
+            _profilePhone = new TextBlock { FontSize = 14, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            card2Stack.Children.Add(CreateFieldRow("Số điện thoại", _profilePhone));
+            card2Stack.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)) });
+
+            _profileDobText = new TextBlock { FontSize = 14, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            card2Stack.Children.Add(CreateFieldRow("Ngày sinh", _profileDobText));
+            card2Stack.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)) });
+
+            _profileGenderText = new TextBlock { FontSize = 14, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            card2Stack.Children.Add(CreateFieldRow("Giới tính", _profileGenderText));
+
+            card2.Child = card2Stack;
+            stack.Children.Add(card2);
+
+            // Card 3: Status (Bio)
+            var card3 = new Border
             {
-                Text = session?.DisplayName ?? string.Empty,
-                FontSize = 15,
-                Margin = new Thickness(0, 4, 0, 12)
+                Background = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 0, 0, 12)
             };
-            infoStack.Children.Add(_nameBox);
+            var card3Stack = new StackPanel();
+            card3Stack.Children.Add(new TextBlock { Text = "Trạng thái", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
 
-            infoStack.Children.Add(new TextBlock { Text = "Trạng thái (Bio):", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textSub });
-            _statusBox = new TextBox
+            _profileStatus = new TextBlock
             {
-                Text = session?.ProfileStatus ?? "Đang dùng Zalo trên Windows Phone!",
-                FontSize = 15,
-                Margin = new Thickness(0, 4, 0, 12)
+                Text = "Chưa đặt trạng thái",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x71, 0x80, 0x96)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 6, 0, 10)
             };
-            infoStack.Children.Add(_statusBox);
+            card3Stack.Children.Add(_profileStatus);
 
-            infoStack.Children.Add(CreateReadOnlyField("Mã tài khoản (UID):", session?.Uid ?? "Chưa có"));
-            infoStack.Children.Add(CreateReadOnlyField("Số điện thoại:", session?.PhoneNumber ?? "Chưa công khai"));
-            infoStack.Children.Add(CreateReadOnlyField("Giới tính:", session?.ProfileGender == 1 ? "Nữ" : "Nam"));
-
-            // Save Button
-            var saveBtn = new Button
+            var editStatusBtn = new Border
             {
-                Content = "Lưu thay đổi",
-                Background = _activeBlue,
-                Foreground = new SolidColorBrush(Colors.White),
-                BorderThickness = new Thickness(0),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(16, 10, 16, 10),
-                FontSize = 15,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Margin = new Thickness(0, 12, 0, 0)
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 8, 12, 8),
+                HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            saveBtn.Click += async (s, e) =>
+            editStatusBtn.Child = new TextBlock { Text = "Chỉnh sửa trạng thái", FontSize = 13, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center };
+            editStatusBtn.PointerPressed += (s, e) => editStatusBtn.Opacity = 0.6;
+            editStatusBtn.PointerReleased += (s, e) => editStatusBtn.Opacity = 1.0;
+            editStatusBtn.PointerCanceled += (s, e) => editStatusBtn.Opacity = 1.0;
+            editStatusBtn.Tapped += (s, e) => ShowEditStatusDialog();
+            card3Stack.Children.Add(editStatusBtn);
+
+            card3.Child = card3Stack;
+            stack.Children.Add(card3);
+
+            _profileFeedback = new TextBlock
             {
-                if (session != null)
-                {
-                    string newName = _nameBox.Text?.Trim();
-                    if (!string.IsNullOrEmpty(newName))
-                    {
-                        session.DisplayName = newName;
-                    }
-                    session.ProfileStatus = _statusBox.Text?.Trim();
-                    await ZaloStore.SaveAsync(session);
-
-                    var md = new MessageDialog("Đã cập nhật thông tin hồ sơ cá nhân thành công!", "Thông báo");
-                    await md.ShowAsync();
-                }
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x71, 0x80, 0x96)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(4, 4, 4, 0)
             };
-            infoStack.Children.Add(saveBtn);
-
-            infoCard.Child = infoStack;
-            stack.Children.Add(infoCard);
+            stack.Children.Add(_profileFeedback);
 
             scroll.Content = stack;
             Grid.SetRow(scroll, 1);
@@ -217,31 +259,133 @@ namespace ZaloWP81.Views
             this.Content = rootGrid;
         }
 
-        private StackPanel CreateReadOnlyField(string label, string val)
+        private Grid CreateFieldRow(string label, TextBlock valBlock)
         {
-            var sp = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
-            sp.Children.Add(new TextBlock { Text = label, FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textSub });
-            sp.Children.Add(new TextBlock { Text = val, FontSize = 14.5, Foreground = _textDark, Margin = new Thickness(0, 2, 0, 0) });
-            return sp;
+            var grid = new Grid { MinHeight = 52 };
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var labelBlock = new TextBlock
+            {
+                Text = label,
+                FontSize = 14,
+                Foreground = _textSub,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(labelBlock, 0);
+            grid.Children.Add(labelBlock);
+
+            Grid.SetColumn(valBlock, 1);
+            grid.Children.Add(valBlock);
+
+            return grid;
         }
 
-        private static Border CreateTouchButton(string text, double fontSize, Color fg, double width, double height)
+        private void ShowProfile()
+        {
+            var session = ZaloApp.Session;
+            if (session == null)
+            {
+                _profileFeedback.Text = "Chưa có tài khoản đăng nhập.";
+                return;
+            }
+
+            string name = string.IsNullOrWhiteSpace(session.DisplayName) ? "Người dùng Zalo" : session.DisplayName;
+            _profileName.Text = name;
+            _profileInitial.Text = ZaloAvatar.InitialOf(name);
+            _profileUid.Text = string.IsNullOrWhiteSpace(session.Uid) ? "Chưa có" : session.Uid;
+            _profilePhone.Text = string.IsNullOrWhiteSpace(session.PhoneNumber) ? "Chưa công khai" : session.PhoneNumber;
+            _profileStatus.Text = string.IsNullOrWhiteSpace(session.ProfileStatus) ? "Chưa đặt trạng thái" : session.ProfileStatus;
+            _profileDobText.Text = string.IsNullOrWhiteSpace(session.ProfileDob) ? "Chưa công khai" : session.ProfileDob;
+            _profileGenderText.Text = session.ProfileGender == 1 ? "Nữ" : "Nam";
+
+            if (!string.IsNullOrWhiteSpace(session.AvatarUrl))
+            {
+                try
+                {
+                    _profileAvatar.Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(session.AvatarUrl)), Stretch = Stretch.UniformToFill };
+                    _profileInitial.Visibility = Visibility.Collapsed;
+                }
+                catch
+                {
+                    _profileAvatar.Fill = new SolidColorBrush(Colors.Transparent);
+                    _profileInitial.Visibility = Visibility.Visible;
+                }
+            }
+            else
+            {
+                _profileAvatar.Fill = new SolidColorBrush(Colors.Transparent);
+                _profileInitial.Visibility = Visibility.Visible;
+            }
+        }
+
+        private void SetAvatar(string url)
+        {
+            var session = ZaloApp.Session;
+            if (session == null) return;
+            session.AvatarUrl = url;
+            ShowProfile();
+            _profileFeedback.Text = "Đã cập nhật ảnh đại diện thành công.";
+            _ = ZaloStore.SaveAsync(session);
+        }
+
+        private void ShowEditProfileDialog()
+        {
+            var md = new MessageDialog("Chọn thao tác chỉnh sửa:", "Chỉnh sửa hồ sơ");
+            md.Commands.Add(new UICommand("Đổi giới tính", cmd =>
+            {
+                var s = ZaloApp.Session;
+                if (s != null)
+                {
+                    s.ProfileGender = s.ProfileGender == 1 ? 0 : 1;
+                    ShowProfile();
+                    _ = ZaloStore.SaveAsync(s);
+                }
+            }));
+            md.Commands.Add(new UICommand("Cập nhật ngày sinh", cmd =>
+            {
+                var s = ZaloApp.Session;
+                if (s != null)
+                {
+                    s.ProfileDob = "1998-10-10";
+                    ShowProfile();
+                    _ = ZaloStore.SaveAsync(s);
+                }
+            }));
+            md.Commands.Add(new UICommand("Đóng"));
+            var t = md.ShowAsync();
+        }
+
+        private void ShowEditStatusDialog()
+        {
+            var md = new MessageDialog("Chọn trạng thái mẫu hoặc xóa trạng thái:", "Trạng thái Zalo");
+            md.Commands.Add(new UICommand("Đang bận, vui lòng nhắn tin", cmd => UpdateStatus("Đang bận, vui lòng nhắn tin")));
+            md.Commands.Add(new UICommand("Đang online trên Windows Phone", cmd => UpdateStatus("Đang online trên Windows Phone!")));
+            md.Commands.Add(new UICommand("Xóa trạng thái", cmd => UpdateStatus(string.Empty)));
+            md.Commands.Add(new UICommand("Đóng"));
+            var t = md.ShowAsync();
+        }
+
+        private void UpdateStatus(string st)
+        {
+            var s = ZaloApp.Session;
+            if (s != null)
+            {
+                s.ProfileStatus = st;
+                ShowProfile();
+                _ = ZaloStore.SaveAsync(s);
+            }
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
         {
             var border = new Border
             {
                 Width = width,
                 Height = height,
-                Background = new SolidColorBrush(Colors.Transparent)
-            };
-            var tb = new TextBlock
-            {
-                Text = text,
-                FontSize = fontSize,
-                Foreground = new SolidColorBrush(fg),
-                HorizontalAlignment = HorizontalAlignment.Center,
+                Background = new SolidColorBrush(Colors.Transparent),
                 VerticalAlignment = VerticalAlignment.Center
             };
-            border.Child = tb;
             border.PointerPressed += (s, e) => border.Opacity = 0.6;
             border.PointerReleased += (s, e) => border.Opacity = 1.0;
             border.PointerCanceled += (s, e) => border.Opacity = 1.0;
