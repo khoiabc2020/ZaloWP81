@@ -38,6 +38,11 @@ namespace ZaloWP81.Views
         private FrameworkElement _drawerContainer;
         private bool _isDrawerOpen = false;
 
+        private Border _replyBar;
+        private TextBlock _replySenderText;
+        private TextBlock _replyContentText;
+        private ZaloChatMessage _replyTarget;
+
         public ChatPage(string conversationKey = null)
         {
             BuildUI();
@@ -186,8 +191,40 @@ namespace ZaloWP81.Views
         }
 
         // EXACT INPUT BAR MATCHING media_1794285355410_9cc5344d.png - ZERO SYSTEM BUTTON HIGHLIGHT
-        private Border CreateInputBar()
+        private FrameworkElement CreateInputBar()
         {
+            var container = new StackPanel { Background = new SolidColorBrush(Colors.White) };
+
+            // Reply Preview Bar
+            _replyBar = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)),
+                BorderThickness = new Thickness(0, 1, 0, 1),
+                Padding = new Thickness(12, 6, 8, 6),
+                Visibility = Visibility.Collapsed
+            };
+            var replyGrid = new Grid();
+            replyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            replyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var replyTextStack = new StackPanel();
+            _replySenderText = new TextBlock { FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
+            _replyContentText = new TextBlock { FontSize = 12.5, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis };
+            replyTextStack.Children.Add(_replySenderText);
+            replyTextStack.Children.Add(_replyContentText);
+            Grid.SetColumn(replyTextStack, 0);
+            replyGrid.Children.Add(replyTextStack);
+
+            var closeReplyBtn = CreateTouchBorder(32, 32);
+            closeReplyBtn.Child = new TextBlock { Text = "✕", FontSize = 14, Foreground = _timeColor, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            closeReplyBtn.Tapped += (s, e) => SetReplyTarget(null);
+            Grid.SetColumn(closeReplyBtn, 1);
+            replyGrid.Children.Add(closeReplyBtn);
+
+            _replyBar.Child = replyGrid;
+            container.Children.Add(_replyBar);
+
             var bar = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
@@ -356,7 +393,8 @@ namespace ZaloWP81.Views
             grid.Children.Add(_sendButton);
 
             bar.Child = grid;
-            return bar;
+            container.Children.Add(bar);
+            return container;
         }
 
         private void SendPhoto(string url)
@@ -531,9 +569,79 @@ namespace ZaloWP81.Views
 
                 ZaloApp.CurrentChat = _conversation;
 
+                string wp = ZaloSettingsService.Current.GetConversationWallpaper(ZaloApp.Session?.Uid, _conversation.Key);
+                if (!string.IsNullOrEmpty(wp))
+                {
+                    try
+                    {
+                        _messageScroll.Background = new ImageBrush
+                        {
+                            ImageSource = new BitmapImage(new Uri(wp)),
+                            Stretch = Stretch.UniformToFill
+                        };
+                    }
+                    catch { }
+                }
+
                 RenderMessages();
+                _ = LoadHistoryCoreAsync();
+                _ = ZaloApp.MarkConversationSeenAsync(_conversation);
+
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 _conversation.Messages.CollectionChanged += Messages_CollectionChanged;
+            }
+        }
+
+        private async System.Threading.Tasks.Task LoadHistoryCoreAsync()
+        {
+            if (_conversation == null) return;
+            try
+            {
+                await ZaloApp.LoadHistoryAsync(_conversation, System.Threading.CancellationToken.None);
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    RenderMessages();
+                });
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ChatPage LoadHistory error: " + ex.Message);
+            }
+        }
+
+        private async System.Threading.Tasks.Task LoadOlderHistoryCoreAsync()
+        {
+            if (_conversation == null) return;
+            try
+            {
+                await ZaloApp.LoadOlderGroupHistoryAsync(_conversation, System.Threading.CancellationToken.None);
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    RenderMessages();
+                });
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ChatPage LoadOlderHistory error: " + ex.Message);
+            }
+        }
+
+        private void SetReplyTarget(ZaloChatMessage msg)
+        {
+            _replyTarget = msg;
+            if (_replyBar != null)
+            {
+                if (msg != null)
+                {
+                    _replySenderText.Text = "Trả lời " + (msg.FromMe ? "chính mình" : (msg.Sender ?? "Bạn"));
+                    _replyContentText.Text = msg.Text ?? (msg.HasMedia ? "[Hình ảnh]" : "[Nội dung]");
+                    _replyBar.Visibility = Visibility.Visible;
+                    _inputBox.Focus(FocusState.Programmatic);
+                }
+                else
+                {
+                    _replyBar.Visibility = Visibility.Collapsed;
+                }
             }
         }
 
@@ -566,6 +674,30 @@ namespace ZaloWP81.Views
             if (_conversation == null) return;
             _messageStack.Children.Clear();
 
+            if (_conversation.HasMoreHistory)
+            {
+                var loadOlderBtn = new Border
+                {
+                    Background = new SolidColorBrush(Colors.White),
+                    CornerRadius = new CornerRadius(14),
+                    Padding = new Thickness(14, 6, 14, 6),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 4, 0, 8)
+                };
+                loadOlderBtn.Child = new TextBlock
+                {
+                    Text = "Tải tin nhắn cũ hơn",
+                    FontSize = 12.5,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = _activeBlue
+                };
+                loadOlderBtn.PointerPressed += (s, e) => loadOlderBtn.Opacity = 0.6;
+                loadOlderBtn.PointerReleased += (s, e) => loadOlderBtn.Opacity = 1.0;
+                loadOlderBtn.PointerCanceled += (s, e) => loadOlderBtn.Opacity = 1.0;
+                loadOlderBtn.Tapped += (s, e) => { var ignored = LoadOlderHistoryCoreAsync(); };
+                _messageStack.Children.Add(loadOlderBtn);
+            }
+
             foreach (var m in _conversation.Messages)
             {
                 var bubble = CreateMessageBubble(m);
@@ -591,6 +723,37 @@ namespace ZaloWP81.Views
             };
 
             var stack = new StackPanel();
+
+            // Render Quoted Reply Box if message is a reply
+            if (!string.IsNullOrEmpty(msg.QuotedText))
+            {
+                var quoteBorder = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0x20, 0x00, 0x78, 0xD7)),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(8, 4, 8, 4),
+                    Margin = new Thickness(0, 0, 0, 4),
+                    MaxWidth = 280
+                };
+                var quoteStack = new StackPanel();
+                quoteStack.Children.Add(new TextBlock
+                {
+                    Text = msg.QuotedSender ?? "Trả lời",
+                    FontSize = 11,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = _activeBlue
+                });
+                quoteStack.Children.Add(new TextBlock
+                {
+                    Text = msg.QuotedText,
+                    FontSize = 12,
+                    Foreground = _textDark,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxLines = 2
+                });
+                quoteBorder.Child = quoteStack;
+                stack.Children.Add(quoteBorder);
+            }
 
             if (msg.IsSticker || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("bg_"))))
             {
@@ -646,13 +809,14 @@ namespace ZaloWP81.Views
                 };
                 bubbleBorder.Child = textBlock;
 
-                // Tap message bubble shows options (Sao chép, Thu hồi, Xóa)
+                // Tap message bubble shows options (Trả lời, Sao chép, Thu hồi, Xóa)
                 bubbleBorder.PointerPressed += (s, e) => bubbleBorder.Opacity = 0.7;
                 bubbleBorder.PointerReleased += (s, e) => bubbleBorder.Opacity = 1.0;
                 bubbleBorder.PointerCanceled += (s, e) => bubbleBorder.Opacity = 1.0;
                 bubbleBorder.Tapped += async (s, e) =>
                 {
                     var md = new MessageDialog("Chọn thao tác cho tin nhắn:", "Tin nhắn");
+                    md.Commands.Add(new UICommand("Trả lời", cmd => SetReplyTarget(msg)));
                     md.Commands.Add(new UICommand("Sao chép vào ô soạn", cmd =>
                     {
                         _inputBox.Text = msg.Text ?? string.Empty;
@@ -714,7 +878,17 @@ namespace ZaloWP81.Views
 
             _inputBox.Text = string.Empty;
             if (_isDrawerOpen) ToggleDrawer();
-            var task = ZaloApp.SendAsync(_conversation, text);
+
+            if (_replyTarget != null)
+            {
+                var target = _replyTarget;
+                SetReplyTarget(null);
+                _ = ZaloApp.SendAsync(_conversation, text, target);
+            }
+            else
+            {
+                _ = ZaloApp.SendAsync(_conversation, text);
+            }
         }
 
         private static Border CreateTouchBorder(double width, double height)

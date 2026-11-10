@@ -49,19 +49,16 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = new Button
+            var backBtn = CreateTouchBorder(44, 44);
+            backBtn.Child = new TextBlock
             {
-                Content = "←",
+                Text = "←",
                 FontSize = 22,
                 Foreground = new SolidColorBrush(Colors.White),
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Width = 44,
-                Height = 44,
-                VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(0)
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Click += (s, e) => NavigationManager.GoBack();
+            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -247,6 +244,21 @@ namespace ZaloWP81.Views
             rootGrid.Children.Add(scroll);
 
             this.Content = rootGrid;
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var border = new Border
+            {
+                Width = width,
+                Height = height,
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
+            return border;
         }
     }
 }

@@ -1,4 +1,11 @@
 using System;
+using System.Globalization;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.Storage.Streams;
 using Windows.UI;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
@@ -29,7 +36,23 @@ namespace ZaloWP81.Views
         public ProfilePage()
         {
             BuildUI();
+            Loaded += ProfilePage_Loaded;
+        }
+
+        private async void ProfilePage_Loaded(object sender, RoutedEventArgs e)
+        {
             ShowProfile();
+            var session = ZaloApp.Session;
+            if (session == null) return;
+            try
+            {
+                await ZaloAuth.LoadMyProfileAsync(session, CancellationToken.None);
+                ShowProfile();
+            }
+            catch
+            {
+                _profileFeedback.Text = "Không làm mới được hồ sơ. Đang hiển thị thông tin đã lưu trong phiên.";
+            }
         }
 
         private void BuildUI()
@@ -148,22 +171,15 @@ namespace ZaloWP81.Views
             changeAvatarBtn.PointerPressed += (s, e) => changeAvatarBtn.Opacity = 0.6;
             changeAvatarBtn.PointerReleased += (s, e) => changeAvatarBtn.Opacity = 1.0;
             changeAvatarBtn.PointerCanceled += (s, e) => changeAvatarBtn.Opacity = 1.0;
-            changeAvatarBtn.Tapped += async (s, e) =>
-            {
-                var md = new MessageDialog("Chọn ảnh đại diện từ bộ sưu tập:", "Đổi ảnh đại diện");
-                md.Commands.Add(new UICommand("Hình 1", cmd => SetAvatar("ms-appx:///Assets/Backgrounds/bg_01.png")));
-                md.Commands.Add(new UICommand("Hình 2", cmd => SetAvatar("ms-appx:///Assets/Backgrounds/bg_02.png")));
-                md.Commands.Add(new UICommand("Đóng"));
-                await md.ShowAsync();
-            };
+            changeAvatarBtn.Tapped += (s, e) => ShowChangeAvatarDialog();
             card1Stack.Children.Add(changeAvatarBtn);
 
             // Edit Profile Button
             var editProfileBtn = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16, 8, 16, 8),
+                CornerRadius = new CornerRadius(20),
+                Padding = new Thickness(18, 8, 18, 8),
                 Margin = new Thickness(0, 10, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -177,7 +193,7 @@ namespace ZaloWP81.Views
             card1.Child = card1Stack;
             stack.Children.Add(card1);
 
-            // Card 2: Profile Fields (Zalo ID, SĐT, Ngày sinh, Giới tính)
+            // Card 2: Account Details
             var card2 = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
@@ -286,7 +302,7 @@ namespace ZaloWP81.Views
             var session = ZaloApp.Session;
             if (session == null)
             {
-                _profileFeedback.Text = "Chưa có tài khoản đăng nhập.";
+                _profileFeedback.Text = "Chưa có tài khoản đang đăng nhập.";
                 return;
             }
 
@@ -296,8 +312,11 @@ namespace ZaloWP81.Views
             _profileUid.Text = string.IsNullOrWhiteSpace(session.Uid) ? "Chưa có" : session.Uid;
             _profilePhone.Text = string.IsNullOrWhiteSpace(session.PhoneNumber) ? "Chưa công khai" : session.PhoneNumber;
             _profileStatus.Text = string.IsNullOrWhiteSpace(session.ProfileStatus) ? "Chưa đặt trạng thái" : session.ProfileStatus;
-            _profileDobText.Text = string.IsNullOrWhiteSpace(session.ProfileDob) ? "Chưa công khai" : session.ProfileDob;
-            _profileGenderText.Text = session.ProfileGender == 1 ? "Nữ" : "Nam";
+
+            DateTime dob;
+            _profileDobText.Text = DateTime.TryParseExact(session.ProfileDob, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out dob) ? dob.ToString("dd/MM/yyyy") : "Chưa công khai";
+            _profileGenderText.Text = session.ProfileGender == 0 ? "Nam" : session.ProfileGender == 1 ? "Nữ" : "Chưa công khai";
 
             if (!string.IsNullOrWhiteSpace(session.AvatarUrl))
             {
@@ -319,61 +338,222 @@ namespace ZaloWP81.Views
             }
         }
 
-        private void SetAvatar(string url)
+        private async void ShowChangeAvatarDialog()
         {
             var session = ZaloApp.Session;
             if (session == null) return;
-            session.AvatarUrl = url;
-            ShowProfile();
-            _profileFeedback.Text = "Đã cập nhật ảnh đại diện thành công.";
-            _ = ZaloStore.SaveAsync(session);
-        }
 
-        private void ShowEditProfileDialog()
-        {
-            var md = new MessageDialog("Chọn thao tác chỉnh sửa:", "Chỉnh sửa hồ sơ");
-            md.Commands.Add(new UICommand("Đổi giới tính", cmd =>
+            var input = new TextBox
             {
-                var s = ZaloApp.Session;
-                if (s != null)
+                PlaceholderText = "Nhập URL ảnh (https://...) hoặc ms-appx:///...",
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 50
+            };
+
+            var content = new StackPanel { Width = 300 };
+            content.Children.Add(new TextBlock
+            {
+                Text = "Dán link ảnh trực tuyến để cập nhật ảnh đại diện Zalo:",
+                FontSize = 13,
+                Foreground = _textDark,
+                Margin = new Thickness(0, 0, 0, 8),
+                TextWrapping = TextWrapping.Wrap
+            });
+            content.Children.Add(input);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Đổi ảnh đại diện",
+                Content = content,
+                PrimaryButtonText = "Tải lên",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            string url = (input.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(url)) return;
+
+            _profileFeedback.Text = "Đang tải và xử lý ảnh đại diện…";
+            try
+            {
+                byte[] jpegBytes;
+                uint width = 640;
+                uint height = 640;
+
+                using (var http = new HttpClient())
                 {
-                    s.ProfileGender = s.ProfileGender == 1 ? 0 : 1;
-                    ShowProfile();
-                    _ = ZaloStore.SaveAsync(s);
-                }
-            }));
-            md.Commands.Add(new UICommand("Cập nhật ngày sinh", cmd =>
-            {
-                var s = ZaloApp.Session;
-                if (s != null)
-                {
-                    s.ProfileDob = "1998-10-10";
-                    ShowProfile();
-                    _ = ZaloStore.SaveAsync(s);
-                }
-            }));
-            md.Commands.Add(new UICommand("Đóng"));
-            var t = md.ShowAsync();
-        }
+                    byte[] raw = await http.GetByteArrayAsync(url);
+                    using (var stream = new InMemoryRandomAccessStream())
+                    {
+                        using (var writer = new DataWriter(stream.GetOutputStreamAt(0)))
+                        {
+                            writer.WriteBytes(raw);
+                            await writer.StoreAsync();
+                            await writer.FlushAsync();
+                            writer.DetachStream();
+                        }
+                        stream.Seek(0);
+                        BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
+                        uint orientedWidth = decoder.OrientedPixelWidth;
+                        uint orientedHeight = decoder.OrientedPixelHeight;
+                        double scale = Math.Min(1.0, 1600.0 / Math.Max(orientedWidth, orientedHeight));
+                        width = Math.Max(1U, (uint)Math.Round(orientedWidth * scale));
+                        height = Math.Max(1U, (uint)Math.Round(orientedHeight * scale));
+                        var transform = new BitmapTransform
+                        {
+                            ScaledWidth = width,
+                            ScaledHeight = height,
+                            InterpolationMode = BitmapInterpolationMode.Fant
+                        };
+                        PixelDataProvider pixels = await decoder.GetPixelDataAsync(BitmapPixelFormat.Rgba8,
+                            BitmapAlphaMode.Ignore, transform, ExifOrientationMode.RespectExifOrientation,
+                            ColorManagementMode.DoNotColorManage);
 
-        private void ShowEditStatusDialog()
-        {
-            var md = new MessageDialog("Chọn trạng thái mẫu hoặc xóa trạng thái:", "Trạng thái Zalo");
-            md.Commands.Add(new UICommand("Đang bận, vui lòng nhắn tin", cmd => UpdateStatus("Đang bận, vui lòng nhắn tin")));
-            md.Commands.Add(new UICommand("Đang online trên Windows Phone", cmd => UpdateStatus("Đang online trên Windows Phone!")));
-            md.Commands.Add(new UICommand("Xóa trạng thái", cmd => UpdateStatus(string.Empty)));
-            md.Commands.Add(new UICommand("Đóng"));
-            var t = md.ShowAsync();
-        }
+                        using (var output = new InMemoryRandomAccessStream())
+                        {
+                            BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, output);
+                            encoder.SetPixelData(BitmapPixelFormat.Rgba8, BitmapAlphaMode.Ignore, width, height, 96, 96, pixels.DetachPixelData());
+                            await encoder.FlushAsync();
+                            output.Seek(0);
+                            using (var reader = new DataReader(output.GetInputStreamAt(0)))
+                            {
+                                await reader.LoadAsync((uint)output.Size);
+                                jpegBytes = new byte[(int)output.Size];
+                                reader.ReadBytes(jpegBytes);
+                            }
+                        }
+                    }
+                }
 
-        private void UpdateStatus(string st)
-        {
-            var s = ZaloApp.Session;
-            if (s != null)
-            {
-                s.ProfileStatus = st;
+                _profileFeedback.Text = "Đang gửi lên Zalo…";
+                await ZaloAuth.UpdateMyAvatarAsync(session, jpegBytes, width, height, CancellationToken.None);
+                await ZaloAuth.LoadMyProfileAsync(session, CancellationToken.None);
                 ShowProfile();
-                _ = ZaloStore.SaveAsync(s);
+                _profileFeedback.Text = "Đã cập nhật ảnh đại diện thành công.";
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("Profile avatar update failed: " + ex.Message);
+                _profileFeedback.Text = "Không đổi được ảnh đại diện: " + ex.Message;
+            }
+        }
+
+        private async void ShowEditProfileDialog()
+        {
+            var session = ZaloApp.Session;
+            if (session == null) return;
+            if (session.HasBusinessCategory)
+            {
+                _profileFeedback.Text = "Tài khoản doanh nghiệp cần gửi lại danh mục biz.cate để tránh làm mất cấu hình. Tạm thời không bật sửa hồ sơ.";
+                return;
+            }
+
+            var nameInput = new TextBox
+            {
+                Header = "Tên hiển thị",
+                Text = session.DisplayName ?? string.Empty,
+                MaxLength = 40,
+                PlaceholderText = "Tên của bạn"
+            };
+            var dobInput = new TextBox
+            {
+                Header = "Ngày sinh (YYYY-MM-DD)",
+                Text = session.ProfileDob ?? string.Empty,
+                PlaceholderText = "Ví dụ: 1995-08-24"
+            };
+            var genderInput = new ComboBox { Header = "Giới tính", HorizontalAlignment = HorizontalAlignment.Stretch };
+            genderInput.Items.Add(new ComboBoxItem { Content = "Nam" });
+            genderInput.Items.Add(new ComboBoxItem { Content = "Nữ" });
+            if (session.ProfileGender == 0 || session.ProfileGender == 1) genderInput.SelectedIndex = session.ProfileGender;
+
+            var content = new StackPanel { Width = 300 };
+            content.Children.Add(nameInput);
+            content.Children.Add(dobInput);
+            content.Children.Add(genderInput);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Chỉnh sửa hồ sơ",
+                Content = content,
+                PrimaryButtonText = "Lưu",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            string name = (nameInput.Text ?? string.Empty).Trim();
+            string dobText = (dobInput.Text ?? string.Empty).Trim();
+            DateTime parsedDob;
+            if (name.Length == 0 || name.Length > 40)
+            {
+                _profileFeedback.Text = "Tên hiển thị cần có từ 1 đến 40 ký tự.";
+                return;
+            }
+            if (!DateTime.TryParseExact(dobText, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out parsedDob) || parsedDob.Date > DateTime.Today || parsedDob.Year < 1900)
+            {
+                _profileFeedback.Text = "Ngày sinh cần đúng dạng YYYY-MM-DD và không ở tương lai.";
+                return;
+            }
+            if (genderInput.SelectedIndex < 0)
+            {
+                _profileFeedback.Text = "Hãy chọn giới tính trước khi lưu.";
+                return;
+            }
+
+            _profileFeedback.Text = "Đang cập nhật hồ sơ…";
+            try
+            {
+                await ZaloAuth.UpdateMyProfileAsync(session, name, parsedDob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    genderInput.SelectedIndex, CancellationToken.None);
+                session.DisplayName = name;
+                session.ProfileDob = parsedDob.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+                session.ProfileGender = genderInput.SelectedIndex;
+                ShowProfile();
+                _profileFeedback.Text = "Đã cập nhật hồ sơ thành công.";
+                _ = ZaloStore.SaveAsync(session);
+            }
+            catch (Exception ex)
+            {
+                _profileFeedback.Text = "Không cập nhật được hồ sơ: " + ex.Message;
+            }
+        }
+
+        private async void ShowEditStatusDialog()
+        {
+            var session = ZaloApp.Session;
+            if (session == null) return;
+
+            var input = new TextBox
+            {
+                Text = session.ProfileStatus ?? string.Empty,
+                PlaceholderText = "Nhập trạng thái của bạn",
+                MaxLength = 250,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 72
+            };
+            var dialog = new ContentDialog
+            {
+                Title = "Cập nhật trạng thái",
+                Content = input,
+                PrimaryButtonText = "Lưu",
+                SecondaryButtonText = "Hủy"
+            };
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            try
+            {
+                await ZaloAuth.UpdateMyStatusAsync(session, input.Text.Trim(), CancellationToken.None);
+                session.ProfileStatus = input.Text.Trim();
+                _profileStatus.Text = string.IsNullOrWhiteSpace(session.ProfileStatus) ? "Chưa đặt trạng thái" : session.ProfileStatus;
+                _profileFeedback.Text = "Đã cập nhật trạng thái.";
+                _ = ZaloStore.SaveAsync(session);
+            }
+            catch (Exception ex)
+            {
+                _profileFeedback.Text = "Không cập nhật được trạng thái: " + ex.Message;
             }
         }
 
