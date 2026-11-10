@@ -60,3 +60,4 @@ Script sẽ tự động:
 
 ## 📜 Bản quyền & Giấy phép
 Dự án được phát triển phi lợi nhuận nhằm mục đích bảo tồn và đem lại trải nghiệm ứng dụng Zalo cho cộng đồng đam mê Windows Phone.
+

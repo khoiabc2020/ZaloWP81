@@ -138,6 +138,23 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            CheckSessionOrLogin();
+        }
+
+        private async void CheckSessionOrLogin()
+        {
+            try
+            {
+                var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                var session = await ZaloStore.RestoreAsync(cts.Token);
+                if (session != null)
+                {
+                    var task = ZaloApp.StartAsync(session);
+                    Frame.Navigate(typeof(MainPage));
+                    return;
+                }
+            }
+            catch { }
             StartQrLogin();
         }
 
