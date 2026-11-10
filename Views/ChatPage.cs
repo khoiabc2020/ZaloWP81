@@ -55,7 +55,7 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });

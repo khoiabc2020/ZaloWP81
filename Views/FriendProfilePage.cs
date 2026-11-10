@@ -92,31 +92,47 @@ namespace ZaloWP81.Views
             };
             var cardStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
-            var avatarGrid = new Grid { Width = 84, Height = 84, HorizontalAlignment = HorizontalAlignment.Center };
+            var avatarGrid = new Grid { Width = 92, Height = 92, HorizontalAlignment = HorizontalAlignment.Center };
             var avatarEllipse = new Ellipse
             {
-                Width = 84,
-                Height = 84,
+                Width = 92,
+                Height = 92,
                 Fill = _friend?.AvatarColor ?? _activeBlue
             };
             var initial = new TextBlock
             {
                 Text = _friend?.Initial ?? "?",
-                FontSize = 30,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                FontSize = 34,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
             avatarGrid.Children.Add(avatarEllipse);
             avatarGrid.Children.Add(initial);
+
+            if (_friend != null && !string.IsNullOrEmpty(_friend.Avatar))
+            {
+                var brush = ZaloAvatar.ImageFor(_friend.Avatar);
+                if (brush != null)
+                {
+                    avatarGrid.Children.Add(new Ellipse
+                    {
+                        Width = 92,
+                        Height = 92,
+                        Fill = brush,
+                        Stroke = new SolidColorBrush(Colors.White),
+                        StrokeThickness = 2
+                    });
+                }
+            }
             cardStack.Children.Add(avatarGrid);
 
             var nameBlock = new TextBlock
             {
                 Text = _friend?.Name ?? "Bạn bè",
-                FontSize = 20,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                FontSize = 21,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 12, 0, 4)
@@ -133,21 +149,27 @@ namespace ZaloWP81.Views
             };
             cardStack.Children.Add(phoneBlock);
 
-            // Action Buttons (Nhắn tin, Gọi điện)
+            // Action Buttons (Nhắn tin, Gọi điện) - Touch Safe
             var actionRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
 
-            var chatBtn = new Button
+            var chatBtn = new Border
             {
-                Content = "💬  Nhắn tin",
                 Background = _activeBlue,
-                Foreground = new SolidColorBrush(Colors.White),
-                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(18),
                 Padding = new Thickness(20, 8, 20, 8),
-                FontSize = 14,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Margin = new Thickness(0, 0, 10, 0)
             };
-            chatBtn.Click += (s, e) =>
+            chatBtn.Child = new TextBlock
+            {
+                Text = "💬  Nhắn tin",
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 14,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold
+            };
+            chatBtn.PointerPressed += (s, e) => chatBtn.Opacity = 0.6;
+            chatBtn.PointerReleased += (s, e) => chatBtn.Opacity = 1.0;
+            chatBtn.PointerCanceled += (s, e) => chatBtn.Opacity = 1.0;
+            chatBtn.Tapped += (s, e) =>
             {
                 if (_friend == null) return;
                 var conv = ZaloApp.GetOrCreate(_friend.UserId, false);
@@ -155,17 +177,23 @@ namespace ZaloWP81.Views
             };
             actionRow.Children.Add(chatBtn);
 
-            var callBtn = new Button
+            var callBtn = new Border
             {
-                Content = "📞  Gọi thoại",
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81)),
+                CornerRadius = new CornerRadius(18),
+                Padding = new Thickness(20, 8, 20, 8)
+            };
+            callBtn.Child = new TextBlock
+            {
+                Text = "📞  Gọi thoại",
                 Foreground = new SolidColorBrush(Colors.White),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(20, 8, 20, 8),
                 FontSize = 14,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold
             };
-            callBtn.Click += async (s, e) =>
+            callBtn.PointerPressed += (s, e) => callBtn.Opacity = 0.6;
+            callBtn.PointerReleased += (s, e) => callBtn.Opacity = 1.0;
+            callBtn.PointerCanceled += (s, e) => callBtn.Opacity = 1.0;
+            callBtn.Tapped += async (s, e) =>
             {
                 var md = new MessageDialog("Tính năng cuộc gọi thoại đang kết nối tới máy chủ.", "Zalo Call");
                 await md.ShowAsync();

@@ -91,7 +91,7 @@ namespace ZaloWP81.Views
 
             var title = new TextBlock
             {
-                Text = "Tùy chọn nhóm",
+                Text = "Tùy chọn",
                 FontSize = 18,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
@@ -106,28 +106,28 @@ namespace ZaloWP81.Views
             rootGrid.Children.Add(headerBorder);
 
             // 2. Body
-            var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
+            var scroll = new ScrollViewer { Padding = new Thickness(8) };
             var stack = new StackPanel();
 
-            // Group Profile Card
+            // Group Profile Card (EXACT WIN10 DIMENSIONS: 104x104 Avatar, 22px Title, 14px Member count)
             var card = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
                 CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(16, 20, 16, 20),
-                Margin = new Thickness(0, 0, 0, 12)
+                Padding = new Thickness(20, 24, 20, 18),
+                Margin = new Thickness(0, 0, 0, 8)
             };
             var cardStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
 
-            var avatarGrid = new Grid { Width = 92, Height = 92, Margin = new Thickness(0, 0, 0, 12), HorizontalAlignment = HorizontalAlignment.Center };
-            var avatarEllipse = new Ellipse { Width = 92, Height = 92, Fill = _conversation?.AvatarColor ?? _activeBlue };
+            var avatarGrid = new Grid { Width = 104, Height = 104, Margin = new Thickness(0, 0, 0, 12), HorizontalAlignment = HorizontalAlignment.Center };
+            var avatarEllipse = new Ellipse { Width = 104, Height = 104, Fill = _conversation?.AvatarColor ?? _activeBlue };
             avatarGrid.Children.Add(avatarEllipse);
 
             var initial = new TextBlock
             {
                 Text = _conversation?.Initial ?? "G",
-                FontSize = 32,
-                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                FontSize = 40,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
@@ -136,7 +136,7 @@ namespace ZaloWP81.Views
 
             if (_conversation?.AvatarImageBrush != null)
             {
-                var imgEllipse = new Ellipse { Width = 92, Height = 92, Fill = _conversation.AvatarImageBrush };
+                var imgEllipse = new Ellipse { Width = 104, Height = 104, Fill = _conversation.AvatarImageBrush };
                 avatarGrid.Children.Add(imgEllipse);
                 initial.Text = string.Empty;
             }
@@ -145,7 +145,7 @@ namespace ZaloWP81.Views
             _nameTextBlock = new TextBlock
             {
                 Text = _conversation?.Name ?? "Nhóm trò chuyện",
-                FontSize = 20,
+                FontSize = 22,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -158,28 +158,28 @@ namespace ZaloWP81.Views
             _memberCountTextBlock = new TextBlock
             {
                 Text = $"{_conversation?.GroupMemberCount ?? 0} thành viên",
-                FontSize = 13.5,
-                Foreground = _textSub,
+                FontSize = 14,
+                Foreground = ColorBrush(0xFF, 0x7A, 0x83, 0x8D),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 4, 0, 8)
+                Margin = new Thickness(0, 5, 0, 0)
             };
             cardStack.Children.Add(_memberCountTextBlock);
 
             // Change Group Name Button
             _changeGroupNameButton = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0xF2, 0xFF)),
                 CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(16, 6, 16, 6),
+                Padding = new Thickness(14, 7, 14, 7),
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 4, 0, 0)
+                Margin = new Thickness(0, 10, 0, 0)
             };
             _changeGroupNameButton.Child = new TextBlock
             {
                 Text = "Đổi tên nhóm",
                 FontSize = 13,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Foreground = _activeBlue
+                Foreground = ColorBrush(0xFF, 0x00, 0x68, 0xFF)
             };
             _changeGroupNameButton.PointerPressed += (s, e) => _changeGroupNameButton.Opacity = 0.6;
             _changeGroupNameButton.PointerReleased += (s, e) => _changeGroupNameButton.Opacity = 1.0;
@@ -190,13 +190,13 @@ namespace ZaloWP81.Views
             card.Child = cardStack;
             stack.Children.Add(card);
 
-            // 4 Quick Actions (Search, Invite Link, Wallpaper, Mute)
+            // 4 Quick Actions (EXACT WIN10 DIMENSIONS: 48x48 circle with #F4F5F7 background)
             var actionCard = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(10, 14, 10, 14),
-                Margin = new Thickness(0, 0, 0, 12)
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(12, 16, 12, 18),
+                Margin = new Thickness(0, 0, 0, 8)
             };
             var actionGrid = new Grid();
             for (int i = 0; i < 4; i++) actionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -211,12 +211,12 @@ namespace ZaloWP81.Views
             Grid.SetColumn(col1, 1);
             actionGrid.Children.Add(col1);
 
-            var col2 = CreateActionColumn("ms-appx:///Assets/Icons/ic_photo_gray.png", "Hình nền", Color.FromArgb(0xFF, 0xD9, 0x77, 0x06));
+            var col2 = CreateActionColumn("ms-appx:///Assets/Icons/ic_photo_gray.png", "Đổi hình nền", Color.FromArgb(0xFF, 0xD9, 0x77, 0x06));
             col2.Tapped += (s, e) => ShowWallpaperPicker();
             Grid.SetColumn(col2, 2);
             actionGrid.Children.Add(col2);
 
-            var col3 = CreateActionColumn("ms-appx:///Assets/Icons/ic_mute_gray.png", "Thông báo", Color.FromArgb(0xFF, 0x64, 0x74, 0x8B));
+            var col3 = CreateActionColumn("ms-appx:///Assets/Icons/ic_mute_gray.png", "Tắt thông báo", Color.FromArgb(0xFF, 0x64, 0x74, 0x8B));
             col3.Tapped += async (s, e) =>
             {
                 if (_conversation != null)
