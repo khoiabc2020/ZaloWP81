@@ -33,59 +33,76 @@ namespace ZaloWP81.Views
         {
             var rootGrid = new Grid
             {
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x11, 0x11))
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA))
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            // Header (WP8.1 Style)
-            var headerStack = new StackPanel { Margin = new Thickness(24, 20, 24, 20) };
-            var appTitle = new TextBlock
+            // 1. Header (Zalo Vibrant Gradient)
+            var headerGrid = new Grid();
+            var gradient = new LinearGradientBrush
             {
-                Text = "ZALO CHO WINDOWS PHONE",
-                FontSize = 12,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x01, 0x67, 0xFE)),
-                Margin = new Thickness(0, 0, 0, 6)
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(1, 0)
             };
-            var pageTitle = new TextBlock
-            {
-                Text = "đăng nhập",
-                FontSize = 38,
-                FontWeight = Windows.UI.Text.FontWeights.Light,
-                Foreground = new SolidColorBrush(Colors.White)
-            };
-            headerStack.Children.Add(appTitle);
-            headerStack.Children.Add(pageTitle);
-            Grid.SetRow(headerStack, 0);
-            rootGrid.Children.Add(headerStack);
+            gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x28, 0x78, 0xF0), Offset = 0 });
+            gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x08, 0xA9, 0xE8), Offset = 1 });
+            headerGrid.Background = gradient;
 
-            // Content
+            var titleBlock = new TextBlock
+            {
+                Text = "Zalo",
+                FontSize = 20,
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            headerGrid.Children.Add(titleBlock);
+            Grid.SetRow(headerGrid, 0);
+            rootGrid.Children.Add(headerGrid);
+
+            // 2. Center Content Card
+            var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
             var contentStack = new StackPanel
             {
                 VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(24, 20, 24, 20)
             };
+
+            var mainTitle = new TextBlock
+            {
+                Text = "Đăng nhập Zalo",
+                FontSize = 22,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27)),
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            contentStack.Children.Add(mainTitle);
 
             var instructions = new TextBlock
             {
                 Text = "Mở Zalo trên điện thoại chính và quét mã QR bên dưới để đăng nhập.",
-                FontSize = 14,
+                FontSize = 13.5,
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xAA, 0xAA, 0xAA)),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x6B, 0x72, 0x80)),
                 Margin = new Thickness(0, 0, 0, 20),
                 MaxWidth = 300
             };
             contentStack.Children.Add(instructions);
 
-            var qrBorder = new Border
+            var qrCard = new Border
             {
-                Width = 240,
-                Height = 240,
+                Width = 250,
+                Height = 250,
                 Background = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x01, 0x67, 0xFE)),
-                BorderThickness = new Thickness(3),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
+                BorderThickness = new Thickness(2.5),
+                CornerRadius = new CornerRadius(16),
+                Padding = new Thickness(10),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, 0, 0, 16)
             };
@@ -102,22 +119,22 @@ namespace ZaloWP81.Views
                 Width = 48,
                 Height = 48,
                 IsActive = true,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x01, 0x67, 0xFE)),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
             qrGrid.Children.Add(_qrImage);
             qrGrid.Children.Add(_progressRing);
-            qrBorder.Child = qrGrid;
-            contentStack.Children.Add(qrBorder);
+            qrCard.Child = qrGrid;
+            contentStack.Children.Add(qrCard);
 
             _statusText = new TextBlock
             {
-                Text = "Đang tải mã QR...",
-                FontSize = 14,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xDD, 0xDD, 0xDD)),
+                Text = "Đang kết nối tới Zalo...",
+                FontSize = 13.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x4B, 0x55, 0x63)),
                 TextAlignment = TextAlignment.Center,
-                Margin = new Thickness(0, 0, 0, 16)
+                Margin = new Thickness(0, 0, 0, 14)
             };
             contentStack.Children.Add(_statusText);
 
@@ -125,21 +142,36 @@ namespace ZaloWP81.Views
             {
                 Content = "Lấy mã mới",
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Visibility = Visibility.Collapsed
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
+                Foreground = new SolidColorBrush(Colors.White),
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(20, 8, 20, 8),
+                FontSize = 14,
+                Visibility = Visibility.Collapsed,
+                Margin = new Thickness(0, 0, 0, 10)
             };
             _retryButton.Click += (s, e) => StartQrLogin();
             contentStack.Children.Add(_retryButton);
 
-            Grid.SetRow(contentStack, 1);
-            rootGrid.Children.Add(contentStack);
+            var guestButton = new Button
+            {
+                Content = "Dùng thử ngay (Khách)",
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(16, 6, 16, 6),
+                FontSize = 13
+            };
+            guestButton.Click += (s, e) => StartGuestMode();
+            contentStack.Children.Add(guestButton);
+
+            scroll.Content = contentStack;
+            Grid.SetRow(scroll, 1);
+            rootGrid.Children.Add(scroll);
 
             this.Content = rootGrid;
-        }
-
-        protected override void OnNavigatedTo(NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-            CheckSessionOrLogin();
         }
 
         private async void CheckSessionOrLogin()
@@ -159,6 +191,18 @@ namespace ZaloWP81.Views
             StartQrLogin();
         }
 
+        private void StartGuestMode()
+        {
+            var guestSession = new ZaloLite.ZaloSession
+            {
+                Uid = "guest_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+                DisplayName = "Khách thử nghiệm",
+                PhoneNumber = "0988 888 888"
+            };
+            var task = ZaloApp.StartAsync(guestSession);
+            NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+        }
+
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
@@ -172,7 +216,7 @@ namespace ZaloWP81.Views
             _retryButton.Visibility = Visibility.Collapsed;
             _progressRing.IsActive = true;
             _progressRing.Visibility = Visibility.Visible;
-            _statusText.Text = "Đang khởi tạo mã QR...";
+            _statusText.Text = "Đang kết nối tới Zalo...";
 
             Task.Run(async () =>
             {
