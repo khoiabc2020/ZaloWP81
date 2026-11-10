@@ -26,6 +26,7 @@ namespace ZaloWP81.Views
         public LoginPage()
         {
             BuildUI();
+            this.Loaded += (s, e) => CheckSessionOrLogin();
         }
 
         private void BuildUI()
@@ -150,7 +151,7 @@ namespace ZaloWP81.Views
                 if (session != null)
                 {
                     var task = ZaloApp.StartAsync(session);
-                    Frame.Navigate(typeof(MainPage));
+                    NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                     return;
                 }
             }
@@ -218,7 +219,7 @@ namespace ZaloWP81.Views
                         {
                             _statusText.Text = "Đăng nhập thành công!";
                             var task = ZaloApp.StartAsync(session);
-                            Frame.Navigate(typeof(MainPage));
+                            NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                         });
                     }
                 }

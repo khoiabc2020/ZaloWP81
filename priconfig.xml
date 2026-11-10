@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <resources targetOsVersion="6.3.0" majorVersion="1">
-	<packaging>
-		<autoResourcePackage qualifier="Language"/>
-		<autoResourcePackage qualifier="Scale"/>
-		<autoResourcePackage qualifier="DXFeatureLevel"/>
-	</packaging>
+	<!-- No autoResourcePackage to keep everything inside single resources.pri for standalone AppX -->
+	<packaging/>
 	<index root="\" startIndexAt="\">
 		<default>
 			<qualifier name="Language" value="vi-VN"/>

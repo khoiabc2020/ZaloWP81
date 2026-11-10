@@ -28,6 +28,21 @@ namespace ZaloWP81.Views
         public MainPage()
         {
             BuildUI();
+            this.Loaded += (s, e) => Initialize();
+        }
+
+        private void Initialize()
+        {
+            if (ZaloApp.Session == null)
+            {
+                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+                return;
+            }
+
+            ZaloApp.SetDispatcher(Dispatcher);
+            RefreshConversations();
+            ZaloApp.Conversations.CollectionChanged -= Conversations_CollectionChanged;
+            ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
         }
 
         private void BuildUI()
@@ -211,7 +226,7 @@ namespace ZaloWP81.Views
             {
                 ZaloApp.Reset();
                 await ZaloStore.ClearAsync();
-                Frame.Navigate(typeof(LoginPage));
+                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
             };
             stack.Children.Add(logoutButton);
 
@@ -222,16 +237,7 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-
-            if (ZaloApp.Session == null)
-            {
-                Frame.Navigate(typeof(LoginPage));
-                return;
-            }
-
-            ZaloApp.SetDispatcher(Dispatcher);
-            RefreshConversations();
-            ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
+            Initialize();
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -363,7 +369,7 @@ namespace ZaloWP81.Views
 
             grid.Tapped += (s, e) =>
             {
-                Frame.Navigate(typeof(ChatPage), conv.Key);
+                NavigationManager.NavigateTo(new ChatPage(conv.Key));
             };
 
             return grid;
@@ -439,7 +445,7 @@ namespace ZaloWP81.Views
             grid.Tapped += (s, e) =>
             {
                 var conv = ZaloApp.GetOrCreate(friend.UserId, false);
-                Frame.Navigate(typeof(ChatPage), conv.Key);
+                NavigationManager.NavigateTo(new ChatPage(conv.Key));
             };
 
             return grid;

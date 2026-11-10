@@ -19,9 +19,10 @@ namespace ZaloWP81.Views
         private TextBlock _titleBlock;
         private TextBlock _subtitleBlock;
 
-        public ChatPage()
+        public ChatPage(string conversationKey = null)
         {
             BuildUI();
+            InitializeChat(conversationKey);
         }
 
         private void BuildUI()
@@ -58,8 +59,10 @@ namespace ZaloWP81.Views
             };
             backBtn.Click += (s, e) =>
             {
-                if (Frame.CanGoBack) Frame.GoBack();
-                else Frame.Navigate(typeof(MainPage));
+                if (NavigationManager.CanGoBack)
+                    NavigationManager.GoBack();
+                else
+                    NavigationManager.NavigateTo(new MainPage(), clearStack: true);
             };
             Grid.SetColumn(backBtn, 0);
             headerGrid.Children.Add(backBtn);
@@ -147,10 +150,8 @@ namespace ZaloWP81.Views
             this.Content = rootGrid;
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs e)
+        private void InitializeChat(string conversationKey)
         {
-            base.OnNavigatedTo(e);
-            string conversationKey = e.Parameter as string;
             if (string.IsNullOrEmpty(conversationKey) && ZaloApp.Conversations.Count > 0)
             {
                 _conversation = ZaloApp.Conversations[0];
@@ -167,8 +168,15 @@ namespace ZaloWP81.Views
                 ZaloApp.CurrentChat = _conversation;
 
                 RenderMessages();
+                _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 _conversation.Messages.CollectionChanged += Messages_CollectionChanged;
             }
+        }
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            InitializeChat(e.Parameter as string);
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)

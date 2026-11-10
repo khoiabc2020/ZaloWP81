@@ -71,13 +71,21 @@ def pack_and_sign(version):
         ], capture_output=True, text=True)
         print("Create PRI config:", res_cfg.stdout)
 
+    # Delete any stale PRI files before indexing
+    for f in os.listdir(out_dir):
+        if f.endswith(".pri"):
+            try:
+                os.remove(os.path.join(out_dir, f))
+            except:
+                pass
+
     pri_dest = os.path.join(out_dir, "resources.pri")
     print(f"Generating {pri_dest}...")
     res_pri = subprocess.run([
         MAKEPRI_81_PATH, "new",
-        "/pr", PROJECT_DIR,
+        "/pr", out_dir,
         "/cf", priconfig_path,
-        "/mn", MANIFEST_PATH,
+        "/mn", manifest_dest,
         "/of", pri_dest,
         "/o"
     ], capture_output=True, text=True)

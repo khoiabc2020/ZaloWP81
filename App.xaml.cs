@@ -6,13 +6,13 @@ using Windows.ApplicationModel.Activation;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
-using Windows.UI.Xaml.Navigation;
+using Windows.UI.Xaml.Markup;
 using ZaloLite;
 using ZaloWP81.Views;
 
 namespace ZaloWP81
 {
-    public sealed class App : Application
+    public sealed class App : Application, IXamlMetadataProvider
     {
         static void Main(string[] args)
         {
@@ -38,6 +38,10 @@ namespace ZaloWP81
             this.Suspending += OnSuspending;
         }
 
+        public IXamlType GetXamlType(Type type) => null;
+        public IXamlType GetXamlType(string fullName) => null;
+        public XmlnsDefinition[] GetXmlnsDefinitions() => new XmlnsDefinition[0];
+
         private async void App_UnhandledException(object sender, Windows.UI.Xaml.UnhandledExceptionEventArgs e)
         {
             e.Handled = true;
@@ -61,42 +65,19 @@ namespace ZaloWP81
         {
             try
             {
-                Frame rootFrame = Window.Current.Content as Frame;
-                if (rootFrame == null)
-                {
-                    rootFrame = new Frame();
-                    rootFrame.NavigationFailed += OnNavigationFailed;
-                    Window.Current.Content = rootFrame;
-                }
-
-                if (rootFrame.Content == null)
-                {
-                    rootFrame.Navigate(typeof(LoginPage), e?.Arguments);
-                }
-
+                NavigationManager.Initialize();
+                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
                 Window.Current.Activate();
             }
             catch (Exception ex)
             {
                 try
                 {
-                    var folder = Windows.Storage.ApplicationData.Current.LocalFolder;
-                    var file = folder.CreateFileAsync("launch_crash.log", Windows.Storage.CreationCollisionOption.ReplaceExisting).AsTask().GetAwaiter().GetResult();
-                    Windows.Storage.FileIO.WriteTextAsync(file, ex.ToString()).AsTask().GetAwaiter().GetResult();
+                    var md = new MessageDialog("Lỗi khởi động: " + ex.Message, "Sự cố");
+                    var t = md.ShowAsync();
                 }
                 catch { }
             }
-        }
-
-        private async void OnNavigationFailed(object sender, NavigationFailedEventArgs e)
-        {
-            e.Handled = true;
-            try
-            {
-                var md = new MessageDialog("Không thể mở trang: " + e.Exception?.Message, "Lỗi điều hướng");
-                await md.ShowAsync();
-            }
-            catch { }
         }
 
         private void OnSuspending(object sender, SuspendingEventArgs e)
