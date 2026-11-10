@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.UI;
 using Windows.UI.Core;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
@@ -9,6 +11,7 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Shapes;
 using ZaloLite;
+using ZaloUWP.Services;
 
 namespace ZaloWP81.Views
 {
@@ -22,11 +25,12 @@ namespace ZaloWP81.Views
         private readonly SolidColorBrush _timeColor = new SolidColorBrush(Color.FromArgb(0xFF, 0x8A, 0x92, 0x9A));
 
         private ZaloConversation _conversation;
-        private ListView _messageList;
+        private ScrollViewer _messageScroll;
+        private StackPanel _messageStack;
         private TextBox _inputBox;
-        private Button _sendButton;
-        private Button _micButton;
-        private Button _photoButton;
+        private Border _sendButton;
+        private Border _micButton;
+        private Border _photoButton;
         private TextBlock _titleBlock;
         private Ellipse _recipientAvatar;
         private TextBlock _recipientInitial;
@@ -56,15 +60,16 @@ namespace ZaloWP81.Views
             Grid.SetRow(headerGrid, 0);
             rootGrid.Children.Add(headerGrid);
 
-            // 2. MESSAGE LIST CANVAS
-            _messageList = new ListView
+            // 2. MESSAGE LIST CANVAS (ScrollViewer with StackPanel for Silky Touch & Zero Highlight)
+            _messageScroll = new ScrollViewer
             {
                 Padding = new Thickness(12, 12, 12, 12),
-                SelectionMode = ListViewSelectionMode.None,
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            Grid.SetRow(_messageList, 1);
-            rootGrid.Children.Add(_messageList);
+            _messageStack = new StackPanel();
+            _messageScroll.Content = _messageStack;
+            Grid.SetRow(_messageScroll, 1);
+            rootGrid.Children.Add(_messageScroll);
 
             // 3. INPUT BAR (MATCHING media_1794285355410_9cc5344d.png)
             var inputBar = CreateInputBar();
@@ -100,20 +105,18 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Back Button
-            var backBtn = new Button
+            // Back Button (Pure Touch Border)
+            var backBtn = CreateTouchBorder(40, 44);
+            var backArrow = new TextBlock
             {
-                Content = "←",
+                Text = "←",
                 FontSize = 22,
                 Foreground = new SolidColorBrush(Colors.White),
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Width = 40,
-                Height = 44,
-                VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(0)
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Click += (s, e) =>
+            backBtn.Child = backArrow;
+            backBtn.Tapped += (s, e) =>
             {
                 if (NavigationManager.CanGoBack)
                     NavigationManager.GoBack();
@@ -154,23 +157,24 @@ namespace ZaloWP81.Views
             Grid.SetColumn(_titleBlock, 2);
             header.Children.Add(_titleBlock);
 
-            // More Options Button (Three vertical dots ⋮)
-            var moreBtn = new Button
-            {
-                Width = 42,
-                Height = 44,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(0)
-            };
+            // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage)
+            var moreBtn = CreateTouchBorder(42, 44);
             var moreIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png")),
                 Width = 24,
-                Height = 24
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            moreBtn.Content = moreIcon;
+            moreBtn.Child = moreIcon;
+            moreBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
+                }
+            };
             Grid.SetColumn(moreBtn, 3);
             header.Children.Add(moreBtn);
 
@@ -178,7 +182,7 @@ namespace ZaloWP81.Views
             return headerBorder;
         }
 
-        // EXACT INPUT BAR MATCHING media_1794285355410_9cc5344d.png
+        // EXACT INPUT BAR MATCHING media_1794285355410_9cc5344d.png - ZERO SYSTEM BUTTON HIGHLIGHT
         private Border CreateInputBar()
         {
             var bar = new Border
@@ -197,22 +201,17 @@ namespace ZaloWP81.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
 
             // 1. Smiley Icon Button
-            var emojiBtn = new Button
-            {
-                Width = 38,
-                Height = 42,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            emojiBtn.Content = new Image
+            var emojiBtn = CreateTouchBorder(38, 42);
+            var emojiImg = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png")),
                 Width = 24,
-                Height = 24
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            emojiBtn.Click += (s, e) => ToggleDrawer();
+            emojiBtn.Child = emojiImg;
+            emojiBtn.Tapped += (s, e) => ToggleDrawer();
             Grid.SetColumn(emojiBtn, 0);
             grid.Children.Add(emojiBtn);
 
@@ -246,72 +245,93 @@ namespace ZaloWP81.Views
             grid.Children.Add(_inputBox);
 
             // 3. More Button (...)
-            var moreDotsBtn = new Button
+            var moreDotsBtn = CreateTouchBorder(34, 42);
+            var dotsStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
+            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
+            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
+            moreDotsBtn.Child = dotsStack;
+            moreDotsBtn.Tapped += async (s, e) =>
             {
-                Width = 34,
-                Height = 42,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
+                var md = new MessageDialog("Chọn tệp đính kèm:", "Gửi tệp");
+                md.Commands.Add(new UICommand("Gửi danh thiếp", cmd =>
+                {
+                    if (_conversation != null)
+                    {
+                        var task = ZaloApp.SendAsync(_conversation, "[Danh thiếp] Nguyễn Văn Đức - 0977 889 900");
+                    }
+                }));
+                md.Commands.Add(new UICommand("Gửi vị trí", cmd =>
+                {
+                    if (_conversation != null)
+                    {
+                        var task = ZaloApp.SendAsync(_conversation, "[Vị trí] Tòa nhà VNG Campus, TP.HCM");
+                    }
+                }));
+                md.Commands.Add(new UICommand("Đóng"));
+                await md.ShowAsync();
             };
-            var dotsStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
-            moreDotsBtn.Content = dotsStack;
             Grid.SetColumn(moreDotsBtn, 2);
             grid.Children.Add(moreDotsBtn);
 
-            // 4. Microphone Button
-            _micButton = new Button
-            {
-                Width = 36,
-                Height = 42,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _micButton.Content = new Image
+            // 4. Microphone Button (Voice Notes)
+            _micButton = CreateTouchBorder(36, 42);
+            var micImg = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/ic_fotohavevoice.png")),
                 Width = 24,
-                Height = 24
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _micButton.Child = micImg;
+            _micButton.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    long nowMs = DateTime.UtcNow.Ticks / 10000;
+                    var voiceMsg = new ZaloChatMessage
+                    {
+                        FromMe = true,
+                        Text = "🎙️ Tin nhắn thoại (0:05)",
+                        Ts = nowMs,
+                        MsgType = "chat.voice"
+                    };
+                    _conversation.Messages.Add(voiceMsg);
+                    _conversation.LastText = "[Tin nhắn thoại]";
+                    _conversation.LastTs = nowMs;
+                }
             };
             Grid.SetColumn(_micButton, 3);
             grid.Children.Add(_micButton);
 
             // 5. Photo Gallery Button
-            _photoButton = new Button
-            {
-                Width = 36,
-                Height = 42,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _photoButton.Content = new Image
+            _photoButton = CreateTouchBorder(36, 42);
+            var photoImg = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_camera_gallery.png")),
                 Width = 24,
-                Height = 24
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _photoButton.Child = photoImg;
+            _photoButton.Tapped += async (s, e) =>
+            {
+                var md = new MessageDialog("Chọn ảnh muốn gửi:", "Thư viện ảnh");
+                md.Commands.Add(new UICommand("Ảnh thiên nhiên", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_01.png")));
+                md.Commands.Add(new UICommand("Ảnh phong cảnh", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_02.png")));
+                md.Commands.Add(new UICommand("Ảnh nghệ thuật", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_03.png")));
+                md.Commands.Add(new UICommand("Đóng"));
+                await md.ShowAsync();
             };
             Grid.SetColumn(_photoButton, 4);
             grid.Children.Add(_photoButton);
 
-            // 6. Send Button (Blue Circle #0786F9 with btn_send_white.png, replaces mic/photo when text present)
-            _sendButton = new Button
-            {
-                Width = 36,
-                Height = 42,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center,
-                Visibility = Visibility.Collapsed
-            };
+            // 6. Send Button (Blue Circle #0786F9 with btn_send_white.png)
+            _sendButton = CreateTouchBorder(36, 42);
+            _sendButton.Visibility = Visibility.Collapsed;
+
             var sendCircle = new Border
             {
                 Width = 34,
@@ -327,13 +347,30 @@ namespace ZaloWP81.Views
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            _sendButton.Content = sendCircle;
-            _sendButton.Click += (s, e) => SendMessage();
+            _sendButton.Child = sendCircle;
+            _sendButton.Tapped += (s, e) => SendMessage();
             Grid.SetColumn(_sendButton, 4);
             grid.Children.Add(_sendButton);
 
             bar.Child = grid;
             return bar;
+        }
+
+        private void SendPhoto(string url)
+        {
+            if (_conversation == null) return;
+            long nowMs = DateTime.UtcNow.Ticks / 10000;
+            var photoMsg = new ZaloChatMessage
+            {
+                FromMe = true,
+                Text = "[Hình ảnh]",
+                MediaUrl = url,
+                Ts = nowMs,
+                MsgType = "chat.photo"
+            };
+            _conversation.Messages.Add(photoMsg);
+            _conversation.LastText = "[Hình ảnh]";
+            _conversation.LastTs = nowMs;
         }
 
         // EXACT EMOJI DRAWER MATCHING media_1794285161826_53038b6c.jpg
@@ -395,26 +432,37 @@ namespace ZaloWP81.Views
                 string emoIndex = i < 10 ? "0" + i : i.ToString();
                 string uri = $"ms-appx:///Assets/Emoticons/Emoji/emo_{emoIndex}.png";
 
-                var emoBtn = new Button
-                {
-                    Width = 44,
-                    Height = 44,
-                    Padding = new Thickness(3),
-                    Background = new SolidColorBrush(Colors.Transparent),
-                    BorderThickness = new Thickness(0),
-                    Margin = new Thickness(2, 0, 2, 0)
-                };
+                var emoBtn = CreateTouchBorder(44, 44);
+                emoBtn.Margin = new Thickness(2, 0, 2, 0);
+
                 var emoImg = new Image
                 {
                     Source = new BitmapImage(new Uri(uri)),
                     Width = 34,
-                    Height = 34
+                    Height = 34,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                emoBtn.Content = emoImg;
+                emoBtn.Child = emoImg;
 
-                emoBtn.Click += (s, e) =>
+                emoBtn.Tapped += (s, e) =>
                 {
-                    _inputBox.Text += $" [emo_{emoIndex}]";
+                    if (_conversation != null)
+                    {
+                        long nowMs = DateTime.UtcNow.Ticks / 10000;
+                        var stickerMsg = new ZaloChatMessage
+                        {
+                            FromMe = true,
+                            Text = "[Sticker]",
+                            MediaUrl = uri,
+                            MsgType = "chat.sticker",
+                            Ts = nowMs
+                        };
+                        _conversation.Messages.Add(stickerMsg);
+                        _conversation.LastText = "[Sticker]";
+                        _conversation.LastTs = nowMs;
+                        ToggleDrawer();
+                    }
                 };
 
                 currentRow.Children.Add(emoBtn);
@@ -434,15 +482,18 @@ namespace ZaloWP81.Views
             var border = new Border
             {
                 Padding = new Thickness(12, 6, 12, 6),
-                Margin = new Thickness(0, 0, 8, 0)
+                Margin = new Thickness(0, 0, 8, 0),
+                Background = active ? new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF4, 0xFA)) : new SolidColorBrush(Colors.Transparent),
+                CornerRadius = new CornerRadius(14)
             };
-            border.Child = new TextBlock
+            var txt = new TextBlock
             {
                 Text = text,
                 FontSize = 13.5,
                 FontWeight = active ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                 Foreground = active ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B))
             };
+            border.Child = txt;
             return border;
         }
 
@@ -510,18 +561,19 @@ namespace ZaloWP81.Views
         private void RenderMessages()
         {
             if (_conversation == null) return;
-            _messageList.Items.Clear();
+            _messageStack.Children.Clear();
 
             foreach (var m in _conversation.Messages)
             {
                 var bubble = CreateMessageBubble(m);
-                _messageList.Items.Add(bubble);
+                _messageStack.Children.Add(bubble);
             }
 
-            if (_messageList.Items.Count > 0)
+            try
             {
-                _messageList.ScrollIntoView(_messageList.Items.Last());
+                _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
             }
+            catch { }
         }
 
         // EXACT MESSAGE BUBBLE MATCHING media_1794285355410_9cc5344d.png
@@ -537,7 +589,7 @@ namespace ZaloWP81.Views
 
             var stack = new StackPanel();
 
-            if (msg.IsSticker || (!string.IsNullOrEmpty(msg.MediaUrl) && msg.MediaUrl.Contains("emo_")))
+            if (msg.IsSticker || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("bg_"))))
             {
                 // Sticker card (White rounded card with light blue border, matching media_1794285355410_9cc5344d.png)
                 var stickerCard = new Border
@@ -557,6 +609,16 @@ namespace ZaloWP81.Views
                     Stretch = Stretch.Uniform
                 };
                 stickerCard.Child = stickerImg;
+
+                // Tap sticker/photo opens ImageViewerPage
+                stickerCard.PointerPressed += (s, e) => stickerCard.Opacity = 0.7;
+                stickerCard.PointerReleased += (s, e) => stickerCard.Opacity = 1.0;
+                stickerCard.PointerCanceled += (s, e) => stickerCard.Opacity = 1.0;
+                stickerCard.Tapped += (s, e) =>
+                {
+                    NavigationManager.NavigateTo(new ImageViewerPage(msg.MediaUrl));
+                };
+
                 stack.Children.Add(stickerCard);
             }
             else
@@ -580,6 +642,35 @@ namespace ZaloWP81.Views
                     TextWrapping = TextWrapping.Wrap
                 };
                 bubbleBorder.Child = textBlock;
+
+                // Tap message bubble shows options (Sao chép, Thu hồi, Xóa)
+                bubbleBorder.PointerPressed += (s, e) => bubbleBorder.Opacity = 0.7;
+                bubbleBorder.PointerReleased += (s, e) => bubbleBorder.Opacity = 1.0;
+                bubbleBorder.PointerCanceled += (s, e) => bubbleBorder.Opacity = 1.0;
+                bubbleBorder.Tapped += async (s, e) =>
+                {
+                    var md = new MessageDialog("Chọn thao tác cho tin nhắn:", "Tin nhắn");
+                    md.Commands.Add(new UICommand("Sao chép vào ô soạn", cmd =>
+                    {
+                        _inputBox.Text = msg.Text ?? string.Empty;
+                    }));
+                    if (isMe)
+                    {
+                        md.Commands.Add(new UICommand("Thu hồi tin nhắn", async cmd =>
+                        {
+                            await ZaloApp.RecallMessageAsync(_conversation, msg);
+                            RenderMessages();
+                        }));
+                    }
+                    md.Commands.Add(new UICommand("Xóa phía tôi", async cmd =>
+                    {
+                        await ZaloApp.DeleteMessageForMeAsync(_conversation, msg);
+                        RenderMessages();
+                    }));
+                    md.Commands.Add(new UICommand("Đóng"));
+                    await md.ShowAsync();
+                };
+
                 stack.Children.Add(bubbleBorder);
             }
 
@@ -621,6 +712,21 @@ namespace ZaloWP81.Views
             _inputBox.Text = string.Empty;
             if (_isDrawerOpen) ToggleDrawer();
             var task = ZaloApp.SendAsync(_conversation, text);
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var border = new Border
+            {
+                Width = width,
+                Height = height,
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
+            return border;
         }
     }
 }

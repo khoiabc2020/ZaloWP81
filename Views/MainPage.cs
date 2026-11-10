@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using Windows.UI;
 using Windows.UI.Core;
+using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Shapes;
 using ZaloLite;
+using ZaloUWP.Services;
 
 namespace ZaloWP81.Views
 {
@@ -32,6 +34,7 @@ namespace ZaloWP81.Views
         // Tab Bar Elements (4 visible tabs exactly matching WP10)
         private Image[] _tabIcons;
         private TextBlock[] _tabLabels;
+        private Border[] _tabButtons;
         private Border _tab0Badge;
         private TextBlock _tab0BadgeText;
 
@@ -40,11 +43,12 @@ namespace ZaloWP81.Views
         private Border _subTabPriorityIndicator;
         private TextBlock _subTabOtherText;
         private Border _subTabOtherIndicator;
-        private ListView _conversationList;
+        private StackPanel _conversationStack;
         private TextBox _searchBox;
+        private Border _syncBanner;
 
         // Contacts Elements
-        private ListView _friendList;
+        private StackPanel _friendStack;
 
         // Profile Elements
         private Ellipse _profileAvatar;
@@ -173,11 +177,11 @@ namespace ZaloWP81.Views
             // Sample Friends
             if (ZaloApp.Friends.Count == 0)
             {
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_sondoan", Name = "Sơn Đoàn" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_duykhanh", Name = "Duy Khánh" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_bachoang", Name = "Bác Hoàng" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_nguyenvanduc", Name = "Nguyễn Văn Đức" });
-                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_pussy", Name = "pUssY" });
+                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_sondoan", Name = "Sơn Đoàn", Subtitle = "0912 345 678" });
+                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_duykhanh", Name = "Duy Khánh", Subtitle = "0987 654 321" });
+                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_bachoang", Name = "Bác Hoàng", Subtitle = "0903 112 233" });
+                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_nguyenvanduc", Name = "Nguyễn Văn Đức", Subtitle = "0977 889 900" });
+                ZaloApp.Friends.Add(new ZaloFriend { UserId = "user_pussy", Name = "pUssY", Subtitle = "0944 556 677" });
             }
         }
 
@@ -189,7 +193,7 @@ namespace ZaloWP81.Views
             };
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(52) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(54) });
 
             // 1. TOP HEADER (Vibrant Zalo Blue Gradient #2878F0 -> #08A9E8)
             var headerGrid = CreateTopHeader();
@@ -283,39 +287,34 @@ namespace ZaloWP81.Views
             Grid.SetColumn(searchBorder, 0);
             header.Children.Add(searchBorder);
 
-            // Plus Button
-            var plusBtn = new Button
-            {
-                Width = 36,
-                Height = 36,
-                Background = new SolidColorBrush(Colors.Transparent),
-                BorderThickness = new Thickness(0),
-                Padding = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
+            // Plus Button (Touch Border with Zero System Box)
+            var plusBtn = CreateTouchBorder(38, 38);
             var plusIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_plus_white.png")),
                 Width = 20,
-                Height = 20
+                Height = 20,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
             };
-            plusBtn.Content = plusIcon;
+            plusBtn.Child = plusIcon;
 
-            var flyout = new MenuFlyout();
-            var itemGroup = new MenuFlyoutItem { Text = "Tạo nhóm mới" };
-            var itemFriend = new MenuFlyoutItem { Text = "Thêm bạn mới" };
-            var itemRefresh = new MenuFlyoutItem { Text = "Làm mới danh sách" };
-            itemRefresh.Click += (s, e) => RefreshConversations();
-            flyout.Items.Add(itemGroup);
-            flyout.Items.Add(itemFriend);
-            flyout.Items.Add(itemRefresh);
-
-            plusBtn.Flyout = flyout;
+            plusBtn.Tapped += (s, e) => ShowHeaderMenu();
             Grid.SetColumn(plusBtn, 1);
             header.Children.Add(plusBtn);
 
             headerBorder.Child = header;
             return headerBorder;
+        }
+
+        private async void ShowHeaderMenu()
+        {
+            var md = new MessageDialog("Chọn thao tác:", "Zalo");
+            md.Commands.Add(new UICommand("Tạo nhóm mới", cmd => NavigationManager.NavigateTo(new CreateGroupPage())));
+            md.Commands.Add(new UICommand("Thêm bạn mới", cmd => NavigationManager.NavigateTo(new AddFriendPage())));
+            md.Commands.Add(new UICommand("Cài đặt", cmd => NavigationManager.NavigateTo(new SettingsPage())));
+            md.Commands.Add(new UICommand("Đóng"));
+            await md.ShowAsync();
         }
 
         private Grid CreateChatsTab()
@@ -334,7 +333,7 @@ namespace ZaloWP81.Views
             var subtabsStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 14, 0) };
 
             // Subtab 1: Ưu tiên
-            var priorityStack = new StackPanel { Margin = new Thickness(0, 0, 24, 0) };
+            var priorityStack = new StackPanel { Margin = new Thickness(0, 0, 24, 0), Background = new SolidColorBrush(Colors.Transparent) };
             _subTabPriorityText = new TextBlock
             {
                 Text = "Ưu tiên",
@@ -355,7 +354,7 @@ namespace ZaloWP81.Views
             subtabsStack.Children.Add(priorityStack);
 
             // Subtab 2: Khác
-            var otherStack = new StackPanel();
+            var otherStack = new StackPanel { Background = new SolidColorBrush(Colors.Transparent) };
             _subTabOtherText = new TextBlock
             {
                 Text = "Khác",
@@ -379,14 +378,65 @@ namespace ZaloWP81.Views
             Grid.SetRow(subtabsBorder, 0);
             grid.Children.Add(subtabsBorder);
 
-            // Conversation ListView
-            _conversationList = new ListView
+            // Conversation Scroll Area
+            var scroll = new ScrollViewer { Background = new SolidColorBrush(Colors.White) };
+            var listStack = new StackPanel();
+
+            // Phone Sync Banner (Top of Chats)
+            _syncBanner = new Border
             {
-                SelectionMode = ListViewSelectionMode.None,
-                Background = new SolidColorBrush(Colors.White)
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF4, 0xFD)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7)),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(14, 10, 14, 10)
             };
-            Grid.SetRow(_conversationList, 1);
-            grid.Children.Add(_conversationList);
+            var syncGrid = new Grid();
+            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var syncIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_cloud_blue.png")),
+                Width = 22,
+                Height = 22,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(syncIcon, 0);
+            syncGrid.Children.Add(syncIcon);
+
+            var syncTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 8, 0) };
+            syncTextStack.Children.Add(new TextBlock { Text = "Đồng bộ tin nhắn từ điện thoại", FontSize = 13, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue });
+            syncTextStack.Children.Add(new TextBlock { Text = "Nhấn để làm mới và nạp danh sách tin nhắn", FontSize = 11.5, Foreground = _textSub });
+            Grid.SetColumn(syncTextStack, 1);
+            syncGrid.Children.Add(syncTextStack);
+
+            var syncBtn = new Border
+            {
+                Background = _activeBlue,
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10, 5, 10, 5),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            syncBtn.Child = new TextBlock { Text = "Đồng bộ", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) };
+            syncBtn.Tapped += async (s, e) =>
+            {
+                var md = new MessageDialog("Đang đồng bộ dữ liệu cuộc trò chuyện từ máy chủ...", "Đồng bộ tin nhắn");
+                await md.ShowAsync();
+                RefreshConversations();
+            };
+            Grid.SetColumn(syncBtn, 2);
+            syncGrid.Children.Add(syncBtn);
+
+            _syncBanner.Child = syncGrid;
+            listStack.Children.Add(_syncBanner);
+
+            _conversationStack = new StackPanel();
+            listStack.Children.Add(_conversationStack);
+
+            scroll.Content = listStack;
+            Grid.SetRow(scroll, 1);
+            grid.Children.Add(scroll);
 
             return grid;
         }
@@ -394,13 +444,26 @@ namespace ZaloWP81.Views
         private Grid CreateContactsTab()
         {
             var grid = new Grid { Background = new SolidColorBrush(Colors.White) };
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            var scroll = new ScrollViewer();
+            var mainStack = new StackPanel();
 
             var topActions = new StackPanel { Background = new SolidColorBrush(Colors.White) };
-            topActions.Children.Add(CreateActionRow("👤", "Lời mời kết bạn", Color.FromArgb(0xFF, 0x16, 0x84, 0xD7)));
-            topActions.Children.Add(CreateActionRow("📱", "Danh bạ máy", Color.FromArgb(0xFF, 0x10, 0xB9, 0x81)));
-            topActions.Children.Add(CreateActionRow("🎂", "Lịch sinh nhật", Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B)));
+            
+            var addFriendRow = CreateActionRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Lời mời kết bạn", Color.FromArgb(0xFF, 0x16, 0x84, 0xD7));
+            addFriendRow.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
+            topActions.Children.Add(addFriendRow);
+
+            var deviceContactsRow = CreateActionRow("ms-appx:///Assets/Icons/Android/icn_contact_callvoice.png", "Danh bạ máy", Color.FromArgb(0xFF, 0x10, 0xB9, 0x81));
+            deviceContactsRow.Tapped += async (s, e) =>
+            {
+                var md = new MessageDialog("Đã kết nối danh bạ điện thoại.", "Danh bạ máy");
+                await md.ShowAsync();
+            };
+            topActions.Children.Add(deviceContactsRow);
+
+            var createGroupRow = CreateActionRow("ms-appx:///Assets/Icons/ic_group_action_blue.png", "Tạo nhóm chat mới", Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B));
+            createGroupRow.Tapped += (s, e) => NavigationManager.NavigateTo(new CreateGroupPage());
+            topActions.Children.Add(createGroupRow);
 
             var sectionHeader = new Border
             {
@@ -416,45 +479,44 @@ namespace ZaloWP81.Views
             };
             topActions.Children.Add(sectionHeader);
 
-            Grid.SetRow(topActions, 0);
-            grid.Children.Add(topActions);
+            mainStack.Children.Add(topActions);
 
-            _friendList = new ListView
-            {
-                SelectionMode = ListViewSelectionMode.None,
-                Background = new SolidColorBrush(Colors.White)
-            };
-            Grid.SetRow(_friendList, 1);
-            grid.Children.Add(_friendList);
+            _friendStack = new StackPanel();
+            mainStack.Children.Add(_friendStack);
+
+            scroll.Content = mainStack;
+            grid.Children.Add(scroll);
 
             return grid;
         }
 
-        private FrameworkElement CreateActionRow(string emoji, string label, Color color)
+        private Border CreateActionRow(string iconUri, string label, Color color)
         {
             var border = new Border
             {
                 Padding = new Thickness(16, 12, 16, 12),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0)),
-                BorderThickness = new Thickness(0, 0, 0, 1)
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Background = new SolidColorBrush(Colors.White)
             };
             var stack = new StackPanel { Orientation = Orientation.Horizontal };
             var iconBox = new Border
             {
-                Width = 36,
-                Height = 36,
-                CornerRadius = new CornerRadius(18),
+                Width = 38,
+                Height = 38,
+                CornerRadius = new CornerRadius(19),
                 Background = new SolidColorBrush(color),
                 Margin = new Thickness(0, 0, 14, 0)
             };
-            var iconText = new TextBlock
+            var img = new Image
             {
-                Text = emoji,
-                FontSize = 18,
+                Source = new BitmapImage(new Uri(iconUri)),
+                Width = 22,
+                Height = 22,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            iconBox.Child = iconText;
+            iconBox.Child = img;
             stack.Children.Add(iconBox);
 
             var text = new TextBlock
@@ -468,6 +530,9 @@ namespace ZaloWP81.Views
             stack.Children.Add(text);
 
             border.Child = stack;
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
             return border;
         }
 
@@ -502,17 +567,17 @@ namespace ZaloWP81.Views
             banner.Child = bannerStack;
             stack.Children.Add(banner);
 
-            stack.Children.Add(CreateServiceCard("🎬", "Zalo Video", "Kho video ngắn giải trí, tin tức mỗi ngày", Color.FromArgb(0xFF, 0xEF, 0x44, 0x44)));
-            stack.Children.Add(CreateServiceCard("🛍️", "Zalo Shop", "Ưu đãi mua sắm online tiện lợi", Color.FromArgb(0xFF, 0x3B, 0x82, 0xF6)));
-            stack.Children.Add(CreateServiceCard("🏛️", "Dịch vụ công", "Tra cứu thủ tục hành chính, nộp hồ sơ trực tuyến", Color.FromArgb(0xFF, 0x10, 0xB9, 0x81)));
-            stack.Children.Add(CreateServiceCard("💳", "Ví điện tử & Tài chính", "Thanh toán hóa đơn, nạp tiền điện thoại", Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B)));
+            stack.Children.Add(CreateServiceCard("ms-appx:///Assets/Icons/ic_video_blue.png", "Zalo Video", "Kho video ngắn giải trí, tin tức mỗi ngày", Color.FromArgb(0xFF, 0xEF, 0x44, 0x44)));
+            stack.Children.Add(CreateServiceCard("ms-appx:///Assets/Icons/ic_group_action_blue.png", "Zalo Shop & Nhóm", "Mua sắm ưu đãi và cộng đồng", Color.FromArgb(0xFF, 0x3B, 0x82, 0xF6)));
+            stack.Children.Add(CreateServiceCard("ms-appx:///Assets/Icons/ic_security_blue.png", "Dịch vụ công & Bảo mật", "Tra cứu thủ tục hành chính trực tuyến", Color.FromArgb(0xFF, 0x10, 0xB9, 0x81)));
+            stack.Children.Add(CreateServiceCard("ms-appx:///Assets/Icons/ic_qr_blue.png", "Ví QR & Tài chính", "Thanh toán hóa đơn, nạp tiền điện thoại", Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B)));
 
             scroll.Content = stack;
             grid.Children.Add(scroll);
             return grid;
         }
 
-        private FrameworkElement CreateServiceCard(string emoji, string title, string subtitle, Color iconBg)
+        private FrameworkElement CreateServiceCard(string iconUri, string title, string subtitle, Color iconBg)
         {
             var border = new Border
             {
@@ -532,14 +597,15 @@ namespace ZaloWP81.Views
                 CornerRadius = new CornerRadius(12),
                 Background = new SolidColorBrush(iconBg)
             };
-            var iconText = new TextBlock
+            var img = new Image
             {
-                Text = emoji,
-                FontSize = 20,
+                Source = new BitmapImage(new Uri(iconUri)),
+                Width = 22,
+                Height = 22,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            iconBorder.Child = iconText;
+            iconBorder.Child = img;
             Grid.SetColumn(iconBorder, 0);
             grid.Children.Add(iconBorder);
 
@@ -550,6 +616,9 @@ namespace ZaloWP81.Views
             grid.Children.Add(textStack);
 
             border.Child = grid;
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
             return border;
         }
 
@@ -559,7 +628,7 @@ namespace ZaloWP81.Views
             var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
             var stack = new StackPanel();
 
-            // Profile Card
+            // Profile Card (Touch to Open ProfilePage)
             var card = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
@@ -590,7 +659,7 @@ namespace ZaloWP81.Views
             var infoStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
             _profileName = new TextBlock { Text = "Người dùng Zalo", FontSize = 18, FontWeight = Windows.UI.Text.FontWeights.Bold, Foreground = _textDark };
             _profilePhone = new TextBlock { Text = "09xx xxx xxx", FontSize = 13.5, Foreground = _textSub, Margin = new Thickness(0, 3, 0, 4) };
-            var viewProfileLink = new TextBlock { Text = "Xem trang cá nhân", FontSize = 13, Foreground = _activeBlue, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+            var viewProfileLink = new TextBlock { Text = "Xem trang cá nhân ›", FontSize = 13, Foreground = _activeBlue, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
             infoStack.Children.Add(_profileName);
             infoStack.Children.Add(_profilePhone);
             infoStack.Children.Add(viewProfileLink);
@@ -598,9 +667,13 @@ namespace ZaloWP81.Views
             cardGrid.Children.Add(infoStack);
 
             card.Child = cardGrid;
+            card.PointerPressed += (s, e) => card.Opacity = 0.6;
+            card.PointerReleased += (s, e) => card.Opacity = 1.0;
+            card.PointerCanceled += (s, e) => card.Opacity = 1.0;
+            card.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
             stack.Children.Add(card);
 
-            // Settings Group
+            // Settings Group (All Real PNG Icons)
             var settingsGroup = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
@@ -608,10 +681,23 @@ namespace ZaloWP81.Views
                 Margin = new Thickness(0, 0, 0, 16)
             };
             var settingsStack = new StackPanel();
-            settingsStack.Children.Add(CreateSettingItem("🪪", "Ví QR", "Quản lý thẻ và mã QR cá nhân"));
-            settingsStack.Children.Add(CreateSettingItem("☁️", "Zalo Cloud của tôi", "Lưu trữ tin nhắn và ảnh quan trọng"));
-            settingsStack.Children.Add(CreateSettingItem("💾", "Dữ liệu trên máy", "Quản lý bộ nhớ đệm và tài nguyên"));
-            settingsStack.Children.Add(CreateSettingItem("⚙️", "Cài đặt & Quyền riêng tư", "Bảo mật tài khoản, thông báo"));
+
+            var rowStyle = CreateSettingItem("ms-appx:///Assets/Icons/ic_photo_gray.png", "zStyle - Hình nền cuộc trò chuyện", "Chọn 20 hình nền đa dạng cho khung chat");
+            rowStyle.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            settingsStack.Children.Add(rowStyle);
+
+            var rowCloud = CreateSettingItem("ms-appx:///Assets/Icons/ic_cloud_blue.png", "Zalo Cloud của tôi", "Lưu trữ tin nhắn và ảnh quan trọng");
+            rowCloud.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            settingsStack.Children.Add(rowCloud);
+
+            var rowStorage = CreateSettingItem("ms-appx:///Assets/Icons/ic_storage_blue.png", "Dữ liệu trên máy", "Quản lý bộ nhớ đệm và tài nguyên");
+            rowStorage.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            settingsStack.Children.Add(rowStorage);
+
+            var rowSettings = CreateSettingItem("ms-appx:///Assets/Icons/ic_security_blue.png", "Cài đặt & Quyền riêng tư", "Bảo mật tài khoản, thông báo âm thanh");
+            rowSettings.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            settingsStack.Children.Add(rowSettings);
+
             settingsGroup.Child = settingsStack;
             stack.Children.Add(settingsGroup);
 
@@ -619,6 +705,8 @@ namespace ZaloWP81.Views
             var logoutBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xFE, 0xE2, 0xE2)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xFE, 0xCA, 0xCA)),
+                BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(16, 12, 16, 12)
             };
@@ -631,11 +719,20 @@ namespace ZaloWP81.Views
                 HorizontalAlignment = HorizontalAlignment.Center
             };
             logoutBorder.Child = logoutText;
+            logoutBorder.PointerPressed += (s, e) => logoutBorder.Opacity = 0.6;
+            logoutBorder.PointerReleased += (s, e) => logoutBorder.Opacity = 1.0;
+            logoutBorder.PointerCanceled += (s, e) => logoutBorder.Opacity = 1.0;
             logoutBorder.Tapped += async (s, e) =>
             {
-                ZaloApp.Reset();
-                await ZaloStore.ClearAsync();
-                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+                var md = new MessageDialog("Bạn có chắc muốn đăng xuất?", "Đăng xuất");
+                md.Commands.Add(new UICommand("Đăng xuất", async cmd =>
+                {
+                    ZaloApp.Reset();
+                    await ZaloStore.ClearAsync();
+                    NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+                }));
+                md.Commands.Add(new UICommand("Hủy"));
+                await md.ShowAsync();
             };
             stack.Children.Add(logoutBorder);
 
@@ -644,24 +741,31 @@ namespace ZaloWP81.Views
             return grid;
         }
 
-        private FrameworkElement CreateSettingItem(string icon, string title, string sub)
+        private Border CreateSettingItem(string iconUri, string title, string sub)
         {
             var border = new Border
             {
                 Padding = new Thickness(16, 13, 16, 13),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0)),
-                BorderThickness = new Thickness(0, 0, 0, 1)
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Background = new SolidColorBrush(Colors.White)
             };
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var iconText = new TextBlock { Text = icon, FontSize = 18, VerticalAlignment = VerticalAlignment.Center };
-            Grid.SetColumn(iconText, 0);
-            grid.Children.Add(iconText);
+            var img = new Image
+            {
+                Source = new BitmapImage(new Uri(iconUri)),
+                Width = 22,
+                Height = 22,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(img, 0);
+            grid.Children.Add(img);
 
-            var textStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
+            var textStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             textStack.Children.Add(new TextBlock { Text = title, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
             textStack.Children.Add(new TextBlock { Text = sub, FontSize = 12, Foreground = _textSub, Margin = new Thickness(0, 1, 0, 0) });
             Grid.SetColumn(textStack, 1);
@@ -672,10 +776,13 @@ namespace ZaloWP81.Views
             grid.Children.Add(arrow);
 
             border.Child = grid;
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
             return border;
         }
 
-        // EXACT 4 TABS MATCHING WP10 SCREENSHOT (media_1794286660462_fdcecefd.jpg)
+        // EXACT 4 TABS MATCHING WP10 - USING PURE BORDER WITH ZERO SYSTEM BUTTON HIGHLIGHT
         private Border CreateBottomBar()
         {
             var border = new Border
@@ -693,19 +800,18 @@ namespace ZaloWP81.Views
 
             _tabIcons = new Image[4];
             _tabLabels = new TextBlock[4];
+            _tabButtons = new Border[4];
 
             string[] titles = { "Tin nhắn", "Danh bạ", "Khám phá", "Cá nhân" };
 
             for (int i = 0; i < 4; i++)
             {
                 int tabIdx = i;
-                var btn = new Button
+                var tabBorder = new Border
                 {
                     Background = new SolidColorBrush(Colors.Transparent),
-                    BorderThickness = new Thickness(0),
                     HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Stretch,
-                    Padding = new Thickness(0)
+                    VerticalAlignment = VerticalAlignment.Stretch
                 };
 
                 var itemGrid = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
@@ -761,10 +867,15 @@ namespace ZaloWP81.Views
                     itemGrid.Children.Add(_tab0Badge);
                 }
 
-                btn.Content = itemGrid;
-                btn.Click += (s, e) => SwitchTab(tabIdx);
-                Grid.SetColumn(btn, i);
-                grid.Children.Add(btn);
+                tabBorder.Child = itemGrid;
+                tabBorder.PointerPressed += (s, e) => tabBorder.Opacity = 0.6;
+                tabBorder.PointerReleased += (s, e) => tabBorder.Opacity = 1.0;
+                tabBorder.PointerCanceled += (s, e) => tabBorder.Opacity = 1.0;
+                tabBorder.Tapped += (s, e) => SwitchTab(tabIdx);
+
+                _tabButtons[i] = tabBorder;
+                Grid.SetColumn(tabBorder, i);
+                grid.Children.Add(tabBorder);
             }
 
             border.Child = grid;
@@ -814,7 +925,7 @@ namespace ZaloWP81.Views
 
         private void RefreshConversations()
         {
-            _conversationList.Items.Clear();
+            _conversationStack.Children.Clear();
             string query = _searchBox?.Text?.Trim();
 
             var list = ZaloApp.Conversations.AsEnumerable();
@@ -827,13 +938,13 @@ namespace ZaloWP81.Views
             foreach (var conv in list)
             {
                 var item = CreateConversationItem(conv);
-                _conversationList.Items.Add(item);
+                _conversationStack.Children.Add(item);
             }
 
             UpdateUnreadBadge();
         }
 
-        // EXACT 100% RECONSTRUCTION OF CONVERSATION ITEM IN WP10 (media_1794286660462_fdcecefd.jpg)
+        // EXACT 100% RECONSTRUCTION OF CONVERSATION ITEM IN WP10 - PURE BORDER WITH SILKY TOUCH
         private FrameworkElement CreateConversationItem(ZaloConversation conv)
         {
             var itemBorder = new Border
@@ -997,6 +1108,11 @@ namespace ZaloWP81.Views
             itemGrid.Children.Add(divider);
 
             itemBorder.Child = itemGrid;
+
+            // Touch Feedback (Silky opacity, Zero system button highlight)
+            itemBorder.PointerPressed += (s, e) => itemBorder.Opacity = 0.6;
+            itemBorder.PointerReleased += (s, e) => itemBorder.Opacity = 1.0;
+            itemBorder.PointerCanceled += (s, e) => itemBorder.Opacity = 1.0;
             itemBorder.Tapped += (s, e) =>
             {
                 NavigationManager.NavigateTo(new ChatPage(conv.Key));
@@ -1007,7 +1123,7 @@ namespace ZaloWP81.Views
 
         private void RefreshFriends()
         {
-            _friendList.Items.Clear();
+            _friendStack.Children.Clear();
             string query = _searchBox?.Text?.Trim();
 
             var friends = ZaloApp.Friends.AsEnumerable();
@@ -1020,7 +1136,7 @@ namespace ZaloWP81.Views
             foreach (var friend in friends)
             {
                 var item = CreateFriendItem(friend);
-                _friendList.Items.Add(item);
+                _friendStack.Children.Add(item);
             }
         }
 
@@ -1076,10 +1192,12 @@ namespace ZaloWP81.Views
             itemGrid.Children.Add(divider);
 
             itemBorder.Child = itemGrid;
+            itemBorder.PointerPressed += (s, e) => itemBorder.Opacity = 0.6;
+            itemBorder.PointerReleased += (s, e) => itemBorder.Opacity = 1.0;
+            itemBorder.PointerCanceled += (s, e) => itemBorder.Opacity = 1.0;
             itemBorder.Tapped += (s, e) =>
             {
-                var conv = ZaloApp.GetOrCreate(friend.UserId, false);
-                NavigationManager.NavigateTo(new ChatPage(conv.Key));
+                NavigationManager.NavigateTo(new FriendProfilePage(friend));
             };
 
             return itemBorder;
@@ -1122,6 +1240,21 @@ namespace ZaloWP81.Views
                 if (_selectedTab == 0) RefreshConversations();
                 UpdateUnreadBadge();
             });
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var border = new Border
+            {
+                Width = width,
+                Height = height,
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
+            return border;
         }
 
         private static SolidColorBrush ColorBrush(byte a, byte r, byte g, byte b)

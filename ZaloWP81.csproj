@@ -154,6 +154,13 @@
     <Compile Include="Views\LoginPage.cs" />
     <Compile Include="Views\MainPage.cs" />
     <Compile Include="Views\ChatPage.cs" />
+    <Compile Include="Views\SettingsPage.cs" />
+    <Compile Include="Views\ProfilePage.cs" />
+    <Compile Include="Views\FriendProfilePage.cs" />
+    <Compile Include="Views\ConversationOptionsPage.cs" />
+    <Compile Include="Views\ImageViewerPage.cs" />
+    <Compile Include="Views\AddFriendPage.cs" />
+    <Compile Include="Views\CreateGroupPage.cs" />
   </ItemGroup>
 
   <ItemGroup>
