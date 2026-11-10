@@ -17,7 +17,7 @@ using ZaloLite;
 
 namespace ZaloWP81.Views
 {
-    public sealed class ProfilePage : Page
+    public sealed class ProfilePage : Page, IFileOpenPickerContinuable
     {
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF));
         private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x17, 0x21, 0x2B));
@@ -343,9 +343,99 @@ namespace ZaloWP81.Views
             var session = ZaloApp.Session;
             if (session == null) return;
 
+            var md = new MessageDialog("Chọn phương thức đổi ảnh đại diện:", "Đổi ảnh đại diện");
+            md.Commands.Add(new UICommand("Chọn từ thư viện máy", cmd =>
+            {
+                try
+                {
+                    var picker = new Windows.Storage.Pickers.FileOpenPicker
+                    {
+                        SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.PicturesLibrary,
+                        ViewMode = Windows.Storage.Pickers.PickerViewMode.Thumbnail
+                    };
+                    picker.FileTypeFilter.Add(".jpg");
+                    picker.FileTypeFilter.Add(".jpeg");
+                    picker.FileTypeFilter.Add(".png");
+                    picker.PickSingleFileAndContinue();
+                }
+                catch (Exception ex)
+                {
+                    _profileFeedback.Text = "Lỗi mở thư viện: " + ex.Message;
+                }
+            }));
+            md.Commands.Add(new UICommand("Nhập liên kết ảnh (URL)", async cmd =>
+            {
+                await ShowAvatarUrlDialog();
+            }));
+            md.Commands.Add(new UICommand("Hủy"));
+            await md.ShowAsync();
+        }
+
+        public async void ContinueWithFileOpenPicker(Windows.ApplicationModel.Activation.FileOpenPickerContinuationEventArgs args)
+        {
+            if (args == null || args.Files == null || args.Files.Count == 0) return;
+            var file = args.Files[0];
+            var session = ZaloApp.Session;
+            if (session == null) return;
+
+            _profileFeedback.Text = "Đang xử lý và tải lên ảnh đại diện từ máy…";
+            try
+            {
+                using (var stream = await file.OpenReadAsync())
+                {
+                    BitmapDecoder decoder = await BitmapDecoder.CreateAsync(stream);
+                    uint orientedWidth = decoder.OrientedPixelWidth;
+                    uint orientedHeight = decoder.OrientedPixelHeight;
+                    double scale = Math.Min(1.0, 1600.0 / Math.Max(orientedWidth, orientedHeight));
+                    uint width = Math.Max(1U, (uint)Math.Round(orientedWidth * scale));
+                    uint height = Math.Max(1U, (uint)Math.Round(orientedHeight * scale));
+                    var transform = new BitmapTransform
+                    {
+                        ScaledWidth = width,
+                        ScaledHeight = height,
+                        InterpolationMode = BitmapInterpolationMode.Fant
+                    };
+                    PixelDataProvider pixels = await decoder.GetPixelDataAsync(BitmapPixelFormat.Rgba8,
+                        BitmapAlphaMode.Ignore, transform, ExifOrientationMode.RespectExifOrientation,
+                        ColorManagementMode.DoNotColorManage);
+
+                    byte[] jpegBytes;
+                    using (var output = new InMemoryRandomAccessStream())
+                    {
+                        BitmapEncoder encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.JpegEncoderId, output);
+                        encoder.SetPixelData(BitmapPixelFormat.Rgba8, BitmapAlphaMode.Ignore, width, height, 96, 96, pixels.DetachPixelData());
+                        await encoder.FlushAsync();
+                        output.Seek(0);
+                        using (var reader = new DataReader(output.GetInputStreamAt(0)))
+                        {
+                            await reader.LoadAsync((uint)output.Size);
+                            jpegBytes = new byte[(int)output.Size];
+                            reader.ReadBytes(jpegBytes);
+                        }
+                    }
+
+                    _profileFeedback.Text = "Đang gửi lên Zalo…";
+                    await ZaloAuth.UpdateMyAvatarAsync(session, jpegBytes, width, height, CancellationToken.None);
+                    await ZaloAuth.LoadMyProfileAsync(session, CancellationToken.None);
+                    ShowProfile();
+                    _profileFeedback.Text = "Đã cập nhật ảnh đại diện thành công.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("Profile avatar picker upload failed: " + ex.Message);
+                _profileFeedback.Text = "Không đổi được ảnh đại diện: " + ex.Message;
+            }
+        }
+
+        private async Task ShowAvatarUrlDialog()
+        {
+            var session = ZaloApp.Session;
+            if (session == null) return;
+
             var input = new TextBox
             {
-                PlaceholderText = "Nhập URL ảnh (https://...) hoặc ms-appx:///...",
+                PlaceholderText = "Nhập URL ảnh (https://...)",
                 TextWrapping = TextWrapping.Wrap,
                 MinHeight = 50
             };
@@ -363,7 +453,7 @@ namespace ZaloWP81.Views
 
             var dialog = new ContentDialog
             {
-                Title = "Đổi ảnh đại diện",
+                Title = "Đổi ảnh từ liên kết URL",
                 Content = content,
                 PrimaryButtonText = "Tải lên",
                 SecondaryButtonText = "Hủy"

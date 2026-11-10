@@ -6,9 +6,19 @@ using Windows.UI.Xaml.Controls;
 
 namespace ZaloWP81
 {
+    public interface IFileOpenPickerContinuable
+    {
+        void ContinueWithFileOpenPicker(Windows.ApplicationModel.Activation.FileOpenPickerContinuationEventArgs args);
+    }
+
     public static class NavigationManager
     {
         private static readonly Stack<Page> _backStack = new Stack<Page>();
+
+        public static Page CurrentPage
+        {
+            get { return Window.Current?.Content as Page; }
+        }
 
         public static void Initialize()
         {

@@ -1,6 +1,14 @@
 using System;
+using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
+using Windows.Graphics.Imaging;
+using Windows.Storage;
+using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Popups;
@@ -15,7 +23,7 @@ using ZaloUWP.Services;
 
 namespace ZaloWP81.Views
 {
-    public sealed class ChatPage : Page
+    public sealed class ChatPage : Page, IFileOpenPickerContinuable
     {
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x07, 0x86, 0xF9));
         private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
@@ -358,11 +366,33 @@ namespace ZaloWP81.Views
             _photoButton.Child = photoImg;
             _photoButton.Tapped += async (s, e) =>
             {
-                var md = new MessageDialog("Chọn ảnh muốn gửi:", "Thư viện ảnh");
-                md.Commands.Add(new UICommand("Ảnh thiên nhiên", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_01.png")));
-                md.Commands.Add(new UICommand("Ảnh phong cảnh", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_02.png")));
-                md.Commands.Add(new UICommand("Ảnh nghệ thuật", cmd => SendPhoto("ms-appx:///Assets/Backgrounds/bg_03.png")));
-                md.Commands.Add(new UICommand("Đóng"));
+                var md = new MessageDialog("Chọn phương thức gửi hình ảnh:", "Gửi ảnh");
+                md.Commands.Add(new UICommand("Chọn ảnh từ máy (Thư viện)", cmd =>
+                {
+                    try
+                    {
+                        var picker = new FileOpenPicker
+                        {
+                            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+                            ViewMode = PickerViewMode.Thumbnail
+                        };
+                        picker.FileTypeFilter.Add(".jpg");
+                        picker.FileTypeFilter.Add(".jpeg");
+                        picker.FileTypeFilter.Add(".png");
+                        picker.FileTypeFilter.Add(".webp");
+                        picker.PickSingleFileAndContinue();
+                    }
+                    catch (Exception ex)
+                    {
+                        var m = new MessageDialog("Không thể mở bộ chọn ảnh: " + ex.Message, "Lỗi");
+                        var ignore = m.ShowAsync();
+                    }
+                }));
+                md.Commands.Add(new UICommand("Gửi ảnh từ liên kết URL", async cmd =>
+                {
+                    await ShowSendUrlPhotoDialog();
+                }));
+                md.Commands.Add(new UICommand("Hủy"));
                 await md.ShowAsync();
             };
             Grid.SetColumn(_photoButton, 4);
@@ -397,21 +427,106 @@ namespace ZaloWP81.Views
             return container;
         }
 
-        private void SendPhoto(string url)
+        public async void ContinueWithFileOpenPicker(FileOpenPickerContinuationEventArgs args)
+        {
+            if (args == null || args.Files == null || args.Files.Count == 0 || _conversation == null) return;
+            var file = args.Files[0];
+            try
+            {
+                var props = await file.GetBasicPropertiesAsync();
+                using (var imageStream = await file.OpenReadAsync())
+                {
+                    var decoder = await BitmapDecoder.CreateAsync(imageStream);
+                    uint width = decoder.PixelWidth;
+                    uint height = decoder.PixelHeight;
+                    imageStream.Seek(0);
+                    string caption = _inputBox.Text?.Trim() ?? string.Empty;
+                    _inputBox.Text = string.Empty;
+                    await ZaloApp.SendImageAsync(_conversation, file.Name, imageStream, (long)props.Size, width, height, caption);
+                }
+                RenderMessages();
+                ScrollToBottom();
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Lỗi gửi ảnh: " + ex.Message, "Gửi ảnh thất bại");
+                await md.ShowAsync();
+            }
+        }
+
+        private async Task ShowSendUrlPhotoDialog()
         {
             if (_conversation == null) return;
-            long nowMs = DateTime.UtcNow.Ticks / 10000;
-            var photoMsg = new ZaloChatMessage
+            var input = new TextBox
             {
-                FromMe = true,
-                Text = "[Hình ảnh]",
-                MediaUrl = url,
-                Ts = nowMs,
-                MsgType = "chat.photo"
+                PlaceholderText = "Nhập URL ảnh (https://... hoặc http://...)",
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 44
             };
-            _conversation.Messages.Add(photoMsg);
-            _conversation.LastText = "[Hình ảnh]";
-            _conversation.LastTs = nowMs;
+            var cd = new ContentDialog
+            {
+                Title = "Gửi ảnh từ liên kết URL",
+                Content = input,
+                PrimaryButtonText = "Gửi",
+                SecondaryButtonText = "Hủy"
+            };
+            var res = await cd.ShowAsync();
+            if (res == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(input.Text))
+            {
+                string caption = _inputBox.Text?.Trim() ?? string.Empty;
+                _inputBox.Text = string.Empty;
+                await SendPhotoFromUrlAsync(input.Text.Trim(), caption);
+            }
+        }
+
+        private async Task SendPhotoFromUrlAsync(string url, string caption)
+        {
+            if (string.IsNullOrWhiteSpace(url) || _conversation == null) return;
+            try
+            {
+                byte[] bytes = null;
+                if (ZaloApp.Session != null)
+                {
+                    try { bytes = await ZaloApp.Session.Http.DownloadBytesAsync(url, CancellationToken.None); }
+                    catch { }
+                }
+                if (bytes == null)
+                {
+                    using (var hc = new System.Net.Http.HttpClient())
+                    {
+                        bytes = await hc.GetByteArrayAsync(url);
+                    }
+                }
+                if (bytes != null && bytes.Length > 0)
+                {
+                    using (var stream = new InMemoryRandomAccessStream())
+                    using (var writer = new DataWriter(stream))
+                    {
+                        writer.WriteBytes(bytes);
+                        await writer.StoreAsync();
+                        await writer.FlushAsync();
+                        writer.DetachStream();
+                        stream.Seek(0);
+                        var decoder = await BitmapDecoder.CreateAsync(stream);
+                        uint width = decoder.PixelWidth;
+                        uint height = decoder.PixelHeight;
+                        stream.Seek(0);
+                        string fileName = "photo_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
+                        await ZaloApp.SendImageAsync(_conversation, fileName, stream, (long)bytes.Length, width, height, caption ?? string.Empty);
+                    }
+                    RenderMessages();
+                    ScrollToBottom();
+                }
+                else
+                {
+                    throw new Exception("Không tải được dữ liệu ảnh từ URL này.");
+                }
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Lỗi gửi ảnh từ liên kết: " + ex.Message, "Thất bại");
+                await md.ShowAsync();
+            }
         }
 
         // EXACT EMOJI DRAWER MATCHING media_1794285161826_53038b6c.jpg
@@ -711,6 +826,15 @@ namespace ZaloWP81.Views
             catch { }
         }
 
+        private void ScrollToBottom()
+        {
+            try
+            {
+                _messageScroll?.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+            }
+            catch { }
+        }
+
         // EXACT MESSAGE BUBBLE MATCHING media_1794285355410_9cc5344d.png
         private FrameworkElement CreateMessageBubble(ZaloChatMessage msg)
         {
@@ -755,37 +879,212 @@ namespace ZaloWP81.Views
                 stack.Children.Add(quoteBorder);
             }
 
-            if (msg.IsSticker || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("bg_"))))
+            bool isSticker = msg.IsSticker || msg.MsgType == "chat.sticker" || msg.MsgType == "5"
+                || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("sticker_")));
+
+            bool isPhoto = !isSticker && (msg.HasMedia || msg.MsgType == "chat.photo"
+                || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.StartsWith("http") || msg.MediaUrl.Contains("res-zalo") || msg.MediaUrl.Contains("photo")
+                    || msg.MediaUrl.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                    || msg.MediaUrl.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || msg.MediaUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))));
+
+            bool isVoice = msg.HasVoice || msg.MsgType == "chat.voice" || msg.MsgType == "31";
+            bool isFile = msg.HasFile || msg.MsgType == "share.file" || msg.MsgType == "46";
+
+            if (isSticker)
             {
-                // Sticker card (White rounded card with light blue border, matching media_1794285355410_9cc5344d.png)
                 var stickerCard = new Border
                 {
                     Background = new SolidColorBrush(Colors.White),
                     BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)),
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(15),
-                    Padding = new Thickness(10),
+                    Padding = new Thickness(8),
                     MaxWidth = 260
                 };
                 var stickerImg = new Image
                 {
-                    Source = new BitmapImage(new Uri(msg.MediaUrl ?? "ms-appx:///Assets/Emoticons/Emoji/emo_05.png")),
                     Width = 96,
                     Height = 96,
                     Stretch = Stretch.Uniform
                 };
                 stickerCard.Child = stickerImg;
 
-                // Tap sticker/photo opens ImageViewerPage
+                var ring = new ProgressRing { Width = 30, Height = 30, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                BindMessageImage(stickerImg, ring, null, msg);
+
                 stickerCard.PointerPressed += (s, e) => stickerCard.Opacity = 0.7;
                 stickerCard.PointerReleased += (s, e) => stickerCard.Opacity = 1.0;
                 stickerCard.PointerCanceled += (s, e) => stickerCard.Opacity = 1.0;
                 stickerCard.Tapped += (s, e) =>
                 {
-                    NavigationManager.NavigateTo(new ImageViewerPage(msg.MediaUrl));
+                    NavigationManager.NavigateTo(new ImageViewerPage(msg.ViewerUrl ?? msg.MediaUrl));
                 };
-
                 stack.Children.Add(stickerCard);
+            }
+            else if (isPhoto)
+            {
+                var photoCard = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xED, 0xF2, 0xF7)),
+                    BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(4),
+                    MaxWidth = 260
+                };
+                var photoStack = new StackPanel();
+
+                var imgGrid = new Grid { MinWidth = 140, MinHeight = 140, MaxWidth = 252, MaxHeight = 280 };
+                var photoImg = new Image
+                {
+                    Stretch = Stretch.Uniform,
+                    MaxWidth = 252,
+                    MaxHeight = 280,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                imgGrid.Children.Add(photoImg);
+
+                var ring = new ProgressRing
+                {
+                    Width = 36,
+                    Height = 36,
+                    Foreground = _activeBlue,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsActive = true
+                };
+                imgGrid.Children.Add(ring);
+
+                var retryBtn = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromArgb(0xD0, 0x22, 0x22, 0x22)),
+                    CornerRadius = new CornerRadius(6),
+                    Padding = new Thickness(10, 6, 10, 6),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Visibility = Visibility.Collapsed
+                };
+                retryBtn.Child = new TextBlock { Text = "⚠️ Tải lại ảnh", FontSize = 12, Foreground = new SolidColorBrush(Colors.White) };
+                imgGrid.Children.Add(retryBtn);
+
+                if (msg.HasHdPhoto)
+                {
+                    var hdBadge = new Border
+                    {
+                        Background = new SolidColorBrush(Color.FromArgb(0xB3, 0x00, 0x00, 0x00)),
+                        CornerRadius = new CornerRadius(4),
+                        Padding = new Thickness(6, 2, 6, 2),
+                        HorizontalAlignment = HorizontalAlignment.Left,
+                        VerticalAlignment = VerticalAlignment.Top,
+                        Margin = new Thickness(6)
+                    };
+                    hdBadge.Child = new TextBlock { Text = "HD", Foreground = new SolidColorBrush(Colors.White), FontSize = 11, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+                    imgGrid.Children.Add(hdBadge);
+                }
+
+                photoStack.Children.Add(imgGrid);
+
+                if (!string.IsNullOrWhiteSpace(msg.Text) && msg.Text != "[Hình ảnh]")
+                {
+                    var captionBlock = new TextBlock
+                    {
+                        Text = msg.Text,
+                        FontSize = 14,
+                        Foreground = _textDark,
+                        TextWrapping = TextWrapping.Wrap,
+                        Margin = new Thickness(6, 4, 6, 4)
+                    };
+                    photoStack.Children.Add(captionBlock);
+                }
+
+                photoCard.Child = photoStack;
+
+                BindMessageImage(photoImg, ring, retryBtn, msg);
+                retryBtn.Tapped += (s, e) => BindMessageImage(photoImg, ring, retryBtn, msg);
+
+                photoCard.PointerPressed += (s, e) => photoCard.Opacity = 0.7;
+                photoCard.PointerReleased += (s, e) => photoCard.Opacity = 1.0;
+                photoCard.PointerCanceled += (s, e) => photoCard.Opacity = 1.0;
+                photoCard.Tapped += (s, e) =>
+                {
+                    NavigationManager.NavigateTo(new ImageViewerPage(msg.ViewerUrl ?? msg.MediaUrl));
+                };
+                stack.Children.Add(photoCard);
+            }
+            else if (isVoice)
+            {
+                var voiceCard = new Border
+                {
+                    Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
+                    BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(14),
+                    Padding = new Thickness(14, 10, 14, 10),
+                    MaxWidth = 260
+                };
+                var voiceStack = new StackPanel { Orientation = Orientation.Horizontal };
+                var playCircle = new Border
+                {
+                    Width = 32,
+                    Height = 32,
+                    CornerRadius = new CornerRadius(16),
+                    Background = _activeBlue,
+                    Margin = new Thickness(0, 0, 10, 0)
+                };
+                playCircle.Child = new TextBlock
+                {
+                    Text = "▶",
+                    FontSize = 12,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(2, 0, 0, 0)
+                };
+                voiceStack.Children.Add(playCircle);
+
+                var voiceInfo = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                voiceInfo.Children.Add(new TextBlock { Text = "Tin nhắn thoại", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+                voiceInfo.Children.Add(new TextBlock { Text = "Chạm để nghe", FontSize = 12, Foreground = _timeColor });
+                voiceStack.Children.Add(voiceInfo);
+                voiceCard.Child = voiceStack;
+
+                voiceCard.Tapped += async (s, e) =>
+                {
+                    var md = new MessageDialog("Đang phát tin nhắn thoại...", "Thoại");
+                    await md.ShowAsync();
+                };
+                stack.Children.Add(voiceCard);
+            }
+            else if (isFile)
+            {
+                var fileCard = new Border
+                {
+                    Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
+                    BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(14),
+                    Padding = new Thickness(14, 10, 14, 10),
+                    MaxWidth = 270
+                };
+                var fileStack = new StackPanel { Orientation = Orientation.Horizontal };
+                var fileIconBox = new Border
+                {
+                    Width = 34,
+                    Height = 34,
+                    CornerRadius = new CornerRadius(8),
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF4, 0xFA)),
+                    Margin = new Thickness(0, 0, 10, 0)
+                };
+                fileIconBox.Child = new TextBlock { Text = "📁", FontSize = 18, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+                fileStack.Children.Add(fileIconBox);
+
+                var fileTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, MaxWidth = 190 };
+                fileTextStack.Children.Add(new TextBlock { Text = msg.Text ?? "Tập tin", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
+                fileTextStack.Children.Add(new TextBlock { Text = "Chạm để tải về", FontSize = 12, Foreground = _activeBlue });
+                fileStack.Children.Add(fileTextStack);
+                fileCard.Child = fileStack;
+                stack.Children.Add(fileCard);
             }
             else
             {
@@ -888,6 +1187,83 @@ namespace ZaloWP81.Views
             else
             {
                 _ = ZaloApp.SendAsync(_conversation, text);
+            }
+        }
+
+        private async void BindMessageImage(Image img, ProgressRing ring, Border retryBtn, ZaloChatMessage msg)
+        {
+            if (msg.MediaImage != null)
+            {
+                img.Source = msg.MediaImage;
+                if (ring != null) { ring.IsActive = false; ring.Visibility = Visibility.Collapsed; }
+                return;
+            }
+
+            string url = msg.ViewerUrl ?? msg.MediaUrl;
+            if (string.IsNullOrEmpty(url)) return;
+
+            if (url.StartsWith("ms-appx:///"))
+            {
+                try
+                {
+                    img.Source = new BitmapImage(new Uri(url));
+                    if (ring != null) { ring.IsActive = false; ring.Visibility = Visibility.Collapsed; }
+                }
+                catch { }
+                return;
+            }
+
+            if (ring != null) { ring.IsActive = true; ring.Visibility = Visibility.Visible; }
+            if (retryBtn != null) retryBtn.Visibility = Visibility.Collapsed;
+
+            try
+            {
+                byte[] bytes = null;
+                if (ZaloApp.Session != null)
+                {
+                    try
+                    {
+                        bytes = await ZaloApp.Session.Http.DownloadBytesAsync(url, CancellationToken.None);
+                    }
+                    catch { }
+                }
+
+                if (bytes == null)
+                {
+                    using (var hc = new System.Net.Http.HttpClient())
+                    {
+                        bytes = await hc.GetByteArrayAsync(url);
+                    }
+                }
+
+                if (bytes != null && bytes.Length > 0)
+                {
+                    using (var stream = new InMemoryRandomAccessStream())
+                    using (var writer = new DataWriter(stream))
+                    {
+                        writer.WriteBytes(bytes);
+                        await writer.StoreAsync();
+                        await writer.FlushAsync();
+                        writer.DetachStream();
+                        stream.Seek(0);
+                        var bitmap = new BitmapImage { DecodePixelWidth = 520 };
+                        await bitmap.SetSourceAsync(stream);
+                        img.Source = bitmap;
+                        msg.SetDownloadedMediaImage(bitmap);
+                    }
+                }
+                else
+                {
+                    throw new Exception("Empty data");
+                }
+            }
+            catch (Exception)
+            {
+                if (retryBtn != null) retryBtn.Visibility = Visibility.Visible;
+            }
+            finally
+            {
+                if (ring != null) { ring.IsActive = false; ring.Visibility = Visibility.Collapsed; }
             }
         }
 

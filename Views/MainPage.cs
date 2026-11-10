@@ -1026,7 +1026,18 @@ namespace ZaloWP81.Views
             _conversationStack.Children.Clear();
             string query = _searchBox?.Text?.Trim();
 
-            var list = ZaloApp.Conversations.AsEnumerable();
+            var otherKeys = new HashSet<string>(
+                ZaloSettingsService.Current.GetOtherConversationKeys(ZaloApp.Session?.Uid),
+                StringComparer.Ordinal);
+
+            var list = ZaloApp.Conversations.Where(c =>
+            {
+                if (c == null) return false;
+                bool isOther = ZaloApp.IsArchived(c) || otherKeys.Contains(c.Key) || (!c.IsGroup && !ZaloApp.IsFriend(c.ThreadId));
+                if (isOther != _isOtherSubTab) return false;
+                return true;
+            });
+
             if (!string.IsNullOrEmpty(query))
             {
                 string norm = ZaloFormat.NormalizeSearch(query);
@@ -1034,7 +1045,7 @@ namespace ZaloWP81.Views
             }
 
             int count = 0;
-            foreach (var conv in list)
+            foreach (var conv in list.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.LastTs))
             {
                 var item = CreateConversationItem(conv);
                 _conversationStack.Children.Add(item);
@@ -1061,15 +1072,18 @@ namespace ZaloWP81.Views
                 emptyStack.Children.Add(emptyImg);
                 emptyStack.Children.Add(new TextBlock
                 {
-                    Text = "Chưa có cuộc trò chuyện nào",
+                    Text = _isOtherSubTab ? "Không có tin nhắn nào trong mục Khác" : "Chưa có cuộc trò chuyện nào",
                     FontSize = 16,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = _textDark,
-                    HorizontalAlignment = HorizontalAlignment.Center
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    TextAlignment = TextAlignment.Center
                 });
                 emptyStack.Children.Add(new TextBlock
                 {
-                    Text = "Bấm dấu + ở trên để bắt đầu nhắn tin hoặc tạo nhóm mới.",
+                    Text = _isOtherSubTab
+                        ? "Tin nhắn từ người lạ hoặc cuộc trò chuyện chuyển sang Khác sẽ xuất hiện tại đây."
+                        : "Bấm dấu + ở trên để bắt đầu nhắn tin hoặc tạo nhóm mới.",
                     FontSize = 13,
                     Foreground = _textSub,
                     TextAlignment = TextAlignment.Center,
@@ -1174,6 +1188,18 @@ namespace ZaloWP81.Views
                 titleLine.Children.Add(groupIconBorder);
             }
 
+            if (conv.IsPinned)
+            {
+                var pinIcon = new TextBlock
+                {
+                    Text = "📌",
+                    FontSize = 12,
+                    Margin = new Thickness(0, 0, 4, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                titleLine.Children.Add(pinIcon);
+            }
+
             var nameBlock = new TextBlock
             {
                 Text = conv.Name ?? "Trò chuyện",
@@ -1184,6 +1210,18 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             titleLine.Children.Add(nameBlock);
+
+            if (conv.IsMuted)
+            {
+                var muteIcon = new TextBlock
+                {
+                    Text = "🔕",
+                    FontSize = 11,
+                    Margin = new Thickness(4, 0, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                titleLine.Children.Add(muteIcon);
+            }
             textStack.Children.Add(titleLine);
 
             var lastTextBlock = new TextBlock
@@ -1257,6 +1295,51 @@ namespace ZaloWP81.Views
             itemBorder.Tapped += (s, e) =>
             {
                 NavigationManager.NavigateTo(new ChatPage(conv.Key));
+            };
+
+            itemBorder.Holding += async (s, e) =>
+            {
+                if (e.HoldingState != Windows.UI.Input.HoldingState.Started) return;
+                var dialog = new MessageDialog(conv.Name ?? "Trò chuyện", "Tùy chọn");
+                dialog.Commands.Add(new UICommand(conv.IsPinned ? "Bỏ ghim" : "Ghim lên đầu", cmd =>
+                {
+                    conv.IsPinned = !conv.IsPinned;
+                    RefreshConversations();
+                }));
+                dialog.Commands.Add(new UICommand(conv.IsMuted ? "Bật thông báo" : "Tắt thông báo", async cmd =>
+                {
+                    await ZaloApp.SetMutedAsync(conv, !conv.IsMuted);
+                    RefreshConversations();
+                }));
+                dialog.Commands.Add(new UICommand(_isOtherSubTab ? "Chuyển sang Ưu tiên" : "Chuyển sang Khác", cmd =>
+                {
+                    var keys = ZaloSettingsService.Current.GetOtherConversationKeys(ZaloApp.Session?.Uid);
+                    keys.RemoveAll(k => string.Equals(k, conv.Key, StringComparison.Ordinal));
+                    if (!_isOtherSubTab) keys.Add(conv.Key);
+                    ZaloSettingsService.Current.SetOtherConversationKeys(ZaloApp.Session?.Uid, keys);
+                    RefreshConversations();
+                }));
+                if (conv.Unread > 0)
+                {
+                    dialog.Commands.Add(new UICommand("Đánh dấu đã đọc", cmd =>
+                    {
+                        conv.Unread = 0;
+                        RefreshConversations();
+                    }));
+                }
+                dialog.Commands.Add(new UICommand("Xóa cuộc trò chuyện", async cmd =>
+                {
+                    var confirm = new MessageDialog("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?", "Xác nhận xóa");
+                    confirm.Commands.Add(new UICommand("Xóa", c =>
+                    {
+                        ZaloApp.Conversations.Remove(conv);
+                        RefreshConversations();
+                    }));
+                    confirm.Commands.Add(new UICommand("Hủy"));
+                    await confirm.ShowAsync();
+                }));
+                dialog.Commands.Add(new UICommand("Đóng"));
+                await dialog.ShowAsync();
             };
 
             return itemBorder;

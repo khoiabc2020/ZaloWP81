@@ -262,24 +262,25 @@ namespace ZaloWP81.Views
                     _foundFriend = await ZaloAuth.FindFriendByPhoneAsync(ZaloApp.Session, phone, CancellationToken.None);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                _foundFriend = null;
+                _statusText.Text = ex.Message;
+                _statusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xD9, 0x43, 0x43));
+                return;
+            }
 
             if (_foundFriend == null)
             {
-                // Fallback local match or simulated user
-                string fakeName = "Người dùng " + phone.Substring(Math.Max(0, phone.Length - 4));
-                _foundFriend = new ZaloFriend
-                {
-                    UserId = "user_" + phone,
-                    Name = fakeName,
-                    Subtitle = phone
-                };
+                _statusText.Text = "Không tìm thấy tài khoản Zalo với số điện thoại này.";
+                _statusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xD9, 0x43, 0x43));
+                return;
             }
 
             _foundName.Text = _foundFriend.Name;
             _foundPhone.Text = phone;
             _foundInitial.Text = ZaloAvatar.InitialOf(_foundFriend.Name);
-            _statusText.Text = "Đã tìm thấy tài khoản.";
+            _statusText.Text = "Đã tìm thấy tài khoản Zalo.";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81));
             _resultCard.Visibility = Visibility.Visible;
         }

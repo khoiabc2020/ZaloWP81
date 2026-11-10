@@ -80,6 +80,23 @@ namespace ZaloWP81
             }
         }
 
+        protected override void OnActivated(IActivatedEventArgs args)
+        {
+            base.OnActivated(args);
+            try
+            {
+                if (args is FileOpenPickerContinuationEventArgs fileArgs)
+                {
+                    if (NavigationManager.CurrentPage is IFileOpenPickerContinuable continuable)
+                    {
+                        continuable.ContinueWithFileOpenPicker(fileArgs);
+                    }
+                }
+                Window.Current?.Activate();
+            }
+            catch { }
+        }
+
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
             var deferral = e.SuspendingOperation.GetDeferral();

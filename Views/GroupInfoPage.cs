@@ -24,6 +24,7 @@ namespace ZaloWP81.Views
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF));
         private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x20, 0x21, 0x24));
         private readonly SolidColorBrush _textSub = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x77, 0x7C));
+        private readonly SolidColorBrush _cardBg = new SolidColorBrush(Colors.White);
 
         private TextBlock _nameTextBlock;
         private TextBlock _memberCountTextBlock;
@@ -34,6 +35,14 @@ namespace ZaloWP81.Views
         private Border _changeGroupNameButton;
         private TextBlock _mediaCountText;
 
+        // Group Board (Ghi chú, Bình chọn, Tin ghim)
+        private StackPanel _boardStack;
+        private TextBlock _boardStatusTextBlock;
+
+        // Group Reminders (Lịch nhóm / Nhắc hẹn)
+        private StackPanel _remindersStack;
+        private TextBlock _remindersStatusTextBlock;
+
         private string _creatorId = string.Empty;
         private readonly HashSet<string> _adminIds = new HashSet<string>(StringComparer.Ordinal);
         private string _groupInviteLink = string.Empty;
@@ -43,7 +52,11 @@ namespace ZaloWP81.Views
             _conversationKey = conversationKey;
             _conversation = ZaloApp.Find(conversationKey) ?? ZaloApp.Conversations.FirstOrDefault(c => c.Key == conversationKey);
             BuildUI();
-            Loaded += (s, e) => LoadGroupInfoAsync();
+            Loaded += async (s, e) =>
+            {
+                LoadGroupInfoAsync();
+                await Task.WhenAll(LoadGroupBoardAsync(), LoadGroupRemindersAsync());
+            };
         }
 
         private bool CanManageGroup()
@@ -112,7 +125,7 @@ namespace ZaloWP81.Views
             // Group Profile Card (EXACT WIN10 DIMENSIONS: 104x104 Avatar, 22px Title, 14px Member count)
             var card = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(20, 24, 20, 18),
                 Margin = new Thickness(0, 0, 0, 8)
@@ -193,7 +206,7 @@ namespace ZaloWP81.Views
             // 4 Quick Actions (EXACT WIN10 DIMENSIONS: 48x48 circle with #F4F5F7 background)
             var actionCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(12, 16, 12, 18),
                 Margin = new Thickness(0, 0, 0, 8)
@@ -235,7 +248,7 @@ namespace ZaloWP81.Views
             // Group Invite Link Box
             _groupInviteLinkPanel = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(16),
                 Margin = new Thickness(0, 0, 0, 12),
@@ -274,10 +287,10 @@ namespace ZaloWP81.Views
             // Group Media Section
             var mediaCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(16, 12, 16, 12),
-                Margin = new Thickness(0, 0, 0, 12)
+                Margin = new Thickness(0, 0, 0, 8)
             };
             var mediaGrid = new Grid();
             mediaGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -295,13 +308,156 @@ namespace ZaloWP81.Views
             mediaCard.Tapped += (s, e) => ShowGroupMediaDialog();
             stack.Children.Add(mediaCard);
 
+            // Group Board Section (Tin ghim, ghi chú, bình chọn)
+            var boardCard = new Border
+            {
+                Background = _cardBg,
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var boardRootStack = new StackPanel();
+
+            var boardHeaderGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            boardHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            boardHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var boardHeaderTitle = new TextBlock
+            {
+                Text = "Nội dung nhóm (Bảng tin)",
+                FontSize = 15.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _textDark,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(boardHeaderTitle, 0);
+            boardHeaderGrid.Children.Add(boardHeaderTitle);
+
+            var refreshBoardBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF3, 0xF6, 0xFA)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(8, 4, 8, 4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            refreshBoardBtn.Child = new TextBlock { Text = "Làm mới", FontSize = 11, Foreground = ColorBrush(0xFF, 0x46, 0x53, 0x65) };
+            refreshBoardBtn.Tapped += async (s, e) => await LoadGroupBoardAsync();
+            Grid.SetColumn(refreshBoardBtn, 1);
+            boardHeaderGrid.Children.Add(refreshBoardBtn);
+            boardRootStack.Children.Add(boardHeaderGrid);
+
+            // Action row: Ghi chú / Tạo bình chọn
+            var boardActionsRow = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            boardActionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            boardActionsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var createNoteBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 7, 10, 7),
+                Margin = new Thickness(0, 0, 4, 0)
+            };
+            createNoteBtn.Child = new TextBlock { Text = "📝 Ghi chú", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center };
+            createNoteBtn.Tapped += (s, e) => CreateGroupNote_Click();
+            Grid.SetColumn(createNoteBtn, 0);
+            boardActionsRow.Children.Add(createNoteBtn);
+
+            var createPollBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 7, 10, 7),
+                Margin = new Thickness(4, 0, 0, 0)
+            };
+            createPollBtn.Child = new TextBlock { Text = "📊 Tạo bình chọn", FontSize = 12.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue, HorizontalAlignment = HorizontalAlignment.Center };
+            createPollBtn.Tapped += (s, e) => CreateGroupPoll_Click();
+            Grid.SetColumn(createPollBtn, 1);
+            boardActionsRow.Children.Add(createPollBtn);
+            boardRootStack.Children.Add(boardActionsRow);
+
+            _boardStatusTextBlock = new TextBlock
+            {
+                Text = "Đang tải bảng nhóm…",
+                FontSize = 12,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 6)
+            };
+            boardRootStack.Children.Add(_boardStatusTextBlock);
+
+            _boardStack = new StackPanel();
+            boardRootStack.Children.Add(_boardStack);
+
+            boardCard.Child = boardRootStack;
+            stack.Children.Add(boardCard);
+
+            // Group Reminders Section (Lịch nhóm)
+            var remindersCard = new Border
+            {
+                Background = _cardBg,
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(16),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var remRootStack = new StackPanel();
+
+            var remHeaderGrid = new Grid { Margin = new Thickness(0, 0, 0, 8) };
+            remHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            remHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            remHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var remTitle = new TextBlock { Text = "Lịch nhóm (Nhắc hẹn)", FontSize = 15.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, VerticalAlignment = VerticalAlignment.Center };
+            Grid.SetColumn(remTitle, 0);
+            remHeaderGrid.Children.Add(remTitle);
+
+            var createRemBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(8, 4, 8, 4),
+                Margin = new Thickness(0, 0, 4, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            createRemBtn.Child = new TextBlock { Text = "+ Nhắc hẹn", FontSize = 11, Foreground = _activeBlue, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+            createRemBtn.Tapped += (s, e) => CreateGroupReminder_Click();
+            Grid.SetColumn(createRemBtn, 1);
+            remHeaderGrid.Children.Add(createRemBtn);
+
+            var refreshRemBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF3, 0xF6, 0xFA)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(8, 4, 8, 4),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            refreshRemBtn.Child = new TextBlock { Text = "Làm mới", FontSize = 11, Foreground = ColorBrush(0xFF, 0x46, 0x53, 0x65) };
+            refreshRemBtn.Tapped += async (s, e) => await LoadGroupRemindersAsync();
+            Grid.SetColumn(refreshRemBtn, 2);
+            remHeaderGrid.Children.Add(refreshRemBtn);
+            remRootStack.Children.Add(remHeaderGrid);
+
+            _remindersStatusTextBlock = new TextBlock
+            {
+                Text = "Đang tải nhắc hẹn…",
+                FontSize = 12,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 6)
+            };
+            remRootStack.Children.Add(_remindersStatusTextBlock);
+
+            _remindersStack = new StackPanel();
+            remRootStack.Children.Add(_remindersStack);
+
+            remindersCard.Child = remRootStack;
+            stack.Children.Add(remindersCard);
+
             // Add Member Button
             var addMemberCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(16, 14, 16, 14),
-                Margin = new Thickness(0, 0, 0, 12)
+                Margin = new Thickness(0, 0, 0, 8)
             };
             var addMemberGrid = new Grid();
             addMemberGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
@@ -330,10 +486,10 @@ namespace ZaloWP81.Views
             // Member List Card
             var membersCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Padding = new Thickness(16, 16, 16, 12),
-                Margin = new Thickness(0, 0, 0, 12)
+                Margin = new Thickness(0, 0, 0, 8)
             };
             var membersStack = new StackPanel();
             membersStack.Children.Add(new TextBlock
@@ -353,7 +509,7 @@ namespace ZaloWP81.Views
             // Danger Actions (Leave Group)
             var dangerCard = new Border
             {
-                Background = new SolidColorBrush(Colors.White),
+                Background = _cardBg,
                 CornerRadius = new CornerRadius(14),
                 Margin = new Thickness(0, 0, 0, 16)
             };
@@ -398,18 +554,20 @@ namespace ZaloWP81.Views
                         _nameTextBlock.Text = name;
                     }
                     string avatar = ZaloAuth.Str(info, "fullAvt");
-                    if (avatar.Length == 0) avatar = ZaloAuth.Str(info, "avt");
-                    if (!string.IsNullOrWhiteSpace(avatar)) _conversation.AvatarUrl = avatar;
+                    if (string.IsNullOrWhiteSpace(avatar)) avatar = ZaloAuth.Str(info, "avt");
+                    if (!string.IsNullOrWhiteSpace(avatar))
+                    {
+                        _conversation.AvatarUrl = avatar;
+                    }
 
                     _creatorId = ZaloAuth.Str(info, "creatorId");
                     _adminIds.Clear();
-                    IJsonValue adminValue;
-                    if (info.TryGetValue("adminIds", out adminValue) && adminValue.ValueType == JsonValueType.Array)
+                    IJsonValue adminVal;
+                    if (info.TryGetValue("adminIds", out adminVal) && adminVal.ValueType == JsonValueType.Array)
                     {
-                        foreach (IJsonValue admin in adminValue.GetArray())
+                        foreach (IJsonValue v in adminVal.GetArray())
                         {
-                            string adminId = admin.ValueType == JsonValueType.String ? admin.GetString() : string.Empty;
-                            if (adminId.Length > 0) _adminIds.Add(adminId);
+                            if (v.ValueType == JsonValueType.String) _adminIds.Add(v.GetString());
                         }
                     }
 
@@ -447,21 +605,589 @@ namespace ZaloWP81.Views
                         _membersStack.Children.Add(CreateMemberRow(mem.DisplayName, mem.GroupRoleText, mem.AvatarUrl, mem.UserId));
                     }
 
-                    if (CanManageGroup())
+                    _changeGroupNameButton.Visibility = CanManageGroup() ? Visibility.Visible : Visibility.Collapsed;
+
+                    if (CanManageGroup() || !string.IsNullOrEmpty(_groupInviteLink))
                     {
-                        _changeGroupNameButton.Visibility = Visibility.Visible;
                         await LoadGroupLinkAsync();
-                    }
-                    else
-                    {
-                        _changeGroupNameButton.Visibility = Visibility.Collapsed;
                     }
                 }
             }
             catch (Exception ex)
             {
-                ZaloLog.Add("LoadGroupInfo error: " + ex.Message);
+                ZaloLog.Add("Group details load failed: " + ex.Message);
                 _memberCountTextBlock.Text = $"{_conversation.GroupMemberCount} thành viên (ngoại tuyến)";
+            }
+        }
+
+        private async Task LoadGroupBoardAsync()
+        {
+            if (_conversation == null || ZaloApp.Session == null) return;
+            if (_boardStatusTextBlock != null) _boardStatusTextBlock.Text = "Đang tải bảng nhóm…";
+            if (_boardStack != null) _boardStack.Children.Clear();
+
+            try
+            {
+                List<ZaloGroupBoardEntry> entries = await ZaloMessaging.GetGroupBoardAsync(
+                    ZaloApp.Session, _conversation.ThreadId, 1, 30, CancellationToken.None);
+
+                if (entries == null || entries.Count == 0)
+                {
+                    if (_boardStatusTextBlock != null) _boardStatusTextBlock.Text = "Chưa có tin ghim, ghi chú hay bình chọn nào.";
+                    return;
+                }
+
+                if (_boardStatusTextBlock != null) _boardStatusTextBlock.Text = $"{entries.Count} nội dung gần đây";
+
+                foreach (var entry in entries)
+                {
+                    var itemBorder = new Border
+                    {
+                        Padding = new Thickness(0, 8, 0, 8),
+                        BorderBrush = ColorBrush(0xFF, 0xEE, 0xF0, 0xF2),
+                        BorderThickness = new Thickness(0, 0, 0, 1),
+                        Background = new SolidColorBrush(Colors.Transparent)
+                    };
+                    var itemGrid = new Grid();
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var iconBlock = new TextBlock
+                    {
+                        Text = string.IsNullOrEmpty(entry.Icon) ? (entry.PollId > 0 ? "📊" : "📌") : entry.Icon,
+                        FontSize = 18,
+                        VerticalAlignment = VerticalAlignment.Top
+                    };
+                    Grid.SetColumn(iconBlock, 0);
+                    itemGrid.Children.Add(iconBlock);
+
+                    var infoStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
+                    infoStack.Children.Add(new TextBlock
+                    {
+                        Text = entry.Title ?? "",
+                        FontSize = 14,
+                        FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                        Foreground = _textDark,
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                    if (!string.IsNullOrEmpty(entry.Subtitle))
+                    {
+                        infoStack.Children.Add(new TextBlock
+                        {
+                            Text = entry.Subtitle,
+                            FontSize = 11.5,
+                            Foreground = _textSub,
+                            Margin = new Thickness(0, 2, 0, 0)
+                        });
+                    }
+
+                    if (entry.PollId > 0)
+                    {
+                        var voteBtn = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                            CornerRadius = new CornerRadius(12),
+                            Padding = new Thickness(10, 4, 10, 4),
+                            Margin = new Thickness(0, 6, 0, 0),
+                            HorizontalAlignment = HorizontalAlignment.Left
+                        };
+                        voteBtn.Child = new TextBlock { Text = "Mở bình chọn", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
+                        long pollId = entry.PollId;
+                        voteBtn.Tapped += (s, e) => OpenPollDialog(pollId);
+                        infoStack.Children.Add(voteBtn);
+                    }
+                    else if (!string.IsNullOrEmpty(entry.TopicId))
+                    {
+                        var noteBtn = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF3, 0xF6, 0xFA)),
+                            CornerRadius = new CornerRadius(12),
+                            Padding = new Thickness(10, 4, 10, 4),
+                            Margin = new Thickness(0, 6, 0, 0),
+                            HorizontalAlignment = HorizontalAlignment.Left
+                        };
+                        noteBtn.Child = new TextBlock { Text = "Sửa ghi chú", FontSize = 12, Foreground = ColorBrush(0xFF, 0x46, 0x53, 0x65) };
+                        string topicId = entry.TopicId;
+                        string currentNote = entry.Title;
+                        noteBtn.Tapped += (s, e) => ShowEditNoteDialog(topicId, currentNote);
+                        infoStack.Children.Add(noteBtn);
+                    }
+
+                    Grid.SetColumn(infoStack, 1);
+                    itemGrid.Children.Add(infoStack);
+
+                    if (!string.IsNullOrEmpty(entry.TimeText))
+                    {
+                        var timeBlock = new TextBlock
+                        {
+                            Text = entry.TimeText,
+                            FontSize = 10.5,
+                            Foreground = ColorBrush(0xFF, 0x98, 0xA2, 0xAE),
+                            VerticalAlignment = VerticalAlignment.Top
+                        };
+                        Grid.SetColumn(timeBlock, 2);
+                        itemGrid.Children.Add(timeBlock);
+                    }
+
+                    itemBorder.Child = itemGrid;
+                    _boardStack.Children.Add(itemBorder);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_boardStatusTextBlock != null) _boardStatusTextBlock.Text = "Chưa tải được bảng nhóm.";
+                ZaloLog.Add("LoadGroupBoardAsync failed: " + ex.Message);
+            }
+        }
+
+        private async Task LoadGroupRemindersAsync()
+        {
+            if (_conversation == null || ZaloApp.Session == null) return;
+            if (_remindersStatusTextBlock != null) _remindersStatusTextBlock.Text = "Đang tải nhắc hẹn…";
+            if (_remindersStack != null) _remindersStack.Children.Clear();
+
+            try
+            {
+                List<ZaloGroupReminder> reminders = await ZaloMessaging.GetGroupRemindersAsync(
+                    ZaloApp.Session, _conversation.ThreadId, 1, 30, CancellationToken.None);
+
+                if (reminders == null || reminders.Count == 0)
+                {
+                    if (_remindersStatusTextBlock != null) _remindersStatusTextBlock.Text = "Chưa có nhắc hẹn nào trong nhóm.";
+                    return;
+                }
+
+                if (_remindersStatusTextBlock != null) _remindersStatusTextBlock.Text = $"{reminders.Count} nhắc hẹn gần đây";
+
+                foreach (var rem in reminders)
+                {
+                    var itemBorder = new Border
+                    {
+                        Padding = new Thickness(0, 8, 0, 8),
+                        BorderBrush = ColorBrush(0xFF, 0xEE, 0xF0, 0xF2),
+                        BorderThickness = new Thickness(0, 0, 0, 1),
+                        Background = new SolidColorBrush(Colors.Transparent)
+                    };
+                    var itemGrid = new Grid();
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    var calIcon = new TextBlock
+                    {
+                        Text = "📅",
+                        FontSize = 18,
+                        VerticalAlignment = VerticalAlignment.Top
+                    };
+                    Grid.SetColumn(calIcon, 0);
+                    itemGrid.Children.Add(calIcon);
+
+                    var remStack = new StackPanel { Margin = new Thickness(6, 0, 0, 0) };
+                    remStack.Children.Add(new TextBlock
+                    {
+                        Text = rem.Title ?? "Nhắc hẹn",
+                        FontSize = 14,
+                        FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                        Foreground = _textDark,
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                    if (!string.IsNullOrEmpty(rem.TimeText))
+                    {
+                        remStack.Children.Add(new TextBlock
+                        {
+                            Text = rem.TimeText,
+                            FontSize = 12,
+                            Foreground = ColorBrush(0xFF, 0x52, 0x61, 0x71),
+                            Margin = new Thickness(0, 2, 0, 0)
+                        });
+                    }
+                    if (!string.IsNullOrEmpty(rem.RepeatText))
+                    {
+                        remStack.Children.Add(new TextBlock
+                        {
+                            Text = rem.RepeatText,
+                            FontSize = 11,
+                            Foreground = _textSub,
+                            Margin = new Thickness(0, 1, 0, 0)
+                        });
+                    }
+
+                    Grid.SetColumn(remStack, 1);
+                    itemGrid.Children.Add(remStack);
+
+                    if (rem.CanManage)
+                    {
+                        var delBtn = new Border
+                        {
+                            Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xF1, 0xF0)),
+                            CornerRadius = new CornerRadius(10),
+                            Padding = new Thickness(8, 4, 8, 4),
+                            VerticalAlignment = VerticalAlignment.Center
+                        };
+                        delBtn.Child = new TextBlock { Text = "Xóa", FontSize = 11, Foreground = ColorBrush(0xFF, 0xB4, 0x23, 0x18), FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+                        var rItem = rem;
+                        delBtn.Tapped += async (s, e) =>
+                        {
+                            var md = new MessageDialog($"Bạn có muốn xóa nhắc hẹn '{rItem.Title}'?", "Xóa nhắc hẹn");
+                            md.Commands.Add(new UICommand("Xóa", async cmd =>
+                            {
+                                try
+                                {
+                                    await ZaloMessaging.RemoveGroupReminderAsync(ZaloApp.Session, _conversation.ThreadId, rItem.Id, CancellationToken.None);
+                                    await LoadGroupRemindersAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    await new MessageDialog("Lỗi xóa nhắc hẹn: " + ex.Message).ShowAsync();
+                                }
+                            }));
+                            md.Commands.Add(new UICommand("Hủy"));
+                            await md.ShowAsync();
+                        };
+                        Grid.SetColumn(delBtn, 2);
+                        itemGrid.Children.Add(delBtn);
+                    }
+
+                    itemBorder.Child = itemGrid;
+                    _remindersStack.Children.Add(itemBorder);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (_remindersStatusTextBlock != null) _remindersStatusTextBlock.Text = "Chưa tải được nhắc hẹn.";
+                ZaloLog.Add("LoadGroupRemindersAsync failed: " + ex.Message);
+            }
+        }
+
+        private async void CreateGroupNote_Click()
+        {
+            if (_conversation == null || ZaloApp.Session == null) return;
+            var noteText = new TextBox
+            {
+                PlaceholderText = "Nhập nội dung ghi chú cho nhóm",
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MaxLength = 500,
+                MinHeight = 80
+            };
+            var pin = new CheckBox { Content = "Ghim ghi chú lên đầu bảng nhóm", Margin = new Thickness(0, 8, 0, 0) };
+            var form = new StackPanel();
+            form.Children.Add(noteText);
+            form.Children.Add(pin);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Tạo ghi chú nhóm",
+                Content = form,
+                PrimaryButtonText = "Tạo ghi chú",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            string txt = (noteText.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(txt))
+            {
+                await new MessageDialog("Vui lòng nhập nội dung ghi chú.", "Ghi chú nhóm").ShowAsync();
+                return;
+            }
+
+            try
+            {
+                await ZaloMessaging.CreateGroupNoteAsync(ZaloApp.Session, _conversation.ThreadId, txt, pin.IsChecked == true, CancellationToken.None);
+                await LoadGroupBoardAsync();
+                await new MessageDialog("Đã tạo ghi chú cho nhóm thành công.", "Ghi chú nhóm").ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Không tạo được ghi chú: " + ex.Message, "Ghi chú nhóm").ShowAsync();
+            }
+        }
+
+        private async void ShowEditNoteDialog(string topicId, string currentNote)
+        {
+            if (_conversation == null || ZaloApp.Session == null || string.IsNullOrEmpty(topicId)) return;
+            var noteText = new TextBox
+            {
+                Text = currentNote ?? string.Empty,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MaxLength = 500,
+                MinHeight = 80
+            };
+
+            var dialog = new ContentDialog
+            {
+                Title = "Sửa ghi chú nhóm",
+                Content = noteText,
+                PrimaryButtonText = "Lưu",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+            string txt = (noteText.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(txt)) return;
+
+            try
+            {
+                await ZaloMessaging.UpdateGroupNoteAsync(ZaloApp.Session, _conversation.ThreadId, topicId, txt, CancellationToken.None);
+                await LoadGroupBoardAsync();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Không sửa được ghi chú: " + ex.Message, "Sửa ghi chú").ShowAsync();
+            }
+        }
+
+        private async void CreateGroupPoll_Click()
+        {
+            if (_conversation == null || ZaloApp.Session == null) return;
+            var content = new StackPanel();
+            content.Children.Add(new TextBlock { Text = "Câu hỏi bình chọn:", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            var question = new TextBox { PlaceholderText = "Nhập câu hỏi...", MaxLength = 200, Margin = new Thickness(0, 4, 0, 8) };
+            content.Children.Add(question);
+
+            content.Children.Add(new TextBlock { Text = "Các lựa chọn (ít nhất 2):", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            var optionPanel = new StackPanel();
+            var optionBoxes = new List<TextBox>();
+            Action addBox = () =>
+            {
+                var box = new TextBox { PlaceholderText = "Lựa chọn " + (optionBoxes.Count + 1), MaxLength = 100, Margin = new Thickness(0, 2, 0, 6) };
+                optionBoxes.Add(box);
+                optionPanel.Children.Add(box);
+            };
+            addBox();
+            addBox();
+            content.Children.Add(optionPanel);
+
+            var addOptionBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF3, 0xFF)),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 5, 10, 5),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            addOptionBtn.Child = new TextBlock { Text = "+ Thêm lựa chọn", FontSize = 12, Foreground = _activeBlue, FontWeight = Windows.UI.Text.FontWeights.SemiBold };
+            addOptionBtn.Tapped += (s, e) =>
+            {
+                if (optionBoxes.Count < 10) addBox();
+            };
+            content.Children.Add(addOptionBtn);
+
+            var multiChoice = new CheckBox { Content = "Cho phép chọn nhiều đáp án", Margin = new Thickness(0, 2, 0, 2) };
+            var anonymous = new CheckBox { Content = "Ẩn danh người bình chọn", Margin = new Thickness(0, 2, 0, 4) };
+            content.Children.Add(multiChoice);
+            content.Children.Add(anonymous);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Tạo bình chọn nhóm",
+                Content = new ScrollViewer { Content = content, MaxHeight = 420 },
+                PrimaryButtonText = "Tạo",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            List<string> options = optionBoxes.Select(b => (b.Text ?? string.Empty).Trim())
+                .Where(val => val.Length > 0).ToList();
+
+            if (string.IsNullOrWhiteSpace(question.Text) || options.Count < 2)
+            {
+                await new MessageDialog("Vui lòng nhập câu hỏi và ít nhất 2 phương án lựa chọn.", "Tạo bình chọn").ShowAsync();
+                return;
+            }
+
+            try
+            {
+                await ZaloMessaging.CreatePollAsync(ZaloApp.Session, _conversation.ThreadId, question.Text,
+                    options, multiChoice.IsChecked == true, anonymous.IsChecked == true, CancellationToken.None);
+                await LoadGroupBoardAsync();
+                await new MessageDialog("Đã tạo cuộc bình chọn thành công.", "Bình chọn").ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Không tạo được bình chọn: " + ex.Message, "Bình chọn").ShowAsync();
+            }
+        }
+
+        private async void OpenPollDialog(long pollId)
+        {
+            if (pollId <= 0 || ZaloApp.Session == null) return;
+            try
+            {
+                ZaloPollDetail poll = await ZaloMessaging.GetPollDetailAsync(ZaloApp.Session, pollId, CancellationToken.None);
+                var content = new StackPanel();
+                content.Children.Add(new TextBlock
+                {
+                    Text = $"{poll.VoteCount} lượt bình chọn" + (poll.AllowMultiple ? " · chọn nhiều đáp án" : ""),
+                    FontSize = 12,
+                    Foreground = _textSub,
+                    Margin = new Thickness(0, 0, 0, 8)
+                });
+
+                var choices = new List<FrameworkElement>();
+                int totalOptionVotes = poll.Options.Sum(opt => Math.Max(0, opt.Votes));
+
+                foreach (var option in poll.Options)
+                {
+                    double pct = totalOptionVotes <= 0 ? 0 : (100.0 * Math.Max(0, option.Votes) / totalOptionVotes);
+                    var optStack = new StackPanel { Margin = new Thickness(4, 2, 4, 6) };
+                    optStack.Children.Add(new TextBlock
+                    {
+                        Text = option.Content ?? "Lựa chọn",
+                        FontSize = 14.5,
+                        FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                        Foreground = _textDark,
+                        TextWrapping = TextWrapping.Wrap
+                    });
+                    optStack.Children.Add(new TextBlock
+                    {
+                        Text = $"{option.Votes} phiếu ({pct:F0}%)",
+                        FontSize = 11.5,
+                        Foreground = _textSub,
+                        Margin = new Thickness(0, 2, 0, 0)
+                    });
+                    optStack.Children.Add(new ProgressBar
+                    {
+                        Minimum = 0,
+                        Maximum = 100,
+                        Value = pct,
+                        Height = 4,
+                        Margin = new Thickness(0, 4, 0, 0),
+                        Foreground = _activeBlue
+                    });
+
+                    FrameworkElement control;
+                    if (poll.AllowMultiple)
+                    {
+                        control = new CheckBox
+                        {
+                            Content = optStack,
+                            IsChecked = option.Voted,
+                            Tag = option.OptionId,
+                            IsEnabled = !poll.Closed,
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                    }
+                    else
+                    {
+                        control = new RadioButton
+                        {
+                            Content = optStack,
+                            IsChecked = option.Voted,
+                            Tag = option.OptionId,
+                            IsEnabled = !poll.Closed,
+                            GroupName = "PollRadioGroup_" + poll.PollId,
+                            Margin = new Thickness(0, 2, 0, 2)
+                        };
+                    }
+                    choices.Add(control);
+                    content.Children.Add(control);
+                }
+
+                if (poll.Closed)
+                {
+                    content.Children.Add(new TextBlock { Text = "Bình chọn này đã kết thúc.", FontSize = 12, Foreground = ColorBrush(0xFF, 0xDC, 0x26, 0x26), Margin = new Thickness(0, 6, 0, 0) });
+                }
+
+                var dialog = new ContentDialog
+                {
+                    Title = poll.Question,
+                    Content = new ScrollViewer { Content = content, MaxHeight = 450 },
+                    PrimaryButtonText = poll.Closed ? "Đóng" : "Bình chọn",
+                    SecondaryButtonText = poll.Closed ? null : "Hủy"
+                };
+
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary || poll.Closed) return;
+
+                var selected = new List<long>();
+                foreach (var choice in choices)
+                {
+                    bool isChecked = choice is CheckBox ? ((CheckBox)choice).IsChecked == true
+                        : choice is RadioButton && ((RadioButton)choice).IsChecked == true;
+                    if (isChecked && choice.Tag != null && long.TryParse(choice.Tag.ToString(), out long optId))
+                    {
+                        selected.Add(optId);
+                    }
+                }
+
+                if (selected.Count == 0)
+                {
+                    await new MessageDialog("Vui lòng chọn ít nhất 1 phương án để bình chọn.", "Bình chọn").ShowAsync();
+                    return;
+                }
+
+                await ZaloMessaging.VotePollAsync(ZaloApp.Session, poll.PollId, selected, CancellationToken.None);
+                await LoadGroupBoardAsync();
+                await new MessageDialog("Đã gửi bình chọn của bạn thành công.", "Bình chọn").ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Lỗi gửi bình chọn: " + ex.Message, "Bình chọn").ShowAsync();
+            }
+        }
+
+        private async void CreateGroupReminder_Click()
+        {
+            if (_conversation == null || ZaloApp.Session == null) return;
+            DateTimeOffset initial = DateTimeOffset.Now.AddHours(1);
+            var title = new TextBox { PlaceholderText = "Nội dung nhắc hẹn", MaxLength = 200, Margin = new Thickness(0, 4, 0, 8) };
+            var date = new DatePicker { Date = initial.Date, Margin = new Thickness(0, 4, 0, 8) };
+            var time = new TimePicker { Time = initial.TimeOfDay, ClockIdentifier = "24HourClock", Margin = new Thickness(0, 4, 0, 8) };
+
+            var repeat = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 4, 0, 8) };
+            repeat.Items.Add(new ComboBoxItem { Content = "Không lặp", Tag = "0" });
+            repeat.Items.Add(new ComboBoxItem { Content = "Hằng ngày", Tag = "1" });
+            repeat.Items.Add(new ComboBoxItem { Content = "Hằng tuần", Tag = "2" });
+            repeat.Items.Add(new ComboBoxItem { Content = "Hằng tháng", Tag = "3" });
+            repeat.SelectedIndex = 0;
+
+            var form = new StackPanel();
+            form.Children.Add(new TextBlock { Text = "Nội dung:", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            form.Children.Add(title);
+            form.Children.Add(new TextBlock { Text = "Ngày diễn ra:", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            form.Children.Add(date);
+            form.Children.Add(new TextBlock { Text = "Giờ nhắc hẹn:", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            form.Children.Add(time);
+            form.Children.Add(new TextBlock { Text = "Lặp lại:", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            form.Children.Add(repeat);
+
+            var dialog = new ContentDialog
+            {
+                Title = "Tạo nhắc hẹn nhóm",
+                Content = new ScrollViewer { Content = form, MaxHeight = 450 },
+                PrimaryButtonText = "Tạo nhắc hẹn",
+                SecondaryButtonText = "Hủy"
+            };
+
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            string remTitle = (title.Text ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(remTitle))
+            {
+                await new MessageDialog("Vui lòng nhập nội dung nhắc hẹn.", "Nhắc hẹn nhóm").ShowAsync();
+                return;
+            }
+
+            DateTimeOffset reminderTime = date.Date.Date.Add(time.Time);
+            int repeatMode = 0;
+            if (repeat.SelectedItem is ComboBoxItem sel && int.TryParse(sel.Tag?.ToString(), out int rMode))
+            {
+                repeatMode = rMode;
+            }
+
+            try
+            {
+                await ZaloMessaging.CreateGroupReminderAsync(ZaloApp.Session, _conversation.ThreadId,
+                    remTitle, reminderTime.ToUnixTimeMilliseconds(), repeatMode, CancellationToken.None);
+                await LoadGroupRemindersAsync();
+                await new MessageDialog("Đã tạo nhắc hẹn cho nhóm thành công.", "Nhắc hẹn nhóm").ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Lỗi tạo nhắc hẹn: " + ex.Message, "Nhắc hẹn nhóm").ShowAsync();
             }
         }
 
@@ -579,14 +1305,68 @@ namespace ZaloWP81.Views
             grid.Children.Add(roleText);
 
             border.Child = grid;
-            border.Tapped += (s, e) =>
+            border.PointerPressed += (s, e) => border.Opacity = 0.6;
+            border.PointerReleased += (s, e) => border.Opacity = 1.0;
+            border.PointerCanceled += (s, e) => border.Opacity = 1.0;
+            border.Tapped += async (s, e) =>
             {
-                if (!string.IsNullOrEmpty(userId) && userId != ZaloApp.Session?.Uid)
+                if (string.IsNullOrEmpty(userId)) return;
+                if (userId == ZaloApp.Session?.Uid) return;
+
+                var friend = ZaloApp.Friends.FirstOrDefault(f => f.UserId == userId)
+                    ?? new ZaloFriend { UserId = userId, Name = name, Avatar = avatarUrl };
+
+                var optDialog = new MessageDialog($"Tùy chọn cho thành viên {name}:", name);
+                optDialog.Commands.Add(new UICommand("Trang cá nhân", cmd =>
                 {
-                    var friend = ZaloApp.Friends.FirstOrDefault(f => f.UserId == userId) 
-                        ?? new ZaloFriend { UserId = userId, Name = name, Avatar = avatarUrl };
                     NavigationManager.NavigateTo(new FriendProfilePage(friend));
+                }));
+
+                if (CanManageGroup())
+                {
+                    bool isDeputy = role == "Phó nhóm";
+                    bool isOwner = role == "Trưởng nhóm";
+
+                    if (!isOwner)
+                    {
+                        optDialog.Commands.Add(new UICommand(isDeputy ? "Hạ cấp phó nhóm" : "Bổ nhiệm phó nhóm", async cmd =>
+                        {
+                            try
+                            {
+                                await ZaloMessaging.SetGroupDeputyAsync(ZaloApp.Session, _conversation.ThreadId, userId, !isDeputy, CancellationToken.None);
+                                await new MessageDialog(isDeputy ? "Đã gỡ quyền phó nhóm." : "Đã bổ nhiệm phó nhóm thành công.", "Phó nhóm").ShowAsync();
+                                LoadGroupInfoAsync();
+                            }
+                            catch (Exception ex)
+                            {
+                                await new MessageDialog("Lỗi: " + ex.Message, "Phó nhóm").ShowAsync();
+                            }
+                        }));
+
+                        optDialog.Commands.Add(new UICommand("Xóa khỏi nhóm", async cmd =>
+                        {
+                            var confirm = new MessageDialog($"Bạn có chắc chắn muốn mời {name} ra khỏi nhóm không?", "Xóa thành viên");
+                            confirm.Commands.Add(new UICommand("Xóa", async c =>
+                            {
+                                try
+                                {
+                                    await ZaloMessaging.RemoveGroupMemberAsync(ZaloApp.Session, _conversation.ThreadId, userId, CancellationToken.None);
+                                    await new MessageDialog($"Đã xóa {name} khỏi nhóm.", "Thông báo").ShowAsync();
+                                    LoadGroupInfoAsync();
+                                }
+                                catch (Exception ex)
+                                {
+                                    await new MessageDialog("Lỗi xóa thành viên: " + ex.Message).ShowAsync();
+                                }
+                            }));
+                            confirm.Commands.Add(new UICommand("Hủy"));
+                            await confirm.ShowAsync();
+                        }));
+                    }
                 }
+
+                optDialog.Commands.Add(new UICommand("Đóng"));
+                await optDialog.ShowAsync();
             };
             return border;
         }
@@ -743,7 +1523,8 @@ namespace ZaloWP81.Views
         private async void ShowWallpaperPicker()
         {
             if (_conversation == null) return;
-            var wrap = new WrapGrid { Orientation = Orientation.Horizontal, ItemWidth = 65, ItemHeight = 90 };
+            var scroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, VerticalScrollBarVisibility = ScrollBarVisibility.Disabled, Height = 100 };
+            var row = new StackPanel { Orientation = Orientation.Horizontal };
             string selectedUri = null;
 
             for (int i = 1; i <= 20; i++)
@@ -752,66 +1533,93 @@ namespace ZaloWP81.Views
                 var border = new Border
                 {
                     Width = 60,
-                    Height = 85,
-                    Margin = new Thickness(2),
-                    BorderThickness = new Thickness(2),
-                    BorderBrush = new SolidColorBrush(Colors.Transparent),
-                    Child = new Image { Source = new BitmapImage(new Uri(uri)), Stretch = Stretch.UniformToFill }
+                    Height = 88,
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(0, 0, 8, 0),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0xE0, 0xE5))
                 };
+                var img = new Image { Source = new BitmapImage(new Uri(uri)), Stretch = Stretch.UniformToFill };
+                border.Child = img;
                 border.Tapped += (s, e) =>
                 {
                     selectedUri = uri;
-                    border.BorderBrush = _activeBlue;
+                    foreach (Border b in row.Children)
+                    {
+                        b.BorderThickness = new Thickness(b == border ? 3 : 1);
+                        b.BorderBrush = b == border ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0xE0, 0xE5));
+                    }
                 };
-                wrap.Children.Add(border);
+                row.Children.Add(border);
             }
+            scroll.Content = row;
 
-            var scroll = new ScrollViewer { Content = wrap, MaxHeight = 300 };
             var dialog = new ContentDialog
             {
-                Title = "Chọn hình nền nhóm",
+                Title = "Đổi hình nền nhóm",
                 Content = scroll,
                 PrimaryButtonText = "Áp dụng",
-                SecondaryButtonText = "Hủy"
+                SecondaryButtonText = "Dùng mặc định"
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary && selectedUri != null)
+            var res = await dialog.ShowAsync();
+            string settingKey = ZaloApp.Session == null ? string.Empty : ZaloApp.Session.Uid;
+            if (res == ContentDialogResult.Primary && selectedUri != null)
             {
-                ZaloSettingsService.Current.SetConversationWallpaper(ZaloApp.Session?.Uid, _conversation.Key, selectedUri);
-                await new MessageDialog("Đã đổi hình nền nhóm thành công!", "Thông báo").ShowAsync();
+                ZaloSettingsService.Current.SetConversationWallpaper(settingKey, _conversation.Key, selectedUri);
+                await new MessageDialog("Đã cập nhật hình nền nhóm!", "Thành công").ShowAsync();
+            }
+            else if (res == ContentDialogResult.Secondary)
+            {
+                ZaloSettingsService.Current.SetConversationWallpaper(settingKey, _conversation.Key, string.Empty);
+                await new MessageDialog("Đã đặt lại hình nền mặc định.", "Thành công").ShowAsync();
             }
         }
 
         private async void ShowGroupMediaDialog()
         {
-            if (_conversation == null) return;
-            var mediaMsgs = _conversation.Messages.Where(m => m.HasMedia || m.HasFile || m.HasLinkPreview).Take(20).ToList();
+            var mediaMsgs = _conversation.Messages.Where(m => m.HasMedia || m.HasFile || m.HasLinkPreview).Take(40).ToList();
             if (mediaMsgs.Count == 0)
             {
-                await new MessageDialog("Chưa có ảnh hoặc tệp nào được gửi trong nhóm.", "Ảnh & Tệp nhóm").ShowAsync();
+                await new MessageDialog("Nhóm chưa có hình ảnh, tập tin hoặc liên kết nào.", "Ảnh, file, link").ShowAsync();
                 return;
             }
 
-            var scroll = new ScrollViewer { MaxHeight = 350 };
+            var scroll = new ScrollViewer { MaxHeight = 400 };
             var stack = new StackPanel();
+
+            var dialog = new ContentDialog
+            {
+                Title = $"Ảnh, file, link ({mediaMsgs.Count})",
+                Content = scroll,
+                PrimaryButtonText = "Đóng"
+            };
+
             foreach (var m in mediaMsgs)
             {
-                var row = new Border { Padding = new Thickness(0, 6, 0, 6), BorderBrush = ColorBrush(0xFF, 0xEE, 0xF0, 0xF2), BorderThickness = new Thickness(0, 0, 0, 1) };
+                var row = new Border { Padding = new Thickness(0, 6, 0, 6), BorderBrush = ColorBrush(0xFF, 0xEE, 0xF0, 0xF2), BorderThickness = new Thickness(0, 0, 0, 1), Background = new SolidColorBrush(Colors.Transparent) };
                 var rowStack = new StackPanel();
                 rowStack.Children.Add(new TextBlock { Text = m.Sender ?? "Người gửi", FontSize = 12, Foreground = _activeBlue });
                 rowStack.Children.Add(new TextBlock { Text = m.FileName ?? (m.HasMedia ? "[Hình ảnh]" : m.Text), FontSize = 13.5, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
                 rowStack.Children.Add(new TextBlock { Text = m.TimeText ?? "", FontSize = 11, Foreground = _textSub });
                 row.Child = rowStack;
+
+                if (m.HasMedia && !string.IsNullOrEmpty(m.MediaUrl))
+                {
+                    row.PointerPressed += (s, e) => row.Opacity = 0.6;
+                    row.PointerReleased += (s, e) => row.Opacity = 1.0;
+                    row.PointerCanceled += (s, e) => row.Opacity = 1.0;
+                    row.Tapped += (s, e) =>
+                    {
+                        dialog.Hide();
+                        NavigationManager.NavigateTo(new ImageViewerPage(m.ViewerUrl ?? m.MediaUrl));
+                    };
+                }
+
                 stack.Children.Add(row);
             }
             scroll.Content = stack;
 
-            var dialog = new ContentDialog
-            {
-                Title = "Nội dung gần đây",
-                Content = scroll,
-                PrimaryButtonText = "Đóng"
-            };
             await dialog.ShowAsync();
         }
 
