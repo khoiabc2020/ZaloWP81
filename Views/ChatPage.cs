@@ -193,17 +193,17 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Back Button (Pure Touch Border with native Segoe UI Symbol arrow)
+            // Back Button (Pure Touch Border with clean white vector back icon)
             var backBtn = CreateTouchBorder(42, 48);
-            backBtn.Child = new TextBlock
+            var backIcon = new Image
             {
-                Text = "\uE112",
-                FontFamily = new FontFamily("Segoe UI Symbol"),
-                FontSize = 20,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            backBtn.Child = backIcon;
             backBtn.Tapped += (s, e) =>
             {
                 if (NavigationManager.CanGoBack)
@@ -1283,23 +1283,19 @@ namespace ZaloWP81.Views
                 }
             }
 
-            try
-            {
-                if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
-                {
-                    _messageScroll.ChangeView(null, _messageScroll.ScrollableHeight, null, true);
-                }
-            }
-            catch { }
+            ScrollToBottom();
         }
 
         private void ScrollToBottom()
         {
+            if (_messageScroll == null) return;
             try
             {
-                if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
+                _messageScroll.UpdateLayout();
+                double offset = _messageScroll.ScrollableHeight;
+                if (!double.IsNaN(offset) && offset > 0)
                 {
-                    _messageScroll.ChangeView(null, _messageScroll.ScrollableHeight, null, true);
+                    _messageScroll.ChangeView(0.0, offset, null, true);
                 }
             }
             catch { }
@@ -1906,18 +1902,50 @@ namespace ZaloWP81.Views
             timeStack.Children.Add(new TextBlock
             {
                 Text = msg.TimeText ?? string.Empty,
-                FontSize = 12,
+                FontSize = 11.5,
                 Foreground = _timeColor
             });
 
             if (isMe)
             {
+                string statusText;
+                SolidColorBrush statusColor;
+                if (msg.ReceiptState >= 2)
+                {
+                    statusText = "  ✓✓ Đã xem";
+                    statusColor = _activeBlue;
+                }
+                else if (msg.ReceiptState == 1)
+                {
+                    statusText = "  ✓✓ Đã nhận";
+                    statusColor = _timeColor;
+                }
+                else
+                {
+                    statusText = "  ✓ Đã gửi";
+                    statusColor = _timeColor;
+                }
+
                 timeStack.Children.Add(new TextBlock
                 {
-                    Text = "  Đã gửi",
-                    FontSize = 12,
-                    Foreground = _timeColor
+                    Text = statusText,
+                    FontSize = 11.5,
+                    FontWeight = msg.ReceiptState >= 2 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
+                    Foreground = statusColor
                 });
+
+                if (msg.ReceiptState >= 2 && !string.IsNullOrEmpty(msg.DeliveryAvatarUrl))
+                {
+                    var miniAvatar = new Ellipse
+                    {
+                        Width = 14,
+                        Height = 14,
+                        Margin = new Thickness(4, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Fill = ZaloAvatar.ImageFor(msg.DeliveryAvatarUrl) ?? _activeBlue
+                    };
+                    timeStack.Children.Add(miniAvatar);
+                }
             }
 
             stack.Children.Add(timeStack);
