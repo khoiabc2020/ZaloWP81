@@ -121,26 +121,31 @@ namespace ZaloWP81.Views
             queryGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             queryGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+            var queryInputContainer = new Grid { VerticalAlignment = VerticalAlignment.Center };
+            var queryPlaceholder = new TextBlock
+            {
+                Text = "Tìm tin nhắn",
+                FontSize = 15.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0),
+                IsHitTestVisible = false
+            };
+            queryInputContainer.Children.Add(queryPlaceholder);
+
             _queryBox = new TextBox
             {
-                PlaceholderText = "Tìm tin nhắn",
                 Background = new SolidColorBrush(Colors.Transparent),
                 Foreground = new SolidColorBrush(Colors.White),
                 BorderThickness = new Thickness(0),
                 FontSize = 15.5,
                 Height = 38,
-                Padding = new Thickness(2, 0, 4, 0),
+                Padding = new Thickness(4, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
-            try
-            {
-                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
-                {
-                    _queryBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
-                }
-            }
-            catch { }
+            App.MakeTextBoxTransparent(_queryBox);
+            queryInputContainer.Children.Add(_queryBox);
 
             var clearBtn = CreateTouchBorder(32, 38);
             clearBtn.Visibility = Visibility.Collapsed;
@@ -157,6 +162,7 @@ namespace ZaloWP81.Views
             clearBtn.Tapped += (s, e) =>
             {
                 _queryBox.Text = string.Empty;
+                queryPlaceholder.Visibility = Visibility.Visible;
                 SearchMessages(string.Empty);
             };
             Grid.SetColumn(clearBtn, 1);
@@ -164,7 +170,9 @@ namespace ZaloWP81.Views
 
             _queryBox.TextChanged += (s, e) =>
             {
-                clearBtn.Visibility = string.IsNullOrEmpty(_queryBox.Text) ? Visibility.Collapsed : Visibility.Visible;
+                bool hasText = !string.IsNullOrEmpty(_queryBox.Text);
+                queryPlaceholder.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
+                clearBtn.Visibility = hasText ? Visibility.Visible : Visibility.Collapsed;
                 SearchMessages(_queryBox.Text);
             };
             _queryBox.KeyDown += (s, e) =>
@@ -175,8 +183,8 @@ namespace ZaloWP81.Views
                     SearchMessages(_queryBox.Text);
                 }
             };
-            Grid.SetColumn(_queryBox, 0);
-            queryGrid.Children.Add(_queryBox);
+            Grid.SetColumn(queryInputContainer, 0);
+            queryGrid.Children.Add(queryInputContainer);
 
             queryBorder.Child = queryGrid;
             Grid.SetColumn(queryBorder, 1);

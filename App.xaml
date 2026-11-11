@@ -21,27 +21,6 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Grid Background="Transparent">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="PlaceholderStates">
-                                    <VisualState x:Name="PlaceholderAvailable" />
-                                    <VisualState x:Name="PlaceholderUnavailable">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="PlaceholderContentPresenter" Storyboard.TargetProperty="Visibility">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Collapsed" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <Border x:Name="BackgroundElement" Background="Transparent" BorderThickness="0" />
-                            <ContentControl x:Name="PlaceholderContentPresenter"
-                                            Content="{TemplateBinding PlaceholderText}"
-                                            Foreground="#B3FFFFFF"
-                                            FontSize="{TemplateBinding FontSize}"
-                                            VerticalAlignment="Center"
-                                            HorizontalAlignment="Left"
-                                            IsHitTestVisible="False"
-                                            Margin="{TemplateBinding Padding}" />
                             <ScrollViewer x:Name="ContentElement"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden"
@@ -63,27 +42,6 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="TextBox">
                         <Grid Background="Transparent">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="PlaceholderStates">
-                                    <VisualState x:Name="PlaceholderAvailable" />
-                                    <VisualState x:Name="PlaceholderUnavailable">
-                                        <Storyboard>
-                                            <ObjectAnimationUsingKeyFrames Storyboard.TargetName="PlaceholderContentPresenter" Storyboard.TargetProperty="Visibility">
-                                                <DiscreteObjectKeyFrame KeyTime="0" Value="Collapsed" />
-                                            </ObjectAnimationUsingKeyFrames>
-                                        </Storyboard>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <Border x:Name="BackgroundElement" Background="Transparent" BorderThickness="0" />
-                            <ContentControl x:Name="PlaceholderContentPresenter"
-                                            Content="{TemplateBinding PlaceholderText}"
-                                            Foreground="#8A929A"
-                                            FontSize="{TemplateBinding FontSize}"
-                                            VerticalAlignment="Center"
-                                            HorizontalAlignment="Left"
-                                            IsHitTestVisible="False"
-                                            Margin="{TemplateBinding Padding}" />
                             <ScrollViewer x:Name="ContentElement"
                                           HorizontalScrollBarVisibility="Hidden"
                                           VerticalScrollBarVisibility="Hidden"

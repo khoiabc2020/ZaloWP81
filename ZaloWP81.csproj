@@ -142,6 +142,7 @@
     <Compile Include="Core\ZaloApp.cs" />
     <Compile Include="Core\ZaloPhoneSync.cs" />
     <Compile Include="Core\ZaloCore.cs" />
+    <Compile Include="Core\ZaloCallSignaling.cs" />
     <Compile Include="Models\ZaloModels.cs" />
     <Compile Include="Services\ZaloSettingsService.cs" />
     <Compile Include="Services\ZaloAudioService.cs" />

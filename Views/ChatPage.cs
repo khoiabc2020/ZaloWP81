@@ -107,7 +107,7 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(64 * scale)) });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(72 * scale)) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -186,9 +186,10 @@ namespace ZaloWP81.Views
 
         private FrameworkElement CreateTopHeader()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var headerBorder = new Border
             {
-                Padding = new Thickness(4, 6, 10, 6)
+                Padding = new Thickness(Math.Round(4 * scale), Math.Round(22 * scale), Math.Round(6 * scale), Math.Round(6 * scale))
             };
             var gradient = new LinearGradientBrush
             {
@@ -199,20 +200,21 @@ namespace ZaloWP81.Views
             gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x08, 0xA9, 0xE8), Offset = 1 });
             headerBorder.Background = gradient;
 
-            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(50 * scale)) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(46 * scale)) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(40 * scale)) }); // 0: Back
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(46 * scale)) }); // 1: Avatar
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });     // 2: Title
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 3: Audio Call
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 4: Video Call
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 5: More Options
 
             // Back Button (Pure Touch Border with clean white vector back icon)
-            var backBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(48 * scale));
+            var backBtn = CreateTouchBorder(Math.Round(40 * scale), Math.Round(44 * scale));
             var backIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
-                Width = Math.Round(26 * scale),
-                Height = Math.Round(26 * scale),
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -228,13 +230,13 @@ namespace ZaloWP81.Views
             header.Children.Add(backBtn);
 
             // Recipient Avatar
-            double avaSize = Math.Round(44 * scale);
+            double avaSize = Math.Round(40 * scale);
             var avatarGrid = new Grid { Width = avaSize, Height = avaSize, VerticalAlignment = VerticalAlignment.Center };
             _recipientAvatar = new Ellipse { Width = avaSize, Height = avaSize, Fill = _activeBlue };
             _recipientInitial = new TextBlock
             {
                 Text = "Z",
-                FontSize = Math.Round(18 * scale, 1),
+                FontSize = Math.Round(17 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -247,11 +249,11 @@ namespace ZaloWP81.Views
             header.Children.Add(avatarGrid);
 
             // Recipient Title & Subtitle Stack
-            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(8 * scale), 0, 0, 0) };
+            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(6 * scale), 0, 0, 0) };
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
-                FontSize = Math.Round(18 * scale, 1),
+                FontSize = Math.Round(17 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -259,7 +261,7 @@ namespace ZaloWP81.Views
             _subtitleBlock = new TextBlock
             {
                 Text = string.Empty,
-                FontSize = Math.Round(13 * scale, 1),
+                FontSize = Math.Round(12 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Visibility = Visibility.Collapsed
@@ -270,13 +272,55 @@ namespace ZaloWP81.Views
             Grid.SetColumn(titleStack, 2);
             header.Children.Add(titleStack);
 
+            // Audio Call Button
+            var audioCallBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
+            var audioIcon = new Image
+            {
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png"),
+                Width = Math.Round(22 * scale),
+                Height = Math.Round(22 * scale),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            audioCallBtn.Child = audioIcon;
+            audioCallBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new CallPage(_conversation, false));
+                }
+            };
+            Grid.SetColumn(audioCallBtn, 3);
+            header.Children.Add(audioCallBtn);
+
+            // Video Call Button
+            var videoCallBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
+            var videoIcon = new Image
+            {
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png"),
+                Width = Math.Round(22 * scale),
+                Height = Math.Round(22 * scale),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            videoCallBtn.Child = videoIcon;
+            videoCallBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new CallPage(_conversation, true));
+                }
+            };
+            Grid.SetColumn(videoCallBtn, 4);
+            header.Children.Add(videoCallBtn);
+
             // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage or GroupInfoPage)
-            var moreBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(48 * scale));
+            var moreBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
             var moreIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png"),
-                Width = Math.Round(28 * scale),
-                Height = Math.Round(28 * scale),
+                Width = Math.Round(26 * scale),
+                Height = Math.Round(26 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -291,7 +335,7 @@ namespace ZaloWP81.Views
                         NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
                 }
             };
-            Grid.SetColumn(moreBtn, 3);
+            Grid.SetColumn(moreBtn, 5);
             header.Children.Add(moreBtn);
 
             headerBorder.Child = header;
@@ -455,28 +499,35 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
 
+            var inputContainer = new Grid { VerticalAlignment = VerticalAlignment.Center };
+            var inputPlaceholder = new TextBlock
+            {
+                Text = "Tin nhắn",
+                FontSize = Math.Round(16 * scale, 1),
+                Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0x64, 0x74, 0x8B)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(2, 0, 0, 0),
+                IsHitTestVisible = false
+            };
+            inputContainer.Children.Add(inputPlaceholder);
+
             _inputBox = new TextBox
             {
-                PlaceholderText = "Tin nhắn",
                 FontSize = Math.Round(16 * scale, 1),
                 Foreground = _textDark,
                 BorderThickness = new Thickness(0),
                 Background = new SolidColorBrush(Colors.Transparent),
                 VerticalAlignment = VerticalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(0)
+                Padding = new Thickness(2, 0, 0, 0)
             };
-            try
-            {
-                if (Application.Current.Resources.ContainsKey("ChatInputTextBoxStyle"))
-                {
-                    _inputBox.Style = (Style)Application.Current.Resources["ChatInputTextBoxStyle"];
-                }
-            }
-            catch { }
+            App.MakeTextBoxTransparent(_inputBox);
+            inputContainer.Children.Add(_inputBox);
+
             _inputBox.TextChanged += (s, e) =>
             {
                 bool hasText = !string.IsNullOrWhiteSpace(_inputBox.Text);
+                inputPlaceholder.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
                 _sendButton.Visibility = hasText ? Visibility.Visible : Visibility.Collapsed;
                 _micButton.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
                 _photoButton.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
@@ -489,7 +540,7 @@ namespace ZaloWP81.Views
                     e.Handled = true;
                 }
             };
-            inputPill.Child = _inputBox;
+            inputPill.Child = inputContainer;
             Grid.SetColumn(inputPill, 1);
             _inputBarGrid.Children.Add(inputPill);
 

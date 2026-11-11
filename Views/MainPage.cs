@@ -246,7 +246,7 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Colors.White)
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(60 * scale)) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(68 * scale)) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(58 * scale)) });
 
@@ -284,7 +284,7 @@ namespace ZaloWP81.Views
             double scale = ZaloSettingsService.Current.UiScaleFactor;
             var headerBorder = new Border
             {
-                Padding = new Thickness(10, 0, 10, 0)
+                Padding = new Thickness(10, Math.Round(20 * scale), 10, Math.Round(6 * scale))
             };
             var gradient = new LinearGradientBrush
             {
@@ -300,14 +300,14 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Search Bar (Translucent Pill - Styled via SearchTextBoxStyle to completely prevent white focus box)
+            // Search Bar (Translucent Pill - completely transparent with overlay placeholder, zero white focus box)
             var searchBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(21),
-                Height = Math.Round(42 * scale),
+                Height = Math.Round(40 * scale),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0)
             };
@@ -327,37 +327,32 @@ namespace ZaloWP81.Views
             Grid.SetColumn(lensIcon, 0);
             searchGrid.Children.Add(lensIcon);
 
+            var searchInputContainer = new Grid { VerticalAlignment = VerticalAlignment.Center };
+
+            var searchPlaceholder = new TextBlock
+            {
+                Text = "Tìm kiếm",
+                FontSize = Math.Round(15.5 * scale, 1),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0),
+                IsHitTestVisible = false
+            };
+            searchInputContainer.Children.Add(searchPlaceholder);
+
             _searchBox = new TextBox
             {
-                PlaceholderText = "Tìm kiếm",
                 Height = Math.Round(38 * scale),
                 FontSize = Math.Round(15.5 * scale, 1),
                 Foreground = new SolidColorBrush(Colors.White),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(2, 0, 4, 0),
+                Padding = new Thickness(4, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
-            try
-            {
-                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
-                {
-                    _searchBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
-                }
-                else
-                {
-                    foreach (var d in Application.Current.Resources.MergedDictionaries)
-                    {
-                        if (d.ContainsKey("SearchTextBoxStyle"))
-                        {
-                            _searchBox.Style = (Style)d["SearchTextBoxStyle"];
-                            break;
-                        }
-                    }
-                }
-            }
-            catch { }
+            App.MakeTextBoxTransparent(_searchBox);
+            searchInputContainer.Children.Add(_searchBox);
 
             var clearSearchBtn = CreateTouchBorder(Math.Round(34 * scale), Math.Round(38 * scale));
             clearSearchBtn.Visibility = Visibility.Collapsed;
@@ -374,6 +369,7 @@ namespace ZaloWP81.Views
             clearSearchBtn.Tapped += (s, e) =>
             {
                 _searchBox.Text = string.Empty;
+                searchPlaceholder.Visibility = Visibility.Visible;
                 OnSearchChanged(string.Empty);
             };
             Grid.SetColumn(clearSearchBtn, 2);
@@ -381,7 +377,9 @@ namespace ZaloWP81.Views
 
             _searchBox.TextChanged += (s, e) =>
             {
-                clearSearchBtn.Visibility = string.IsNullOrEmpty(_searchBox.Text) ? Visibility.Collapsed : Visibility.Visible;
+                bool hasText = !string.IsNullOrEmpty(_searchBox.Text);
+                searchPlaceholder.Visibility = hasText ? Visibility.Collapsed : Visibility.Visible;
+                clearSearchBtn.Visibility = hasText ? Visibility.Visible : Visibility.Collapsed;
                 OnSearchChanged(_searchBox.Text);
             };
             _searchBox.KeyDown += (s, e) =>
@@ -396,8 +394,8 @@ namespace ZaloWP81.Views
                     }
                 }
             };
-            Grid.SetColumn(_searchBox, 1);
-            searchGrid.Children.Add(_searchBox);
+            Grid.SetColumn(searchInputContainer, 1);
+            searchGrid.Children.Add(searchInputContainer);
 
             searchBorder.Child = searchGrid;
             Grid.SetColumn(searchBorder, 0);
@@ -1287,14 +1285,93 @@ namespace ZaloWP81.Views
             var scroll = new ScrollViewer { Padding = new Thickness(0) };
             var stack = new StackPanel { Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA)) };
 
-            // 1. TOP WHITE CARD (Status preview + Huge 116x116 Avatar + Name with chevron)
+            // 1. TOP WHITE PROFILE CARD (Horizontal Layout matching modern Zalo Android)
             var topCard = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                Padding = new Thickness(16, 16, 16, 22)
+                Padding = new Thickness(16, 14, 16, 14)
             };
             var topCardStack = new StackPanel();
             topCard.Child = topCardStack;
+
+            var profileRow = new Grid();
+            profileRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+            profileRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            profileRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var avatarGrid = new Grid { Width = 60, Height = 60, VerticalAlignment = VerticalAlignment.Center };
+            _profileAvatarColor = new Ellipse { Width = 60, Height = 60, Fill = _activeBlue };
+            _profileInitial = new TextBlock
+            {
+                Text = "Z",
+                FontSize = 24,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _profileAvatarImage = new Ellipse
+            {
+                Width = 60,
+                Height = 60
+            };
+            avatarGrid.Children.Add(_profileAvatarColor);
+            avatarGrid.Children.Add(_profileInitial);
+            avatarGrid.Children.Add(_profileAvatarImage);
+            Grid.SetColumn(avatarGrid, 0);
+            profileRow.Children.Add(avatarGrid);
+
+            var infoStack = new StackPanel
+            {
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(14, 0, 8, 0)
+            };
+            _profileName = new TextBlock
+            {
+                Text = "Người dùng Zalo",
+                FontSize = 18,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27)),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 230
+            };
+            var subText = new TextBlock
+            {
+                Text = "Xem trang cá nhân ›",
+                FontSize = 13,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
+                Margin = new Thickness(0, 3, 0, 0)
+            };
+            infoStack.Children.Add(_profileName);
+            infoStack.Children.Add(subText);
+            Grid.SetColumn(infoStack, 1);
+            profileRow.Children.Add(infoStack);
+
+            var qrBtn = CreateTouchBorder(36, 36);
+            var qrText = new TextBlock
+            {
+                Text = "\uE14A",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = 18,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x68, 0xFF)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            qrBtn.Child = qrText;
+            qrBtn.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
+            Grid.SetColumn(qrBtn, 2);
+            profileRow.Children.Add(qrBtn);
+
+            var profileCardTap = new Border
+            {
+                Background = new SolidColorBrush(Colors.Transparent),
+                Child = profileRow
+            };
+            profileCardTap.PointerPressed += (s, e) => profileCardTap.Opacity = 0.6;
+            profileCardTap.PointerReleased += (s, e) => profileCardTap.Opacity = 1.0;
+            profileCardTap.PointerCanceled += (s, e) => profileCardTap.Opacity = 1.0;
+            profileCardTap.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
+            topCardStack.Children.Add(profileCardTap);
 
             // Status Pill Button
             var statusPill = new Border
@@ -1302,25 +1379,26 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF8, 0xF9, 0xFB)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(20),
-                Padding = new Thickness(14, 7, 14, 7),
-                HorizontalAlignment = HorizontalAlignment.Center
+                CornerRadius = new CornerRadius(16),
+                Padding = new Thickness(12, 6, 12, 6),
+                Margin = new Thickness(0, 10, 0, 0),
+                HorizontalAlignment = HorizontalAlignment.Left
             };
-            var statusStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center };
+            var statusStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Left };
             var statusIcon = new TextBlock
             {
                 Text = "\uD83D\uDCAD",
-                FontSize = 13,
-                Margin = new Thickness(0, 0, 7, 0),
+                FontSize = 12.5,
+                Margin = new Thickness(0, 0, 6, 0),
                 VerticalAlignment = VerticalAlignment.Center
             };
             _profileStatusPreview = new TextBlock
             {
                 Text = "Cập nhật trạng thái...",
-                FontSize = 13,
+                FontSize = 12.5,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x61, 0x6A, 0x73)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                MaxWidth = 230,
+                MaxWidth = 260,
                 VerticalAlignment = VerticalAlignment.Center
             };
             statusStack.Children.Add(statusIcon);
@@ -1333,82 +1411,28 @@ namespace ZaloWP81.Views
             statusPill.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
             topCardStack.Children.Add(statusPill);
 
-            // Avatar & Name Card
-            var avatarHeader = new StackPanel
-            {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 12, 0, 0)
-            };
-            var avatarGrid = new Grid { Width = 116, Height = 116, HorizontalAlignment = HorizontalAlignment.Center };
-            _profileAvatarColor = new Ellipse { Width = 116, Height = 116, Fill = _activeBlue };
-            _profileInitial = new TextBlock
-            {
-                Text = "Z",
-                FontSize = 38,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.White),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _profileAvatarImage = new Ellipse
-            {
-                Width = 116,
-                Height = 116,
-                Stroke = new SolidColorBrush(Colors.White),
-                StrokeThickness = 3
-            };
-            avatarGrid.Children.Add(_profileAvatarColor);
-            avatarGrid.Children.Add(_profileInitial);
-            avatarGrid.Children.Add(_profileAvatarImage);
-            avatarHeader.Children.Add(avatarGrid);
-
-            var nameRow = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 14, 0, 0)
-            };
-            _profileName = new TextBlock
-            {
-                Text = "Người dùng Zalo",
-                FontSize = 21,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x20, 0x21, 0x24)),
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                MaxWidth = 280,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            var nameChevron = new TextBlock
-            {
-                Text = "\u203A",
-                FontSize = 18,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x7D, 0x85, 0x8C)),
-                Margin = new Thickness(8, -1, 0, 0),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            nameRow.Children.Add(_profileName);
-            nameRow.Children.Add(nameChevron);
-            avatarHeader.Children.Add(nameRow);
-
-            var avatarCard = new Border
-            {
-                Background = new SolidColorBrush(Colors.Transparent),
-                Child = avatarHeader
-            };
-            avatarCard.PointerPressed += (s, e) => avatarCard.Opacity = 0.6;
-            avatarCard.PointerReleased += (s, e) => avatarCard.Opacity = 1.0;
-            avatarCard.PointerCanceled += (s, e) => avatarCard.Opacity = 1.0;
-            avatarCard.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
-            topCardStack.Children.Add(avatarCard);
-
             stack.Children.Add(topCard);
 
             // Divider 8px
             stack.Children.Add(new Border { Height = 8, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF3, 0xF5)) });
 
-            // 2. SECTION 1: zStyle (MinHeight 78)
+            // 2. SECTION 1: Tiện ích cá nhân ("Cloud của tôi" & "zStyle")
             var sec1 = new StackPanel { Background = new SolidColorBrush(Colors.White) };
-            var rowStyle = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_photo_gray.png", "zStyle", "Hình nền trò chuyện và âm báo", minHeight: 78);
+            
+            var rowCloud = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_cloud_blue.png", "Cloud của tôi", "Lưu trữ tin nhắn, ảnh, file quan trọng của bạn", minHeight: 68);
+            rowCloud.Tapped += (s, e) =>
+            {
+                var myUid = ZaloApp.Session?.Uid;
+                if (!string.IsNullOrEmpty(myUid))
+                {
+                    NavigationManager.NavigateTo(new ChatPage(myUid));
+                }
+            };
+            sec1.Children.Add(rowCloud);
+
+            sec1.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
+
+            var rowStyle = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_photo_gray.png", "zStyle - Cá nhân hóa", "Hình nền trò chuyện, âm báo, kiểu chữ", minHeight: 68);
             rowStyle.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
             sec1.Children.Add(rowStyle);
             stack.Children.Add(sec1);
@@ -1416,23 +1440,39 @@ namespace ZaloWP81.Views
             // Divider 8px
             stack.Children.Add(new Border { Height = 8, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF3, 0xF5)) });
 
-            // 3. SECTION 2: Dữ liệu trên máy (MinHeight 76) & Tài khoản và bảo mật (MinHeight 68)
+            // 3. SECTION 2: Dữ liệu & Bảo mật
             var sec2 = new StackPanel { Background = new SolidColorBrush(Colors.White) };
-            var rowStorage = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_storage_blue.png", "Dữ liệu trên máy", "Quản lý cài đặt và bộ nhớ đệm", minHeight: 76);
+            var rowStorage = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_storage_blue.png", "Dung lượng và dữ liệu", "Quản lý bộ nhớ đệm và dữ liệu chat", minHeight: 68);
             rowStorage.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
             sec2.Children.Add(rowStorage);
 
             sec2.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
 
-            var rowSecurity = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/ic_security_blue.png", "Tài khoản và bảo mật", minHeight: 68);
+            var rowSecurity = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/ic_security_blue.png", "Tài khoản và bảo mật", minHeight: 64);
             rowSecurity.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
             sec2.Children.Add(rowSecurity);
+
+            sec2.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
+
+            var rowPrivacy = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/ic_lock_clean_blue.png", "Quyền riêng tư", minHeight: 64);
+            rowPrivacy.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            sec2.Children.Add(rowPrivacy);
             stack.Children.Add(sec2);
 
             // Divider 8px
             stack.Children.Add(new Border { Height = 8, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF3, 0xF5)) });
 
-            // 4. LOGOUT SECTION (Height 44, red border #F0C8C8, padding 18,18,18,20)
+            // 4. SECTION 3: Cài đặt chung
+            var sec3 = new StackPanel { Background = new SolidColorBrush(Colors.White) };
+            var rowSettings = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_more.png", "Cài đặt & Giao diện Lumia", minHeight: 64);
+            rowSettings.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            sec3.Children.Add(rowSettings);
+            stack.Children.Add(sec3);
+
+            // Divider 8px
+            stack.Children.Add(new Border { Height = 8, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF3, 0xF5)) });
+
+            // 5. LOGOUT SECTION (Height 44, red border #F0C8C8, padding 18,18,18,20)
             var logoutContainer = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
@@ -1463,7 +1503,7 @@ namespace ZaloWP81.Views
             };
             var logoutText = new TextBlock
             {
-                Text = "Đăng xuất",
+                Text = "Đăng xuất tài khoản",
                 FontSize = 14,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xD9, 0x4B, 0x4B)),

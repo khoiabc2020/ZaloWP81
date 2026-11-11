@@ -3,10 +3,12 @@ using System.Threading;
 using System.Threading.Tasks;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
+using Windows.UI;
 using Windows.UI.Popups;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Markup;
+using Windows.UI.Xaml.Media;
 using ZaloLite;
 using ZaloUWP.Common;
 using ZaloWP81.Views;
@@ -58,31 +60,9 @@ namespace ZaloWP81
             <Setter.Value>
                 <ControlTemplate TargetType=""TextBox"">
                     <Grid Background=""Transparent"">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name=""PlaceholderStates"">
-                                <VisualState x:Name=""PlaceholderAvailable"" />
-                                <VisualState x:Name=""PlaceholderUnavailable"">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName=""PlaceholderContentPresenter"" Storyboard.TargetProperty=""Visibility"">
-                                            <DiscreteObjectKeyFrame KeyTime=""0"" Value=""Collapsed"" />
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                        <Border x:Name=""BackgroundElement"" Background=""Transparent"" BorderThickness=""0"" />
-                        <ContentControl x:Name=""PlaceholderContentPresenter""
-                                        Content=""{TemplateBinding PlaceholderText}""
-                                        Foreground=""#B3FFFFFF""
-                                        FontSize=""{TemplateBinding FontSize}""
-                                        VerticalAlignment=""Center""
-                                        HorizontalAlignment=""Left""
-                                        IsHitTestVisible=""False""
-                                        Margin=""{TemplateBinding Padding}"" />
                         <ScrollViewer x:Name=""ContentElement""
                                       HorizontalScrollBarVisibility=""Hidden""
                                       VerticalScrollBarVisibility=""Hidden""
-                                      Margin=""{TemplateBinding Padding}""
                                       VerticalAlignment=""Center"" />
                     </Grid>
                 </ControlTemplate>
@@ -100,31 +80,9 @@ namespace ZaloWP81
             <Setter.Value>
                 <ControlTemplate TargetType=""TextBox"">
                     <Grid Background=""Transparent"">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name=""PlaceholderStates"">
-                                <VisualState x:Name=""PlaceholderAvailable"" />
-                                <VisualState x:Name=""PlaceholderUnavailable"">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName=""PlaceholderContentPresenter"" Storyboard.TargetProperty=""Visibility"">
-                                            <DiscreteObjectKeyFrame KeyTime=""0"" Value=""Collapsed"" />
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                        <Border x:Name=""BackgroundElement"" Background=""Transparent"" BorderThickness=""0"" />
-                        <ContentControl x:Name=""PlaceholderContentPresenter""
-                                        Content=""{TemplateBinding PlaceholderText}""
-                                        Foreground=""#8A929A""
-                                        FontSize=""{TemplateBinding FontSize}""
-                                        VerticalAlignment=""Center""
-                                        HorizontalAlignment=""Left""
-                                        IsHitTestVisible=""False""
-                                        Margin=""{TemplateBinding Padding}"" />
                         <ScrollViewer x:Name=""ContentElement""
                                       HorizontalScrollBarVisibility=""Hidden""
                                       VerticalScrollBarVisibility=""Hidden""
-                                      Margin=""{TemplateBinding Padding}""
                                       VerticalAlignment=""Center"" />
                     </Grid>
                 </ControlTemplate>
@@ -144,6 +102,38 @@ namespace ZaloWP81
             {
                 ZaloLog.Add("LoadGlobalStyles error: " + ex.Message);
             }
+        }
+
+        public static void MakeTextBoxTransparent(TextBox tb)
+        {
+            if (tb == null) return;
+            try
+            {
+                string tpl = @"<ControlTemplate TargetType=""TextBox"" xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+                    <Grid Background=""Transparent"">
+                        <ScrollViewer x:Name=""ContentElement""
+                                      HorizontalScrollBarVisibility=""Hidden""
+                                      VerticalScrollBarVisibility=""Hidden""
+                                      VerticalAlignment=""Center""
+                                      Margin=""0"" />
+                    </Grid>
+                </ControlTemplate>";
+                tb.Template = (ControlTemplate)XamlReader.Load(tpl);
+            }
+            catch { }
+
+            tb.Background = new SolidColorBrush(Colors.Transparent);
+            tb.BorderThickness = new Thickness(0);
+            tb.GotFocus += (s, e) =>
+            {
+                tb.Background = new SolidColorBrush(Colors.Transparent);
+                tb.BorderThickness = new Thickness(0);
+            };
+            tb.LostFocus += (s, e) =>
+            {
+                tb.Background = new SolidColorBrush(Colors.Transparent);
+                tb.BorderThickness = new Thickness(0);
+            };
         }
 
         public IXamlType GetXamlType(Type type) => null;
