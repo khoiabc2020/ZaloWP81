@@ -909,11 +909,12 @@ namespace ZaloWP81.Views
         }
     }
 
-    public sealed class ZaloModernSwitch : ContentControl
+    public sealed class ZaloModernSwitch : Grid
     {
         private readonly Border _track;
         private readonly Ellipse _thumb;
         private bool _isOn = false;
+        private bool _isEnabled = true;
 
         public event RoutedEventHandler Toggled;
 
@@ -942,19 +943,25 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)),
                 Child = _thumb
             };
-            Content = _track;
-
-            IsEnabledChanged += (s, e) =>
-            {
-                Opacity = IsEnabled ? 1.0 : 0.45;
-            };
+            Children.Add(_track);
 
             Tapped += (s, e) =>
             {
-                if (!IsEnabled) return;
+                if (!_isEnabled) return;
                 IsOn = !IsOn;
                 Toggled?.Invoke(this, new RoutedEventArgs());
             };
+        }
+
+        public bool IsEnabled
+        {
+            get => _isEnabled;
+            set
+            {
+                _isEnabled = value;
+                Opacity = value ? 1.0 : 0.45;
+                IsHitTestVisible = value;
+            }
         }
 
         public bool IsOn

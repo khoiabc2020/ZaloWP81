@@ -160,6 +160,7 @@
     <Compile Include="Views\FriendProfilePage.cs" />
     <Compile Include="Views\ConversationOptionsPage.cs" />
     <Compile Include="Views\MutualGroupsPage.cs" />
+    <Compile Include="Views\FriendRequestsPage.cs" />
     <Compile Include="Views\ImageViewerPage.cs" />
     <Compile Include="Views\AddFriendPage.cs" />
     <Compile Include="Views\CreateGroupPage.cs" />

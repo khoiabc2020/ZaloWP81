@@ -1539,21 +1539,26 @@ namespace ZaloLite
                 IJsonValue infoValue;
                 JsonObject info = item.TryGetValue("dataInfo", out infoValue) && infoValue.ValueType == JsonValueType.Object
                     ? infoValue.GetObject() : item;
-                int requestType = (int)Num(info, "recommType");
-                if (requestType != 2) continue;
                 string id = Str(info, "userId");
                 if (string.IsNullOrWhiteSpace(id)) continue;
                 string name = Str(info, "displayName");
                 if (string.IsNullOrWhiteSpace(name)) name = Str(info, "zaloName");
                 if (string.IsNullOrWhiteSpace(name)) name = Str(info, "userName");
                 if (string.IsNullOrWhiteSpace(name)) name = "Người dùng Zalo";
+
+                string msg = Str(info, "message");
+                if (string.IsNullOrWhiteSpace(msg) && info.TryGetValue("recommInfo", out IJsonValue rInfoVal) && rInfoVal.ValueType == JsonValueType.Object)
+                {
+                    msg = Str(rInfoVal.GetObject(), "message");
+                }
+
                 requests.Add(new ZaloFriendRequest
                 {
                     UserId = id,
                     Name = name,
                     Avatar = Str(info, "avatar"),
                     Status = Str(info, "status"),
-                    Message = Str(info, "message")
+                    Message = msg
                 });
             }
             return requests;

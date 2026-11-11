@@ -14,6 +14,7 @@
         <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
@@ -21,15 +22,6 @@
                     <ControlTemplate TargetType="TextBox">
                         <Grid Background="Transparent">
                             <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="Disabled" />
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="FocusStates">
-                                    <VisualState x:Name="Focused" />
-                                    <VisualState x:Name="Unfocused" />
-                                    <VisualState x:Name="PointerFocused" />
-                                </VisualStateGroup>
                                 <VisualStateGroup x:Name="PlaceholderStates">
                                     <VisualState x:Name="PlaceholderAvailable" />
                                     <VisualState x:Name="PlaceholderUnavailable">
@@ -41,6 +33,7 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
+                            <Border x:Name="BackgroundElement" Background="Transparent" BorderThickness="0" />
                             <ContentControl x:Name="PlaceholderContentPresenter"
                                             Content="{TemplateBinding PlaceholderText}"
                                             Foreground="#B3FFFFFF"
@@ -50,12 +43,8 @@
                                             IsHitTestVisible="False"
                                             Margin="{TemplateBinding Padding}" />
                             <ScrollViewer x:Name="ContentElement"
-                                          AutomationProperties.AccessibilityView="Raw"
-                                          HorizontalScrollMode="{TemplateBinding ScrollViewer.HorizontalScrollMode}"
-                                          HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
-                                          VerticalScrollMode="{TemplateBinding ScrollViewer.VerticalScrollMode}"
-                                          VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
-                                          IsDeferredScrollingEnabled="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden"
                                           Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="Center" />
                         </Grid>
@@ -67,6 +56,7 @@
         <Style x:Key="ChatInputTextBoxStyle" TargetType="TextBox">
             <Setter Property="Foreground" Value="#111827" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Template">
@@ -74,15 +64,6 @@
                     <ControlTemplate TargetType="TextBox">
                         <Grid Background="Transparent">
                             <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="Disabled" />
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="FocusStates">
-                                    <VisualState x:Name="Focused" />
-                                    <VisualState x:Name="Unfocused" />
-                                    <VisualState x:Name="PointerFocused" />
-                                </VisualStateGroup>
                                 <VisualStateGroup x:Name="PlaceholderStates">
                                     <VisualState x:Name="PlaceholderAvailable" />
                                     <VisualState x:Name="PlaceholderUnavailable">
@@ -94,6 +75,7 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
+                            <Border x:Name="BackgroundElement" Background="Transparent" BorderThickness="0" />
                             <ContentControl x:Name="PlaceholderContentPresenter"
                                             Content="{TemplateBinding PlaceholderText}"
                                             Foreground="#8A929A"
@@ -103,12 +85,8 @@
                                             IsHitTestVisible="False"
                                             Margin="{TemplateBinding Padding}" />
                             <ScrollViewer x:Name="ContentElement"
-                                          AutomationProperties.AccessibilityView="Raw"
-                                          HorizontalScrollMode="{TemplateBinding ScrollViewer.HorizontalScrollMode}"
-                                          HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
-                                          VerticalScrollMode="{TemplateBinding ScrollViewer.VerticalScrollMode}"
-                                          VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
-                                          IsDeferredScrollingEnabled="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Hidden"
                                           Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="Center" />
                         </Grid>

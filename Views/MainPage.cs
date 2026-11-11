@@ -219,9 +219,29 @@ namespace ZaloWP81.Views
             }
         }
 
+        private double _appliedScale = 1.0;
+
+        protected override void OnNavigatedTo(Windows.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            double currentScale = ZaloSettingsService.Current.UiScaleFactor;
+            if (Math.Abs(_appliedScale - currentScale) > 0.01)
+            {
+                _appliedScale = currentScale;
+                _convItemCache.Clear();
+                _friendItemCache.Clear();
+                BuildUI();
+                _conversationsDirty = true;
+                _friendsDirty = true;
+                RefreshConversations();
+                RefreshFriends();
+            }
+        }
+
         private void BuildUI()
         {
             double scale = ZaloSettingsService.Current.UiScaleFactor;
+            _appliedScale = scale;
             var rootGrid = new Grid
             {
                 Background = new SolidColorBrush(Colors.White)
@@ -324,6 +344,17 @@ namespace ZaloWP81.Views
                 if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
                 {
                     _searchBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
+                }
+                else
+                {
+                    foreach (var d in Application.Current.Resources.MergedDictionaries)
+                    {
+                        if (d.ContainsKey("SearchTextBoxStyle"))
+                        {
+                            _searchBox.Style = (Style)d["SearchTextBoxStyle"];
+                            break;
+                        }
+                    }
                 }
             }
             catch { }
@@ -446,8 +477,8 @@ namespace ZaloWP81.Views
         private void ShowContactRequestsMenu()
         {
             var sheet = new Common.ZaloActionSheet("Tùy chọn danh bạ");
-            sheet.AddAction("Lời mời kết bạn", () => NavigationManager.NavigateTo(new AddFriendPage()));
-            sheet.AddAction("Lời mời đã gửi", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Lời mời kết bạn", () => NavigationManager.NavigateTo(new FriendRequestsPage(0)));
+            sheet.AddAction("Lời mời đã gửi", () => NavigationManager.NavigateTo(new FriendRequestsPage(1)));
             sheet.AddAction("Thêm bạn mới", () => NavigationManager.NavigateTo(new AddFriendPage()));
             sheet.AddAction("Làm mới danh bạ", () => { _friendsDirty = true; RefreshFriends(); });
             sheet.AddAction("Tạo nhóm chat", () => NavigationManager.NavigateTo(new CreateGroupPage()));
@@ -631,8 +662,9 @@ namespace ZaloWP81.Views
 
         private Grid CreateContactsTab()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var grid = new Grid { Background = new SolidColorBrush(Colors.White) };
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(48) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(48 * scale)) });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
             // Row 0: Rounded filter chips matching WP10 ("Tất cả", "Bạn bè", "OA")
@@ -641,7 +673,7 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Colors.White),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xEE, 0xEE)),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(14, 6, 14, 6)
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(6 * scale), Math.Round(14 * scale), Math.Round(6 * scale))
             };
             var filterStack = new StackPanel { Orientation = Orientation.Horizontal };
 
@@ -669,22 +701,22 @@ namespace ZaloWP81.Views
 
             // "Lời mời kết bạn" card
             var reqCard = CreateActionRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Lời mời kết bạn", "Xem và phản hồi lời mời mới", Color.FromArgb(0xFF, 0x10, 0xB9, 0x81));
-            reqCard.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
+            reqCard.Tapped += (s, e) => NavigationManager.NavigateTo(new FriendRequestsPage(0));
             mainStack.Children.Add(reqCard);
 
             // "Lời mời đã gửi" card
             var sentReqCard = CreateActionRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Lời mời đã gửi", "Xem hoặc thu hồi lời mời đang chờ", Color.FromArgb(0xFF, 0x39, 0x78, 0xD4));
-            sentReqCard.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
+            sentReqCard.Tapped += (s, e) => NavigationManager.NavigateTo(new FriendRequestsPage(1));
             mainStack.Children.Add(sentReqCard);
 
             // "Liên hệ nhanh (0/10)" card with "+ Thêm"
-            var quickContactHeader = new Grid { Margin = new Thickness(14, 10, 14, 6) };
+            var quickContactHeader = new Grid { Margin = new Thickness(Math.Round(14 * scale), Math.Round(10 * scale), Math.Round(14 * scale), Math.Round(6 * scale)) };
             quickContactHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             quickContactHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var qcLeftStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            qcLeftStack.Children.Add(new TextBlock { Text = "★ ", FontSize = 14, Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xE3, 0xB2, 0x1A)), Margin = new Thickness(0, 0, 7, 0) });
-            _quickContactCountText = new TextBlock { Text = "Liên hệ nhanh (0/10)", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark };
+            qcLeftStack.Children.Add(new TextBlock { Text = "★ ", FontSize = Math.Round(14 * scale, 1), Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xE3, 0xB2, 0x1A)), Margin = new Thickness(0, 0, Math.Round(7 * scale), 0) });
+            _quickContactCountText = new TextBlock { Text = "Liên hệ nhanh (0/10)", FontSize = Math.Round(14 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark };
             qcLeftStack.Children.Add(_quickContactCountText);
             Grid.SetColumn(qcLeftStack, 0);
             quickContactHeader.Children.Add(qcLeftStack);
@@ -692,11 +724,11 @@ namespace ZaloWP81.Views
             var qcAddBtn = new TextBlock
             {
                 Text = "+ Thêm",
-                FontSize = 14,
+                FontSize = Math.Round(14 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _activeBlue,
                 VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(8, 2, 8, 2)
+                Padding = new Thickness(Math.Round(8 * scale), Math.Round(2 * scale), Math.Round(8 * scale), Math.Round(2 * scale))
             };
             qcAddBtn.Tapped += (s, e) => ShowAddQuickContactDialog();
             Grid.SetColumn(qcAddBtn, 1);
@@ -710,12 +742,12 @@ namespace ZaloWP81.Views
             var sectionHeader = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA)),
-                Padding = new Thickness(14, 8, 14, 8)
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(8 * scale), Math.Round(14 * scale), Math.Round(8 * scale))
             };
             sectionHeader.Child = new TextBlock
             {
                 Text = "TẤT CẢ BẠN BÈ",
-                FontSize = 11.5,
+                FontSize = Math.Round(12 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textSub
             };
@@ -754,20 +786,21 @@ namespace ZaloWP81.Views
 
         private Border CreateChip(string text, bool isSelected, out TextBlock textBlock)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var border = new Border
             {
                 Background = isSelected ? ColorBrush(0xFF, 0xE5, 0xE7, 0xEB) : new SolidColorBrush(Colors.White),
                 BorderBrush = isSelected ? new SolidColorBrush(Colors.Transparent) : ColorBrush(0xFF, 0xDD, 0xDD, 0xDD),
                 BorderThickness = new Thickness(isSelected ? 0 : 1),
-                CornerRadius = new CornerRadius(18),
-                Padding = new Thickness(15, 6, 15, 6),
-                Margin = new Thickness(0, 0, 9, 0),
+                CornerRadius = new CornerRadius(Math.Round(18 * scale)),
+                Padding = new Thickness(Math.Round(15 * scale), Math.Round(6 * scale), Math.Round(15 * scale), Math.Round(6 * scale)),
+                Margin = new Thickness(0, 0, Math.Round(9 * scale), 0),
                 IsTapEnabled = true
             };
             textBlock = new TextBlock
             {
                 Text = text,
-                FontSize = 13.5,
+                FontSize = Math.Round(13.5 * scale, 1),
                 FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                 Foreground = isSelected ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : _inactiveGray
             };
@@ -814,9 +847,10 @@ namespace ZaloWP81.Views
 
         private Border CreateActionRow(string iconUri, string title, string subtitle, Color bg)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var border = new Border
             {
-                Padding = new Thickness(14, 12, 14, 12),
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(12 * scale), Math.Round(14 * scale), Math.Round(12 * scale)),
                 BorderBrush = ColorBrush(0xFF, 0xF0, 0xF0, 0xF0),
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Background = new SolidColorBrush(Colors.White),
@@ -827,19 +861,20 @@ namespace ZaloWP81.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+            double boxSize = Math.Round(40 * scale);
             var iconBox = new Border
             {
                 Background = new SolidColorBrush(bg),
-                Width = 40,
-                Height = 40,
-                CornerRadius = new CornerRadius(20),
-                Margin = new Thickness(0, 0, 12, 0)
+                Width = boxSize,
+                Height = boxSize,
+                CornerRadius = new CornerRadius(Math.Round(boxSize / 2)),
+                Margin = new Thickness(0, 0, Math.Round(12 * scale), 0)
             };
             var img = new Image
             {
                 Source = new BitmapImage(new Uri(iconUri)),
-                Width = 20,
-                Height = 20,
+                Width = Math.Round(20 * scale),
+                Height = Math.Round(20 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -848,15 +883,15 @@ namespace ZaloWP81.Views
             grid.Children.Add(iconBox);
 
             var txtStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            txtStack.Children.Add(new TextBlock { Text = title, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x17, 0x21, 0x2B) });
-            txtStack.Children.Add(new TextBlock { Text = subtitle, FontSize = 12, Foreground = ColorBrush(0xFF, 0x77, 0x83, 0x92), Margin = new Thickness(0, 2, 0, 0) });
+            txtStack.Children.Add(new TextBlock { Text = title, FontSize = Math.Round(15 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x17, 0x21, 0x2B) });
+            txtStack.Children.Add(new TextBlock { Text = subtitle, FontSize = Math.Round(12.5 * scale, 1), Foreground = ColorBrush(0xFF, 0x77, 0x83, 0x92), Margin = new Thickness(0, Math.Round(2 * scale), 0, 0) });
             Grid.SetColumn(txtStack, 1);
             grid.Children.Add(txtStack);
 
             var chevron = new TextBlock
             {
                 Text = "›",
-                FontSize = 18,
+                FontSize = Math.Round(18 * scale, 1),
                 Foreground = ColorBrush(0xFF, 0x94, 0xA3, 0xB8),
                 VerticalAlignment = VerticalAlignment.Center
             };

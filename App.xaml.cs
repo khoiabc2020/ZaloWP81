@@ -37,6 +37,113 @@ namespace ZaloWP81
         {
             this.UnhandledException += App_UnhandledException;
             this.Suspending += OnSuspending;
+            LoadGlobalStyles();
+        }
+
+        private void LoadGlobalStyles()
+        {
+            try
+            {
+                string xaml = @"<ResourceDictionary
+    xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
+    xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+
+    <Style x:Key=""SearchTextBoxStyle"" TargetType=""TextBox"">
+        <Setter Property=""Foreground"" Value=""White"" />
+        <Setter Property=""Background"" Value=""Transparent"" />
+        <Setter Property=""BorderBrush"" Value=""Transparent"" />
+        <Setter Property=""BorderThickness"" Value=""0"" />
+        <Setter Property=""Padding"" Value=""0"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""TextBox"">
+                    <Grid Background=""Transparent"">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name=""PlaceholderStates"">
+                                <VisualState x:Name=""PlaceholderAvailable"" />
+                                <VisualState x:Name=""PlaceholderUnavailable"">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName=""PlaceholderContentPresenter"" Storyboard.TargetProperty=""Visibility"">
+                                            <DiscreteObjectKeyFrame KeyTime=""0"" Value=""Collapsed"" />
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name=""BackgroundElement"" Background=""Transparent"" BorderThickness=""0"" />
+                        <ContentControl x:Name=""PlaceholderContentPresenter""
+                                        Content=""{TemplateBinding PlaceholderText}""
+                                        Foreground=""#B3FFFFFF""
+                                        FontSize=""{TemplateBinding FontSize}""
+                                        VerticalAlignment=""Center""
+                                        HorizontalAlignment=""Left""
+                                        IsHitTestVisible=""False""
+                                        Margin=""{TemplateBinding Padding}"" />
+                        <ScrollViewer x:Name=""ContentElement""
+                                      HorizontalScrollBarVisibility=""Hidden""
+                                      VerticalScrollBarVisibility=""Hidden""
+                                      Margin=""{TemplateBinding Padding}""
+                                      VerticalAlignment=""Center"" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key=""ChatInputTextBoxStyle"" TargetType=""TextBox"">
+        <Setter Property=""Foreground"" Value=""#111827"" />
+        <Setter Property=""Background"" Value=""Transparent"" />
+        <Setter Property=""BorderBrush"" Value=""Transparent"" />
+        <Setter Property=""BorderThickness"" Value=""0"" />
+        <Setter Property=""Padding"" Value=""0"" />
+        <Setter Property=""Template"">
+            <Setter.Value>
+                <ControlTemplate TargetType=""TextBox"">
+                    <Grid Background=""Transparent"">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name=""PlaceholderStates"">
+                                <VisualState x:Name=""PlaceholderAvailable"" />
+                                <VisualState x:Name=""PlaceholderUnavailable"">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName=""PlaceholderContentPresenter"" Storyboard.TargetProperty=""Visibility"">
+                                            <DiscreteObjectKeyFrame KeyTime=""0"" Value=""Collapsed"" />
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border x:Name=""BackgroundElement"" Background=""Transparent"" BorderThickness=""0"" />
+                        <ContentControl x:Name=""PlaceholderContentPresenter""
+                                        Content=""{TemplateBinding PlaceholderText}""
+                                        Foreground=""#8A929A""
+                                        FontSize=""{TemplateBinding FontSize}""
+                                        VerticalAlignment=""Center""
+                                        HorizontalAlignment=""Left""
+                                        IsHitTestVisible=""False""
+                                        Margin=""{TemplateBinding Padding}"" />
+                        <ScrollViewer x:Name=""ContentElement""
+                                      HorizontalScrollBarVisibility=""Hidden""
+                                      VerticalScrollBarVisibility=""Hidden""
+                                      Margin=""{TemplateBinding Padding}""
+                                      VerticalAlignment=""Center"" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>";
+
+                var dict = (ResourceDictionary)XamlReader.Load(xaml);
+                foreach (var key in dict.Keys)
+                {
+                    this.Resources[key] = dict[key];
+                }
+                this.Resources.MergedDictionaries.Add(dict);
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("LoadGlobalStyles error: " + ex.Message);
+            }
         }
 
         public IXamlType GetXamlType(Type type) => null;

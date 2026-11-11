@@ -1547,6 +1547,11 @@ namespace ZaloWP81.Views
             {
                 CancelVoiceRecording();
             }
+            if (_isRenderingSubscribed)
+            {
+                _isRenderingSubscribed = false;
+                CompositionTarget.Rendering -= OnHeaderPinRendering;
+            }
             if (_conversation != null)
             {
                 _conversation.PropertyChanged -= Conversation_PropertyChanged;
@@ -1554,6 +1559,8 @@ namespace ZaloWP81.Views
                 ZaloApp.CurrentChat = null;
             }
         }
+
+        private bool _isRenderingSubscribed = false;
 
         private void PinHeaderToTop()
         {
@@ -1564,14 +1571,27 @@ namespace ZaloWP81.Views
                 var pt = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
                 if (pt.Y < 0)
                 {
-                    _headerGrid.RenderTransform = new TranslateTransform { Y = -pt.Y };
+                    double targetY = -pt.Y;
+                    if (_headerGrid.RenderTransform is TranslateTransform tt)
+                    {
+                        if (Math.Abs(tt.Y - targetY) > 0.5) tt.Y = targetY;
+                    }
+                    else
+                    {
+                        _headerGrid.RenderTransform = new TranslateTransform { Y = targetY };
+                    }
                 }
                 else if (_keyboardHeight == 0)
                 {
-                    _headerGrid.RenderTransform = null;
+                    if (_headerGrid.RenderTransform != null) _headerGrid.RenderTransform = null;
                 }
             }
             catch { }
+        }
+
+        private void OnHeaderPinRendering(object sender, object e)
+        {
+            PinHeaderToTop();
         }
 
         private void InputPane_Showing(InputPane sender, InputPaneVisibilityEventArgs args)
@@ -1581,7 +1601,17 @@ namespace ZaloWP81.Views
             {
                 _rootGrid.Margin = new Thickness(0, 0, 0, _keyboardHeight);
             }
+            if (_isDrawerOpen && _drawerContainer != null)
+            {
+                _isDrawerOpen = false;
+                _drawerContainer.Visibility = Visibility.Collapsed;
+            }
             args.EnsuredFocusedElementInView = true;
+            if (!_isRenderingSubscribed)
+            {
+                _isRenderingSubscribed = true;
+                CompositionTarget.Rendering += OnHeaderPinRendering;
+            }
             PinHeaderToTop();
             ScrollToBottom();
         }
@@ -1589,6 +1619,11 @@ namespace ZaloWP81.Views
         private void InputPane_Hiding(InputPane sender, InputPaneVisibilityEventArgs args)
         {
             _keyboardHeight = 0;
+            if (_isRenderingSubscribed)
+            {
+                _isRenderingSubscribed = false;
+                CompositionTarget.Rendering -= OnHeaderPinRendering;
+            }
             if (_rootGrid != null)
             {
                 _rootGrid.Margin = new Thickness(0);
