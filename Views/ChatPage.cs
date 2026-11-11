@@ -468,9 +468,9 @@ namespace ZaloWP81.Views
             };
             try
             {
-                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
+                if (Application.Current.Resources.ContainsKey("ChatInputTextBoxStyle"))
                 {
-                    _inputBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
+                    _inputBox.Style = (Style)Application.Current.Resources["ChatInputTextBoxStyle"];
                 }
             }
             catch { }

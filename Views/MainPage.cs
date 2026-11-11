@@ -294,6 +294,7 @@ namespace ZaloWP81.Views
             var searchGrid = new Grid();
             searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) });
             searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var lensIcon = new Image
             {
@@ -314,7 +315,7 @@ namespace ZaloWP81.Views
                 Foreground = new SolidColorBrush(Colors.White),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(2, 0, 10, 0),
+                Padding = new Thickness(2, 0, 4, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
@@ -327,7 +328,31 @@ namespace ZaloWP81.Views
             }
             catch { }
 
-            _searchBox.TextChanged += (s, e) => OnSearchChanged(_searchBox.Text);
+            var clearSearchBtn = CreateTouchBorder(Math.Round(34 * scale), Math.Round(38 * scale));
+            clearSearchBtn.Visibility = Visibility.Collapsed;
+            var clearText = new TextBlock
+            {
+                Text = "✕",
+                FontSize = Math.Round(13 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xDD, 0xFF, 0xFF, 0xFF)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 6, 0)
+            };
+            clearSearchBtn.Child = clearText;
+            clearSearchBtn.Tapped += (s, e) =>
+            {
+                _searchBox.Text = string.Empty;
+                OnSearchChanged(string.Empty);
+            };
+            Grid.SetColumn(clearSearchBtn, 2);
+            searchGrid.Children.Add(clearSearchBtn);
+
+            _searchBox.TextChanged += (s, e) =>
+            {
+                clearSearchBtn.Visibility = string.IsNullOrEmpty(_searchBox.Text) ? Visibility.Collapsed : Visibility.Visible;
+                OnSearchChanged(_searchBox.Text);
+            };
             _searchBox.KeyDown += (s, e) =>
             {
                 if (e.Key == Windows.System.VirtualKey.Enter)
