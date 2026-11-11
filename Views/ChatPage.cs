@@ -135,7 +135,7 @@ namespace ZaloWP81.Views
             {
                 try
                 {
-                    _activeVoicePlayIcon.Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_play_clean_white.png"));
+                    _activeVoicePlayIcon.Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_play_clean_white.png");
                 }
                 catch { }
             }
@@ -175,7 +175,7 @@ namespace ZaloWP81.Views
             var backBtn = CreateTouchBorder(42, 48);
             backBtn.Child = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
                 Width = 24,
                 Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -226,7 +226,7 @@ namespace ZaloWP81.Views
             _voiceCallBtn = CreateTouchBorder(40, 48);
             _voiceCallBtn.Child = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png"),
                 Width = 26,
                 Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -246,7 +246,7 @@ namespace ZaloWP81.Views
             _videoCallBtn = CreateTouchBorder(40, 48);
             _videoCallBtn.Child = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png"),
                 Width = 26,
                 Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -266,7 +266,7 @@ namespace ZaloWP81.Views
             var moreBtn = CreateTouchBorder(42, 48);
             var moreIcon = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png"),
                 Width = 26,
                 Height = 26,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -309,7 +309,7 @@ namespace ZaloWP81.Views
             var stack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             stack.Children.Add(new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_add_user_clean_blue.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_add_user_clean_blue.png"),
                 Width = 22,
                 Height = 22,
                 Margin = new Thickness(0, 0, 8, 0),
@@ -391,7 +391,7 @@ namespace ZaloWP81.Views
             var closeReplyBtn = CreateTouchBorder(32, 32);
             closeReplyBtn.Child = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_close_clean_gray.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_close_clean_gray.png"),
                 Width = 14,
                 Height = 14,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -423,7 +423,7 @@ namespace ZaloWP81.Views
             var emojiBtn = CreateTouchBorder(38, 42);
             var emojiImg = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png"),
                 Width = 24,
                 Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -497,7 +497,7 @@ namespace ZaloWP81.Views
             _micButton = CreateTouchBorder(36, 42);
             var micImg = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/ic_fotohavevoice.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/ic_fotohavevoice.png"),
                 Width = 24,
                 Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -528,7 +528,7 @@ namespace ZaloWP81.Views
             _photoButton = CreateTouchBorder(36, 42);
             var photoImg = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_camera_gallery.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_camera_gallery.png"),
                 Width = 24,
                 Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -582,7 +582,7 @@ namespace ZaloWP81.Views
             };
             sendCircle.Child = new Image
             {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/btn_send_white.png")),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_send_white.png"),
                 Width = 17,
                 Height = 17,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -764,7 +764,7 @@ namespace ZaloWP81.Views
 
                 var emoImg = new Image
                 {
-                    Source = new BitmapImage(new Uri(uri)),
+                    Source = SafeAppxImage(uri),
                     Width = 34,
                     Height = 34,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -1036,13 +1036,23 @@ namespace ZaloWP81.Views
 
             foreach (var m in _conversation.Messages)
             {
-                var bubble = CreateMessageBubble(m);
-                _messageStack.Children.Add(bubble);
+                try
+                {
+                    var bubble = CreateMessageBubble(m);
+                    if (bubble != null) _messageStack.Children.Add(bubble);
+                }
+                catch (Exception ex)
+                {
+                    ZaloLog.Add("ChatPage bubble error: " + ex.Message);
+                }
             }
 
             try
             {
-                _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
+                {
+                    _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                }
             }
             catch { }
         }
@@ -1051,7 +1061,10 @@ namespace ZaloWP81.Views
         {
             try
             {
-                _messageScroll?.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
+                {
+                    _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                }
             }
             catch { }
         }
@@ -1214,7 +1227,7 @@ namespace ZaloWP81.Views
                 // Play Overlay Icon (Official 56x56 Zalo Video Play Icon)
                 var playOverlay = new Image
                 {
-                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_csc_filevideo_play.png")),
+                    Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_csc_filevideo_play.png"),
                     Width = 56,
                     Height = 56,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -1305,7 +1318,7 @@ namespace ZaloWP81.Views
                     Visibility = Visibility.Collapsed
                 };
                 var retryStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-                retryStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_white.png")), Width = 16, Height = 16, Margin = new Thickness(0, 0, 6, 0) });
+                retryStack.Children.Add(new Image { Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_photo_clean_white.png"), Width = 16, Height = 16, Margin = new Thickness(0, 0, 6, 0) });
                 retryStack.Children.Add(new TextBlock { Text = "Tải lại ảnh", FontSize = 12.5, Foreground = new SolidColorBrush(Colors.White), VerticalAlignment = VerticalAlignment.Center });
                 retryBtn.Child = retryStack;
                 imgGrid.Children.Add(retryBtn);
@@ -1377,9 +1390,9 @@ namespace ZaloWP81.Views
                 };
                 var playIcon = new Image
                 {
-                    Source = new BitmapImage(new Uri((_activeVoiceMsg == msg && _voicePlayer.CurrentState == MediaElementState.Playing)
+                    Source = SafeAppxImage((_activeVoiceMsg == msg && _voicePlayer.CurrentState == MediaElementState.Playing)
                         ? "ms-appx:///Assets/Icons/ic_pause_clean_white.png"
-                        : "ms-appx:///Assets/Icons/ic_play_clean_white.png")),
+                        : "ms-appx:///Assets/Icons/ic_play_clean_white.png"),
                     Width = 20,
                     Height = 20,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -1417,7 +1430,7 @@ namespace ZaloWP81.Views
                     _activeVoiceMsg = msg;
                     _activeVoicePlayIcon = playIcon;
                     _activeVoiceStatusText = statusText;
-                    playIcon.Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_pause_clean_white.png"));
+                    playIcon.Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_pause_clean_white.png");
                     statusText.Text = "Đang tải...";
 
                     try
@@ -1503,7 +1516,7 @@ namespace ZaloWP81.Views
                 };
                 fileIconBox.Child = new Image
                 {
-                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/im_downloadfile.png")),
+                    Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/im_downloadfile.png"),
                     Width = 26,
                     Height = 26,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -1854,6 +1867,19 @@ namespace ZaloWP81.Views
             border.PointerReleased += (s, e) => border.Opacity = 1.0;
             border.PointerCanceled += (s, e) => border.Opacity = 1.0;
             return border;
+        }
+
+        private static BitmapImage SafeAppxImage(string uriStr)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(uriStr)) return null;
+                return new BitmapImage(new Uri(uriStr));
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

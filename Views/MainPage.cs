@@ -60,6 +60,22 @@ namespace ZaloWP81.Views
         private TextBlock _profileName;
         private TextBlock _profileStatusPreview;
 
+        // Cached Tab Icons to eliminate GC and Disk I/O during tab switching
+        private static readonly BitmapImage _iconMsgActive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_tab_message_o.png"));
+        private static readonly BitmapImage _iconMsgInactive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/tab_msg_inactive.png"));
+        private static readonly BitmapImage _iconContactActive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_tab_contact_o.png"));
+        private static readonly BitmapImage _iconContactInactive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/tab_contact_inactive.png"));
+        private static readonly BitmapImage _iconMoreActive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_tab_more_o.png"));
+        private static readonly BitmapImage _iconMoreInactive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/tab_discovery_inactive.png"));
+        private static readonly BitmapImage _iconMeActive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_tab_me_o.png"));
+        private static readonly BitmapImage _iconMeInactive = new BitmapImage(new Uri("ms-appx:///Assets/Icons/tab_me_inactive.png"));
+
+        private bool _conversationsRendered = false;
+        private bool _conversationsDirty = true;
+        private bool _friendsRendered = false;
+        private bool _friendsDirty = true;
+        private bool _profileRendered = false;
+
         public MainPage()
         {
             BuildUI();
@@ -1085,11 +1101,11 @@ namespace ZaloWP81.Views
             _tab2Content.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
             _tab3Content.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
 
-            // Load exact Android icons when active, standard inactive when not
-            _tabIcons[0].Source = new BitmapImage(new Uri(index == 0 ? "ms-appx:///Assets/Icons/Android/icn_tab_message_o.png" : "ms-appx:///Assets/Icons/tab_msg_inactive.png"));
-            _tabIcons[1].Source = new BitmapImage(new Uri(index == 1 ? "ms-appx:///Assets/Icons/Android/icn_tab_contact_o.png" : "ms-appx:///Assets/Icons/tab_contact_inactive.png"));
-            _tabIcons[2].Source = new BitmapImage(new Uri(index == 2 ? "ms-appx:///Assets/Icons/Android/icn_tab_more_o.png" : "ms-appx:///Assets/Icons/tab_discovery_inactive.png"));
-            _tabIcons[3].Source = new BitmapImage(new Uri(index == 3 ? "ms-appx:///Assets/Icons/Android/icn_tab_me_o.png" : "ms-appx:///Assets/Icons/tab_me_inactive.png"));
+            // Instant zero-allocation icon swap
+            _tabIcons[0].Source = index == 0 ? _iconMsgActive : _iconMsgInactive;
+            _tabIcons[1].Source = index == 1 ? _iconContactActive : _iconContactInactive;
+            _tabIcons[2].Source = index == 2 ? _iconMoreActive : _iconMoreInactive;
+            _tabIcons[3].Source = index == 3 ? _iconMeActive : _iconMeInactive;
 
             for (int i = 0; i < 4; i++)
             {
@@ -1098,9 +1114,20 @@ namespace ZaloWP81.Views
                 _tabLabels[i].FontWeight = active ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
             }
 
-            if (index == 0) RefreshConversations();
-            else if (index == 1) RefreshFriends();
-            else if (index == 3) RefreshProfile();
+            // Only perform heavy XAML tree rebuild if dirty or never rendered
+            if (index == 0 && (!_conversationsRendered || _conversationsDirty))
+            {
+                RefreshConversations();
+            }
+            else if (index == 1 && (!_friendsRendered || _friendsDirty))
+            {
+                RefreshFriends();
+            }
+            else if (index == 3 && !_profileRendered)
+            {
+                RefreshProfile();
+                _profileRendered = true;
+            }
         }
 
         private void SwitchSubTab(bool other)
@@ -1114,6 +1141,7 @@ namespace ZaloWP81.Views
             _subTabOtherText.Foreground = other ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : _inactiveGray;
             _subTabOtherIndicator.Background = other ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : new SolidColorBrush(Colors.Transparent);
 
+            _conversationsDirty = true;
             RefreshConversations();
         }
 
@@ -1203,6 +1231,8 @@ namespace ZaloWP81.Views
             }
 
             UpdateUnreadBadge();
+            _conversationsRendered = true;
+            _conversationsDirty = false;
         }
 
         // EXACT 100% RECONSTRUCTION OF CONVERSATION ITEM IN WP10 - PURE BORDER WITH SILKY TOUCH
@@ -1503,6 +1533,9 @@ namespace ZaloWP81.Views
                 emptyCard.Child = emptyStack;
                 _friendStack.Children.Add(emptyCard);
             }
+
+            _friendsRendered = true;
+            _friendsDirty = false;
         }
 
         private FrameworkElement CreateFriendItem(ZaloFriend friend)
@@ -1624,14 +1657,15 @@ namespace ZaloWP81.Views
 
         private void OnSearchChanged(string text)
         {
-            if (_selectedTab == 0) RefreshConversations();
-            else if (_selectedTab == 1) RefreshFriends();
+            if (_selectedTab == 0) { _conversationsDirty = true; RefreshConversations(); }
+            else if (_selectedTab == 1) { _friendsDirty = true; RefreshFriends(); }
         }
 
         private async void Conversations_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
             await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
             {
+                _conversationsDirty = true;
                 if (_selectedTab == 0) RefreshConversations();
                 UpdateUnreadBadge();
             });
