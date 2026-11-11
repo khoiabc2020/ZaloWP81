@@ -1557,16 +1557,16 @@ namespace ZaloWP81.Views
 
         private void PinHeaderToTop()
         {
-            if (_headerGrid == null) return;
+            if (_headerGrid == null || _rootGrid == null) return;
             try
             {
-                var transform = _headerGrid.TransformToVisual(null);
+                var transform = _rootGrid.TransformToVisual(null);
                 var pt = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
                 if (pt.Y < 0)
                 {
                     _headerGrid.RenderTransform = new TranslateTransform { Y = -pt.Y };
                 }
-                else if (_keyboardHeight == 0 && _headerGrid.RenderTransform != null)
+                else if (_keyboardHeight == 0)
                 {
                     _headerGrid.RenderTransform = null;
                 }
