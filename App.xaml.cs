@@ -85,11 +85,23 @@ namespace ZaloWP81
             base.OnActivated(args);
             try
             {
+                NavigationManager.Initialize();
                 if (args is FileOpenPickerContinuationEventArgs fileArgs)
                 {
                     if (NavigationManager.CurrentPage is IFileOpenPickerContinuable continuable)
                     {
                         continuable.ContinueWithFileOpenPicker(fileArgs);
+                    }
+                    else
+                    {
+                        string convKey = (fileArgs.ContinuationData != null && fileArgs.ContinuationData.ContainsKey("ConversationKey"))
+                            ? fileArgs.ContinuationData["ConversationKey"] as string : null;
+                        if (!string.IsNullOrEmpty(convKey))
+                        {
+                            var chat = new Views.ChatPage(convKey);
+                            NavigationManager.NavigateTo(chat);
+                            chat.ContinueWithFileOpenPicker(fileArgs);
+                        }
                     }
                 }
                 Window.Current?.Activate();

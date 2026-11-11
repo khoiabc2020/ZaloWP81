@@ -40,8 +40,16 @@ namespace ZaloWP81.Views
         private Border _micButton;
         private Border _photoButton;
         private TextBlock _titleBlock;
+        private TextBlock _subtitleBlock;
         private Ellipse _recipientAvatar;
         private TextBlock _recipientInitial;
+
+        private Grid _inputBarGrid;
+        private Grid _recordingBarGrid;
+        private TextBlock _recordingTimeText;
+        private DispatcherTimer _recordingTimer;
+        private int _recordingSeconds = 0;
+        private bool _isRecordingVoice = false;
 
         private FrameworkElement _drawerContainer;
         private bool _isDrawerOpen = false;
@@ -63,7 +71,21 @@ namespace ZaloWP81.Views
         public ChatPage(string conversationKey = null)
         {
             BuildUI();
-            InitializeChat(conversationKey);
+            _recordingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+            _recordingTimer.Tick += (s, e) =>
+            {
+                _recordingSeconds++;
+                int m = _recordingSeconds / 60;
+                int sec = _recordingSeconds % 60;
+                if (_recordingTimeText != null)
+                {
+                    _recordingTimeText.Text = string.Format("{0:D2}:{1:D2} · Đang ghi âm...", m, sec);
+                }
+            };
+            if (!string.IsNullOrEmpty(conversationKey))
+            {
+                InitializeChat(conversationKey);
+            }
         }
 
         private void BuildUI()
@@ -171,13 +193,14 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Back Button (Pure Touch Border with official back icon)
+            // Back Button (Pure Touch Border with native Segoe UI Symbol arrow)
             var backBtn = CreateTouchBorder(42, 48);
-            backBtn.Child = new Image
+            backBtn.Child = new TextBlock
             {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
-                Width = 24,
-                Height = 24,
+                Text = "\uE112",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = 20,
+                Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -205,22 +228,33 @@ namespace ZaloWP81.Views
             };
             avatarGrid.Children.Add(_recipientAvatar);
             avatarGrid.Children.Add(_recipientInitial);
+            avatarGrid.Tapped += (s, e) => OpenTargetProfile();
             Grid.SetColumn(avatarGrid, 1);
             header.Children.Add(avatarGrid);
 
-            // Recipient Title (White Bold 18)
+            // Recipient Title & Subtitle Stack
+            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
-                FontSize = 18,
+                FontSize = 17,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
-            Grid.SetColumn(_titleBlock, 2);
-            header.Children.Add(_titleBlock);
+            _subtitleBlock = new TextBlock
+            {
+                Text = string.Empty,
+                FontSize = 11.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Visibility = Visibility.Collapsed
+            };
+            titleStack.Children.Add(_titleBlock);
+            titleStack.Children.Add(_subtitleBlock);
+            titleStack.Tapped += (s, e) => OpenTargetProfile();
+            Grid.SetColumn(titleStack, 2);
+            header.Children.Add(titleStack);
 
             // Audio Call Action
             _voiceCallBtn = CreateTouchBorder(40, 48);
@@ -412,16 +446,19 @@ namespace ZaloWP81.Views
                 Padding = new Thickness(6, 4, 6, 4)
             };
 
-            var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+            var barRoot = new Grid();
 
-            // 1. Smiley Icon Button
+            // 1. Normal Composer Input Grid
+            _inputBarGrid = new Grid();
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+
+            // Emoji Button
             var emojiBtn = CreateTouchBorder(38, 42);
-            var emojiImg = new Image
+            emojiBtn.Child = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png"),
                 Width = 24,
@@ -429,16 +466,15 @@ namespace ZaloWP81.Views
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            emojiBtn.Child = emojiImg;
             emojiBtn.Tapped += (s, e) => ToggleDrawer();
             Grid.SetColumn(emojiBtn, 0);
-            grid.Children.Add(emojiBtn);
+            _inputBarGrid.Children.Add(emojiBtn);
 
-            // 2. Open Composer TextBox (No outer border, matching Android/W10M style)
+            // Composer TextBox
             _inputBox = new TextBox
             {
                 PlaceholderText = "Tin nhắn",
-                FontSize = 17,
+                FontSize = 16.5,
                 Foreground = _textDark,
                 BorderThickness = new Thickness(0),
                 Background = new SolidColorBrush(Colors.Transparent),
@@ -461,9 +497,9 @@ namespace ZaloWP81.Views
                 }
             };
             Grid.SetColumn(_inputBox, 1);
-            grid.Children.Add(_inputBox);
+            _inputBarGrid.Children.Add(_inputBox);
 
-            // 3. More Button (...)
+            // More Options Button (...)
             var moreDotsBtn = CreateTouchBorder(34, 42);
             var dotsStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
@@ -472,28 +508,32 @@ namespace ZaloWP81.Views
             moreDotsBtn.Child = dotsStack;
             moreDotsBtn.Tapped += async (s, e) =>
             {
-                var md = new MessageDialog("Chọn tệp đính kèm:", "Gửi tệp");
+                var md = new MessageDialog("Chọn chức năng:", "Tùy chọn");
+                md.Commands.Add(new UICommand("Gửi ảnh từ liên kết URL", async cmd =>
+                {
+                    await ShowSendUrlPhotoDialog();
+                }));
                 md.Commands.Add(new UICommand("Gửi danh thiếp", cmd =>
                 {
                     if (_conversation != null)
                     {
-                        var task = ZaloApp.SendAsync(_conversation, "[Danh thiếp] Nguyễn Văn Đức - 0977 889 900");
+                        var task = ZaloApp.SendAsync(_conversation, "[Danh thiếp] Người dùng Zalo");
                     }
                 }));
                 md.Commands.Add(new UICommand("Gửi vị trí", cmd =>
                 {
                     if (_conversation != null)
                     {
-                        var task = ZaloApp.SendAsync(_conversation, "[Vị trí] Tòa nhà VNG Campus, TP.HCM");
+                        var task = ZaloApp.SendAsync(_conversation, "[Vị trí] Vị trí hiện tại");
                     }
                 }));
                 md.Commands.Add(new UICommand("Đóng"));
                 await md.ShowAsync();
             };
             Grid.SetColumn(moreDotsBtn, 2);
-            grid.Children.Add(moreDotsBtn);
+            _inputBarGrid.Children.Add(moreDotsBtn);
 
-            // 4. Microphone Button (Voice Notes)
+            // 4. Microphone Button (Real Voice Notes)
             _micButton = CreateTouchBorder(36, 42);
             var micImg = new Image
             {
@@ -504,27 +544,11 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _micButton.Child = micImg;
-            _micButton.Tapped += (s, e) =>
-            {
-                if (_conversation != null)
-                {
-                    long nowMs = DateTime.UtcNow.Ticks / 10000;
-                    var voiceMsg = new ZaloChatMessage
-                    {
-                        FromMe = true,
-                        Text = "Tin nhắn thoại (0:05)",
-                        Ts = nowMs,
-                        MsgType = "chat.voice"
-                    };
-                    _conversation.Messages.Add(voiceMsg);
-                    _conversation.LastText = "[Tin nhắn thoại]";
-                    _conversation.LastTs = nowMs;
-                }
-            };
+            _micButton.Tapped += (s, e) => StartVoiceRecording();
             Grid.SetColumn(_micButton, 3);
-            grid.Children.Add(_micButton);
+            _inputBarGrid.Children.Add(_micButton);
 
-            // 5. Photo Gallery Button
+            // 5. Photo Button (Direct Native Gallery Picker)
             _photoButton = CreateTouchBorder(36, 42);
             var photoImg = new Image
             {
@@ -535,44 +559,13 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _photoButton.Child = photoImg;
-            _photoButton.Tapped += async (s, e) =>
-            {
-                var md = new MessageDialog("Chọn phương thức gửi hình ảnh:", "Gửi ảnh");
-                md.Commands.Add(new UICommand("Chọn ảnh từ máy (Thư viện)", cmd =>
-                {
-                    try
-                    {
-                        var picker = new FileOpenPicker
-                        {
-                            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
-                            ViewMode = PickerViewMode.Thumbnail
-                        };
-                        picker.FileTypeFilter.Add(".jpg");
-                        picker.FileTypeFilter.Add(".jpeg");
-                        picker.FileTypeFilter.Add(".png");
-                        picker.FileTypeFilter.Add(".webp");
-                        picker.PickSingleFileAndContinue();
-                    }
-                    catch (Exception ex)
-                    {
-                        var m = new MessageDialog("Không thể mở bộ chọn ảnh: " + ex.Message, "Lỗi");
-                        var ignore = m.ShowAsync();
-                    }
-                }));
-                md.Commands.Add(new UICommand("Gửi ảnh từ liên kết URL", async cmd =>
-                {
-                    await ShowSendUrlPhotoDialog();
-                }));
-                md.Commands.Add(new UICommand("Hủy"));
-                await md.ShowAsync();
-            };
+            _photoButton.Tapped += (s, e) => PickPhoto();
             Grid.SetColumn(_photoButton, 4);
-            grid.Children.Add(_photoButton);
+            _inputBarGrid.Children.Add(_photoButton);
 
             // 6. Send Button (Blue Circle #0786F9 with btn_send_white.png)
             _sendButton = CreateTouchBorder(36, 42);
             _sendButton.Visibility = Visibility.Collapsed;
-
             var sendCircle = new Border
             {
                 Width = 34,
@@ -591,26 +584,232 @@ namespace ZaloWP81.Views
             _sendButton.Child = sendCircle;
             _sendButton.Tapped += (s, e) => SendMessage();
             Grid.SetColumn(_sendButton, 4);
-            grid.Children.Add(_sendButton);
+            _inputBarGrid.Children.Add(_sendButton);
 
-            bar.Child = grid;
+            barRoot.Children.Add(_inputBarGrid);
+
+            // 2. Real Voice Recording Bar (Appears when recording)
+            _recordingBarGrid = new Grid { Visibility = Visibility.Collapsed };
+            _recordingBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            _recordingBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _recordingBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _recordingBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var redDot = new Ellipse
+            {
+                Width = 14,
+                Height = 14,
+                Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0xD9, 0x2D, 0x20)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(redDot, 0);
+            _recordingBarGrid.Children.Add(redDot);
+
+            _recordingTimeText = new TextBlock
+            {
+                Text = "00:00 · Đang ghi âm...",
+                FontSize = 15,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xD9, 0x2D, 0x20)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(4, 0, 0, 0)
+            };
+            Grid.SetColumn(_recordingTimeText, 1);
+            _recordingBarGrid.Children.Add(_recordingTimeText);
+
+            var cancelRecBtn = CreateTouchBorder(60, 42);
+            cancelRecBtn.Child = new TextBlock
+            {
+                Text = "Hủy",
+                FontSize = 14.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x75, 0x75, 0x75)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            cancelRecBtn.Tapped += (s, e) => CancelVoiceRecording();
+            Grid.SetColumn(cancelRecBtn, 2);
+            _recordingBarGrid.Children.Add(cancelRecBtn);
+
+            var sendRecBtn = CreateTouchBorder(44, 42);
+            var recCircle = new Border
+            {
+                Width = 34,
+                Height = 34,
+                CornerRadius = new CornerRadius(17),
+                Background = _activeBlue
+            };
+            recCircle.Child = new Image
+            {
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_send_white.png"),
+                Width = 17,
+                Height = 17,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            sendRecBtn.Child = recCircle;
+            sendRecBtn.Tapped += (s, e) => FinishAndSendVoiceRecording();
+            Grid.SetColumn(sendRecBtn, 3);
+            _recordingBarGrid.Children.Add(sendRecBtn);
+
+            barRoot.Children.Add(_recordingBarGrid);
+
+            bar.Child = barRoot;
             container.Children.Add(bar);
             return container;
         }
 
+        private async void StartVoiceRecording()
+        {
+            if (_isRecordingVoice || _conversation == null) return;
+            try
+            {
+                bool started = await ZaloVoiceService.Current.StartRecordingAsync();
+                if (!started)
+                {
+                    var md = new MessageDialog("Không thể truy cập microphone. Vui lòng vào Cài đặt -> Quyền riêng tư -> Micrô (Settings -> Privacy -> Microphone) và cho phép Zalo.\n\nChi tiết: " + ZaloVoiceService.Current.LastError, "Lỗi Micro");
+                    await md.ShowAsync();
+                    return;
+                }
+
+                _isRecordingVoice = true;
+                _recordingSeconds = 0;
+                _recordingTimeText.Text = "00:00 · Đang ghi âm...";
+                _recordingTimer.Start();
+                _inputBarGrid.Visibility = Visibility.Collapsed;
+                _recordingBarGrid.Visibility = Visibility.Visible;
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Lỗi mở micro: " + ex.Message, "Lỗi");
+                await md.ShowAsync();
+            }
+        }
+
+        private async void CancelVoiceRecording()
+        {
+            if (!_isRecordingVoice) return;
+            _recordingTimer.Stop();
+            _isRecordingVoice = false;
+            _recordingBarGrid.Visibility = Visibility.Collapsed;
+            _inputBarGrid.Visibility = Visibility.Visible;
+            try
+            {
+                var file = await ZaloVoiceService.Current.StopRecordingAsync();
+                if (file != null) await file.DeleteAsync();
+            }
+            catch { }
+        }
+
+        private async void FinishAndSendVoiceRecording()
+        {
+            if (!_isRecordingVoice || _conversation == null) return;
+            _recordingTimer.Stop();
+            _isRecordingVoice = false;
+            _recordingBarGrid.Visibility = Visibility.Collapsed;
+            _inputBarGrid.Visibility = Visibility.Visible;
+
+            try
+            {
+                var file = await ZaloVoiceService.Current.StopRecordingAsync();
+                if (file != null)
+                {
+                    var props = await file.GetBasicPropertiesAsync();
+                    if (props.Size > 400)
+                    {
+                        using (var stream = await file.OpenReadAsync())
+                        {
+                            await ZaloApp.SendVoiceAsync(_conversation, file.Name, stream, (long)props.Size);
+                        }
+                        RenderMessages();
+                        ScrollToBottom();
+                    }
+                    try { await file.DeleteAsync(); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Lỗi gửi tin nhắn thoại: " + ex.Message, "Lỗi");
+                await md.ShowAsync();
+            }
+        }
+
+        private void PickPhoto()
+        {
+            if (_conversation == null) return;
+            try
+            {
+                var picker = new FileOpenPicker
+                {
+                    SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+                    ViewMode = PickerViewMode.Thumbnail
+                };
+                picker.FileTypeFilter.Add(".jpg");
+                picker.FileTypeFilter.Add(".jpeg");
+                picker.FileTypeFilter.Add(".png");
+                picker.FileTypeFilter.Add(".gif");
+                picker.FileTypeFilter.Add(".bmp");
+                picker.ContinuationData["ConversationKey"] = _conversation.Key;
+                picker.ContinuationData["Action"] = "SendPhoto";
+                picker.PickSingleFileAndContinue();
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Không thể mở bộ chọn ảnh: " + ex.Message + "\nHãy kiểm tra quyền Thư viện ảnh trong Cài đặt.", "Lỗi ảnh");
+                var ignore = md.ShowAsync();
+            }
+        }
+
+        private void OpenTargetProfile()
+        {
+            if (_conversation == null) return;
+            if (_conversation.IsGroup)
+            {
+                NavigationManager.NavigateTo(new GroupInfoPage(_conversation.Key));
+            }
+            else
+            {
+                var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == _conversation.ThreadId)
+                    ?? new ZaloFriend { UserId = _conversation.ThreadId, Name = _conversation.Name, Avatar = _conversation.AvatarUrl };
+                NavigationManager.NavigateTo(new FriendProfilePage(fr));
+            }
+        }
+
         public async void ContinueWithFileOpenPicker(FileOpenPickerContinuationEventArgs args)
         {
-            if (args == null || args.Files == null || args.Files.Count == 0 || _conversation == null) return;
+            if (args == null || args.Files == null || args.Files.Count == 0) return;
+            if (_conversation == null)
+            {
+                string convKey = (args.ContinuationData != null && args.ContinuationData.ContainsKey("ConversationKey"))
+                    ? args.ContinuationData["ConversationKey"] as string : null;
+                if (!string.IsNullOrEmpty(convKey))
+                {
+                    _conversation = ZaloApp.Conversations.FirstOrDefault(c => c.Key == convKey);
+                }
+            }
+            if (_conversation == null) return;
+
             var file = args.Files[0];
             try
             {
                 var props = await file.GetBasicPropertiesAsync();
                 using (var imageStream = await file.OpenReadAsync())
                 {
-                    var decoder = await BitmapDecoder.CreateAsync(imageStream);
-                    uint width = decoder.PixelWidth;
-                    uint height = decoder.PixelHeight;
-                    imageStream.Seek(0);
+                    uint width = 800;
+                    uint height = 600;
+                    try
+                    {
+                        var decoder = await BitmapDecoder.CreateAsync(imageStream);
+                        width = decoder.PixelWidth;
+                        height = decoder.PixelHeight;
+                        imageStream.Seek(0);
+                    }
+                    catch
+                    {
+                        try { imageStream.Seek(0); } catch { }
+                    }
+
                     string caption = _inputBox.Text?.Trim() ?? string.Empty;
                     _inputBox.Text = string.Empty;
                     await ZaloApp.SendImageAsync(_conversation, file.Name, imageStream, (long)props.Size, width, height, caption);
@@ -853,6 +1052,24 @@ namespace ZaloWP81.Views
                     _recipientInitial.Text = string.Empty;
                 }
 
+                if (_subtitleBlock != null)
+                {
+                    if (_conversation.IsGroup)
+                    {
+                        int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
+                        _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                    else
+                    {
+                        bool isOnline = false;
+                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == _conversation.ThreadId);
+                        if (fr != null && fr.IsOnline) isOnline = true;
+                        _subtitleBlock.Text = isOnline ? "Đang hoạt động" : "Vừa mới truy cập";
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                }
+
                 if (_voiceCallBtn != null) _voiceCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
                 if (_videoCallBtn != null) _videoCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
                 if (_strangerBanner != null)
@@ -898,6 +1115,11 @@ namespace ZaloWP81.Views
                 await ZaloApp.LoadGroupMembersAsync(_conversation, System.Threading.CancellationToken.None);
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
+                    if (_subtitleBlock != null && _conversation != null && _conversation.IsGroup)
+                    {
+                        int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
+                        _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
+                    }
                     RenderMessages();
                 });
             }
@@ -922,6 +1144,11 @@ namespace ZaloWP81.Views
                 }
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
+                    if (_subtitleBlock != null && _conversation != null && _conversation.IsGroup)
+                    {
+                        int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
+                        _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
+                    }
                     RenderMessages();
                 });
             }
@@ -946,6 +1173,11 @@ namespace ZaloWP81.Views
                 }
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
+                    if (_subtitleBlock != null && _conversation != null && _conversation.IsGroup)
+                    {
+                        int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
+                        _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
+                    }
                     RenderMessages();
                 });
             }
@@ -990,6 +1222,10 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            if (_isRecordingVoice)
+            {
+                CancelVoiceRecording();
+            }
             if (_conversation != null)
             {
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
