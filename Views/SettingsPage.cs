@@ -88,6 +88,204 @@ namespace ZaloWP81.Views
             var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
             var stack = new StackPanel();
 
+            // Section 0: Tương thích màn hình & Kích thước giao diện (UI Scale)
+            stack.Children.Add(CreateSectionHeader("TƯƠNG THÍCH MÀN HÌNH & KÍCH THƯỚC"));
+
+            var scaleGroup = new Border
+            {
+                Background = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14, 14, 14, 14),
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            var scaleStack = new StackPanel();
+
+            scaleStack.Children.Add(new TextBlock
+            {
+                Text = "Kích thước chữ trò chuyện:",
+                FontSize = 14,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _textDark
+            });
+            scaleStack.Children.Add(new TextBlock
+            {
+                Text = "Tăng giảm cỡ chữ tin nhắn để nhìn rõ ràng hơn",
+                FontSize = 12,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 10)
+            });
+
+            // 4 Font size pills
+            var fontPillGrid = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+            for (int k = 0; k < 4; k++)
+                fontPillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            double[] fontSizes = new double[] { 13.5, 15.5, 17.5, 19.5 };
+            string[] fontLabels = new string[] { "Nhỏ", "Vừa", "Lớn", "Rất lớn" };
+            var fontBorders = new Border[4];
+            var fontTexts = new TextBlock[4];
+
+            double currentFontSize = ZaloSettingsService.Current.MessageFontSize;
+
+            // Preview bubble definition
+            var previewBubble = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0xF2, 0xFF)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(12, 8, 12, 8),
+                Margin = new Thickness(0, 0, 0, 16),
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            var previewText = new TextBlock
+            {
+                Text = "Chào bạn! Cỡ chữ tin nhắn sẽ hiển thị như thế này.",
+                FontSize = currentFontSize,
+                Foreground = _textDark,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 260
+            };
+            var previewTime = new TextBlock
+            {
+                Text = "10:30  ✓✓ Đã xem",
+                FontSize = 11,
+                Foreground = _activeBlue,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            var previewStack = new StackPanel();
+            previewStack.Children.Add(previewText);
+            previewStack.Children.Add(previewTime);
+            previewBubble.Child = previewStack;
+
+            for (int k = 0; k < 4; k++)
+            {
+                int pillIdx = k;
+                double fs = fontSizes[k];
+                bool isSelected = Math.Abs(currentFontSize - fs) < 0.5;
+
+                var pBorder = new Border
+                {
+                    Height = 36,
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(pillIdx == 0 ? 0 : 3, 0, pillIdx == 3 ? 0 : 3, 0),
+                    Background = isSelected ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9))
+                };
+                var pText = new TextBlock
+                {
+                    Text = fontLabels[k],
+                    FontSize = 13,
+                    FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
+                    Foreground = isSelected ? new SolidColorBrush(Colors.White) : _textDark,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                pBorder.Child = pText;
+                fontBorders[k] = pBorder;
+                fontTexts[k] = pText;
+
+                pBorder.Tapped += (s, e) =>
+                {
+                    ZaloSettingsService.Current.MessageFontSize = fs;
+                    previewText.FontSize = fs;
+                    for (int m = 0; m < 4; m++)
+                    {
+                        bool sel = m == pillIdx;
+                        fontBorders[m].Background = sel ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
+                        fontTexts[m].Foreground = sel ? new SolidColorBrush(Colors.White) : _textDark;
+                        fontTexts[m].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+                    }
+                };
+
+                Grid.SetColumn(pBorder, k);
+                fontPillGrid.Children.Add(pBorder);
+            }
+
+            scaleStack.Children.Add(fontPillGrid);
+            scaleStack.Children.Add(previewBubble);
+
+            // Divider
+            scaleStack.Children.Add(new Border
+            {
+                Height = 1,
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF2, 0xF6)),
+                Margin = new Thickness(0, 0, 0, 14)
+            });
+
+            // UI Scale Factor (Display Compatibility)
+            scaleStack.Children.Add(new TextBlock
+            {
+                Text = "Tỷ lệ phóng đại giao diện:",
+                FontSize = 14,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _textDark
+            });
+            scaleStack.Children.Add(new TextBlock
+            {
+                Text = "Tối ưu độ tương thích cho màn hình Lumia 450x800, 720p hoặc 1080p",
+                FontSize = 12,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 10)
+            });
+
+            var scalePillGrid = new Grid();
+            for (int k = 0; k < 4; k++)
+                scalePillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            double[] scales = new double[] { 1.0, 1.1, 1.2, 1.3 };
+            string[] scaleLabels = new string[] { "100%", "110%", "120%", "130%" };
+            var scaleBorders = new Border[4];
+            var scaleTexts = new TextBlock[4];
+
+            double currentScale = ZaloSettingsService.Current.UiScaleFactor;
+
+            for (int k = 0; k < 4; k++)
+            {
+                int sIdx = k;
+                double sc = scales[k];
+                bool isSelected = Math.Abs(currentScale - sc) < 0.05;
+
+                var sBorder = new Border
+                {
+                    Height = 36,
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(sIdx == 0 ? 0 : 3, 0, sIdx == 3 ? 0 : 3, 0),
+                    Background = isSelected ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9))
+                };
+                var sText = new TextBlock
+                {
+                    Text = scaleLabels[k],
+                    FontSize = 13,
+                    FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
+                    Foreground = isSelected ? new SolidColorBrush(Colors.White) : _textDark,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                sBorder.Child = sText;
+                scaleBorders[k] = sBorder;
+                scaleTexts[k] = sText;
+
+                sBorder.Tapped += (s, e) =>
+                {
+                    ZaloSettingsService.Current.UiScaleFactor = sc;
+                    for (int m = 0; m < 4; m++)
+                    {
+                        bool sel = m == sIdx;
+                        scaleBorders[m].Background = sel ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
+                        scaleTexts[m].Foreground = sel ? new SolidColorBrush(Colors.White) : _textDark;
+                        scaleTexts[m].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+                    }
+                };
+
+                Grid.SetColumn(sBorder, k);
+                scalePillGrid.Children.Add(sBorder);
+            }
+            scaleStack.Children.Add(scalePillGrid);
+
+            scaleGroup.Child = scaleStack;
+            stack.Children.Add(scaleGroup);
+
             // Section 1: Giao diện & Hình nền trò chuyện (zStyle)
             stack.Children.Add(CreateSectionHeader("GIAO DIỆN & HÌNH NỀN (ZSTYLE)"));
 

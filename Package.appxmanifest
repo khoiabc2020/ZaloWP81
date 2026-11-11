@@ -6,7 +6,7 @@
   <Identity Name="ZaloWP81.Client"
             ProcessorArchitecture="arm"
             Publisher="CN=ZaloDev"
-            Version="1.0.23.0" />
+            Version="1.0.24.0" />
   <mp:PhoneIdentity PhoneProductId="b81b5e20-3b4c-47ea-9081-3c9fba0e8181"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>

@@ -64,8 +64,6 @@ namespace ZaloWP81.Views
         private Image _activeVoicePlayIcon;
         private TextBlock _activeVoiceStatusText;
 
-        private Border _voiceCallBtn;
-        private Border _videoCallBtn;
         private Border _strangerBanner;
 
         public ChatPage(string conversationKey = null)
@@ -190,8 +188,6 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             // Back Button (Pure Touch Border with clean white vector back icon)
             var backBtn = CreateTouchBorder(42, 48);
@@ -256,46 +252,6 @@ namespace ZaloWP81.Views
             Grid.SetColumn(titleStack, 2);
             header.Children.Add(titleStack);
 
-            // Audio Call Action
-            _voiceCallBtn = CreateTouchBorder(40, 48);
-            _voiceCallBtn.Child = new Image
-            {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png"),
-                Width = 26,
-                Height = 26,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _voiceCallBtn.Tapped += (s, e) =>
-            {
-                if (_conversation != null)
-                {
-                    NavigationManager.NavigateTo(new CallPage(_conversation));
-                }
-            };
-            Grid.SetColumn(_voiceCallBtn, 3);
-            header.Children.Add(_voiceCallBtn);
-
-            // Video Call Action
-            _videoCallBtn = CreateTouchBorder(40, 48);
-            _videoCallBtn.Child = new Image
-            {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png"),
-                Width = 26,
-                Height = 26,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _videoCallBtn.Tapped += (s, e) =>
-            {
-                if (_conversation != null)
-                {
-                    NavigationManager.NavigateTo(new CallPage(_conversation));
-                }
-            };
-            Grid.SetColumn(_videoCallBtn, 4);
-            header.Children.Add(_videoCallBtn);
-
             // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage or GroupInfoPage)
             var moreBtn = CreateTouchBorder(42, 48);
             var moreIcon = new Image
@@ -317,7 +273,7 @@ namespace ZaloWP81.Views
                         NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
                 }
             };
-            Grid.SetColumn(moreBtn, 5);
+            Grid.SetColumn(moreBtn, 3);
             header.Children.Add(moreBtn);
 
             headerBorder.Child = header;
@@ -508,24 +464,14 @@ namespace ZaloWP81.Views
             moreDotsBtn.Child = dotsStack;
             moreDotsBtn.Tapped += async (s, e) =>
             {
-                var md = new MessageDialog("Chọn chức năng:", "Tùy chọn");
+                var md = new MessageDialog("Chọn chức năng đính kèm:", "Tùy chọn");
                 md.Commands.Add(new UICommand("Gửi ảnh từ liên kết URL", async cmd =>
                 {
                     await ShowSendUrlPhotoDialog();
                 }));
-                md.Commands.Add(new UICommand("Gửi danh thiếp", cmd =>
+                md.Commands.Add(new UICommand("Chia sẻ danh thiếp", async cmd =>
                 {
-                    if (_conversation != null)
-                    {
-                        var task = ZaloApp.SendAsync(_conversation, "[Danh thiếp] Người dùng Zalo");
-                    }
-                }));
-                md.Commands.Add(new UICommand("Gửi vị trí", cmd =>
-                {
-                    if (_conversation != null)
-                    {
-                        var task = ZaloApp.SendAsync(_conversation, "[Vị trí] Vị trí hiện tại");
-                    }
+                    await ShowShareContactDialog();
                 }));
                 md.Commands.Add(new UICommand("Đóng"));
                 await md.ShowAsync();
@@ -899,6 +845,65 @@ namespace ZaloWP81.Views
             }
         }
 
+        private async Task ShowShareContactDialog()
+        {
+            if (_conversation == null) return;
+            if (ZaloApp.Friends == null || ZaloApp.Friends.Count == 0)
+            {
+                var md = new MessageDialog("Danh bạ chưa có bạn bè để chia sẻ danh thiếp.", "Chia sẻ danh thiếp");
+                await md.ShowAsync();
+                return;
+            }
+
+            var scroll = new ScrollViewer { MaxHeight = 350 };
+            var listStack = new StackPanel();
+            var cd = new ContentDialog
+            {
+                Title = "Chọn liên hệ cần chia sẻ",
+                PrimaryButtonText = "Đóng",
+                Content = scroll
+            };
+
+            foreach (var fr in ZaloApp.Friends.Take(30))
+            {
+                var item = new Border
+                {
+                    Padding = new Thickness(10, 8, 10, 8),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0)),
+                    BorderThickness = new Thickness(0, 0, 0, 1)
+                };
+                var grid = new Grid();
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var ava = new Ellipse { Width = 32, Height = 32, Fill = fr.AvatarImageBrush ?? ZaloAvatar.ColorFor(fr.DisplayName ?? "Z") };
+                Grid.SetColumn(ava, 0);
+                grid.Children.Add(ava);
+
+                var nameBlock = new TextBlock
+                {
+                    Text = fr.DisplayName ?? "Bạn bè",
+                    FontSize = 14.5,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0),
+                    Foreground = _textDark
+                };
+                Grid.SetColumn(nameBlock, 1);
+                grid.Children.Add(nameBlock);
+
+                item.Child = grid;
+                var currentFr = fr;
+                item.Tapped += async (s, e) =>
+                {
+                    cd.Hide();
+                    await ZaloApp.SendContactCardAsync(_conversation, currentFr);
+                };
+                listStack.Children.Add(item);
+            }
+            scroll.Content = listStack;
+            await cd.ShowAsync();
+        }
+
         // EXACT EMOJI DRAWER MATCHING media_1794285161826_53038b6c.jpg
         private FrameworkElement CreateStickerDrawer()
         {
@@ -1070,8 +1075,6 @@ namespace ZaloWP81.Views
                     }
                 }
 
-                if (_voiceCallBtn != null) _voiceCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
-                if (_videoCallBtn != null) _videoCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
                 if (_strangerBanner != null)
                 {
                     bool isStranger = !_conversation.IsGroup && ZaloApp.FriendsLoaded && !ZaloApp.IsFriend(_conversation.ThreadId);
@@ -1850,10 +1853,11 @@ namespace ZaloWP81.Views
                     MaxWidth = 310
                 };
 
+                double msgFontSize = ZaloSettingsService.Current.MessageFontSize;
                 var textBlock = new TextBlock
                 {
                     Text = msg.Text ?? string.Empty,
-                    FontSize = 16.5,
+                    FontSize = msgFontSize,
                     Foreground = _textDark,
                     TextWrapping = TextWrapping.Wrap
                 };
