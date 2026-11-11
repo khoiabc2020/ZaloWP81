@@ -845,34 +845,33 @@ namespace ZaloWP81.Views
             return border;
         }
 
-        private async void ShowAddQuickContactDialog()
+        private void ShowAddQuickContactDialog()
         {
             var friends = (ZaloApp.Friends ?? new List<ZaloFriend>()).Where(f => !string.IsNullOrEmpty(f.UserId)).ToList();
             if (friends.Count == 0)
             {
                 var md = new MessageDialog("Danh bạ chưa có bạn bè để thêm.", "Liên hệ nhanh");
-                await md.ShowAsync();
+                var ignored = md.ShowAsync();
                 return;
             }
 
             string accountId = ZaloApp.Session?.Uid;
             var currentIds = ZaloSettingsService.Current.GetQuickContactIds(accountId);
-            var mdList = new MessageDialog("Chọn bạn bè thêm vào liên hệ nhanh (tối đa 10):", "Liên hệ nhanh");
-            foreach (var f in friends.Take(6))
+            var sheet = new Common.ZaloActionSheet("Liên hệ nhanh (tối đa 10)");
+            foreach (var f in friends.Take(10))
             {
                 string uid = f.UserId;
                 string name = f.DisplayName ?? f.Name;
                 bool isAdded = currentIds.Contains(uid);
-                mdList.Commands.Add(new UICommand((isAdded ? "✓ " : "+ ") + name, cmd =>
+                sheet.AddAction((isAdded ? "✓ Đã thêm: " : "+ Thêm: ") + name, () =>
                 {
                     if (isAdded) currentIds.Remove(uid);
                     else if (currentIds.Count < 10) currentIds.Add(uid);
                     ZaloSettingsService.Current.SetQuickContactIds(accountId, currentIds);
                     UpdateQuickContacts();
-                }));
+                });
             }
-            mdList.Commands.Add(new UICommand("Đóng"));
-            await mdList.ShowAsync();
+            sheet.Show();
         }
 
         private void UpdateQuickContacts()
@@ -1121,9 +1120,9 @@ namespace ZaloWP81.Views
             return border;
         }
 
-        private async void RefreshRecommendations()
+        private async void RefreshRecommendations(bool force = false)
         {
-            if (_recommendationsLoading || ZaloApp.Session == null || _recommendationsStack == null) return;
+            if ((_recommendationsLoaded && !force) || _recommendationsLoading || ZaloApp.Session == null || _recommendationsStack == null) return;
             _recommendationsLoading = true;
             if (_recommendationsStatusText != null) _recommendationsStatusText.Text = "Đang tải gợi ý kết bạn…";
             try

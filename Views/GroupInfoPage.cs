@@ -1364,7 +1364,7 @@ namespace ZaloWP81.Views
             border.PointerPressed += (s, e) => border.Opacity = 0.6;
             border.PointerReleased += (s, e) => border.Opacity = 1.0;
             border.PointerCanceled += (s, e) => border.Opacity = 1.0;
-            border.Tapped += async (s, e) =>
+            border.Tapped += (s, e) =>
             {
                 if (string.IsNullOrEmpty(userId)) return;
                 if (userId == ZaloApp.Session?.Uid) return;
@@ -1372,11 +1372,11 @@ namespace ZaloWP81.Views
                 var friend = ZaloApp.Friends.FirstOrDefault(f => f.UserId == userId)
                     ?? new ZaloFriend { UserId = userId, Name = name, Avatar = avatarUrl };
 
-                var optDialog = new MessageDialog($"Tùy chọn cho thành viên {name}:", name);
-                optDialog.Commands.Add(new UICommand("Trang cá nhân", cmd =>
+                var sheet = new Common.ZaloActionSheet($"Thành viên: {name}");
+                sheet.AddAction("Xem trang cá nhân", () =>
                 {
                     NavigationManager.NavigateTo(new FriendProfilePage(friend));
-                }));
+                });
 
                 if (CanManageGroup())
                 {
@@ -1385,7 +1385,7 @@ namespace ZaloWP81.Views
 
                     if (!isOwner)
                     {
-                        optDialog.Commands.Add(new UICommand(isDeputy ? "Hạ cấp phó nhóm" : "Bổ nhiệm phó nhóm", async cmd =>
+                        sheet.AddAction(isDeputy ? "Hạ cấp phó nhóm" : "Bổ nhiệm phó nhóm", async () =>
                         {
                             try
                             {
@@ -1397,9 +1397,33 @@ namespace ZaloWP81.Views
                             {
                                 await new MessageDialog("Lỗi: " + ex.Message, "Phó nhóm").ShowAsync();
                             }
-                        }));
+                        });
 
-                        optDialog.Commands.Add(new UICommand("Xóa khỏi nhóm", async cmd =>
+                        string currentUid = ZaloApp.Session?.Uid ?? string.Empty;
+                        if (currentUid == _creatorId)
+                        {
+                            sheet.AddAction("Chuyển quyền trưởng nhóm", async () =>
+                            {
+                                var confirm = new MessageDialog($"Chuyển quyền trưởng nhóm cho {name}? Sau khi chuyển, quyền quản trị nhóm của bạn có thể thay đổi.", "Chuyển quyền trưởng nhóm");
+                                confirm.Commands.Add(new UICommand("Chuyển", async c =>
+                                {
+                                    try
+                                    {
+                                        await ZaloMessaging.ChangeGroupOwnerAsync(ZaloApp.Session, _conversation.ThreadId, userId, CancellationToken.None);
+                                        await new MessageDialog($"Đã chuyển quyền trưởng nhóm cho {name}.", "Thông báo").ShowAsync();
+                                        LoadGroupInfoAsync();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        await new MessageDialog("Lỗi chuyển quyền: " + ex.Message).ShowAsync();
+                                    }
+                                }));
+                                confirm.Commands.Add(new UICommand("Hủy"));
+                                await confirm.ShowAsync();
+                            });
+                        }
+
+                        sheet.AddAction("Xóa khỏi nhóm", async () =>
                         {
                             var confirm = new MessageDialog($"Bạn có chắc chắn muốn mời {name} ra khỏi nhóm không?", "Xóa thành viên");
                             confirm.Commands.Add(new UICommand("Xóa", async c =>
@@ -1417,12 +1441,11 @@ namespace ZaloWP81.Views
                             }));
                             confirm.Commands.Add(new UICommand("Hủy"));
                             await confirm.ShowAsync();
-                        }));
+                        }, isDestructive: true);
                     }
                 }
 
-                optDialog.Commands.Add(new UICommand("Đóng"));
-                await optDialog.ShowAsync();
+                sheet.Show();
             };
             return border;
         }

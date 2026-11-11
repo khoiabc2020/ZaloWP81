@@ -6,14 +6,14 @@
   <Identity Name="ZaloWP81.Client"
             ProcessorArchitecture="arm"
             Publisher="CN=ZaloDev"
-            Version="1.0.40.0" />
+            Version="1.0.42.0" />
   <mp:PhoneIdentity PhoneProductId="b81b5e20-3b4c-47ea-9081-3c9fba0e8181"
                     PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
-    <DisplayName>Zalo WP8.1</DisplayName>
+    <DisplayName>Zalo</DisplayName>
     <PublisherDisplayName>ZaloDev</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <Description>Zalo Native Client cho Windows Phone 8.1</Description>
+    <Description>Zalo cho Windows Phone 8.1 &amp; Windows 10 Mobile</Description>
   </Properties>
   <Prerequisites>
     <OSMinVersion>6.3.1</OSMinVersion>
@@ -30,7 +30,7 @@
       <m3:VisualElements DisplayName="Zalo"
                          Square150x150Logo="Assets\Square150x150Logo.png"
                          Square44x44Logo="Assets\Square44x44Logo.png"
-                         Description="Zalo Client cho Windows Phone 8.1"
+                         Description="Zalo cho Windows Phone 8.1 &amp; Windows 10 Mobile"
                          ForegroundText="light"
                          BackgroundColor="#0167FE">
         <m3:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png"
