@@ -90,15 +90,19 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var backBtn = CreateTouchBorder(44, 44);
-            backBtn.Child = new TextBlock
+            backBtn.Child = new Image
             {
-                Text = "←",
-                FontSize = 22,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -301,7 +305,13 @@ namespace ZaloWP81.Views
             mediaTextStack.Children.Add(_mediaCountText);
             Grid.SetColumn(mediaTextStack, 0);
             mediaGrid.Children.Add(mediaTextStack);
-            var arrow = new TextBlock { Text = "›", FontSize = 20, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var arrow = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(arrow, 1);
             mediaGrid.Children.Add(arrow);
             mediaCard.Child = mediaGrid;
@@ -478,7 +488,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(addMemberText, 1);
             addMemberGrid.Children.Add(addMemberText);
 
-            var plusArrow = new TextBlock { Text = "›", FontSize = 20, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var plusArrow = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(plusArrow, 2);
             addMemberGrid.Children.Add(plusArrow);
 
@@ -1673,8 +1689,7 @@ namespace ZaloWP81.Views
             {
                 string kw = (input.Text ?? string.Empty).Trim();
                 if (string.IsNullOrEmpty(kw)) return;
-                int matches = _conversation?.Messages?.Count(m => m.Text != null && m.Text.IndexOf(kw, StringComparison.OrdinalIgnoreCase) >= 0) ?? 0;
-                await new MessageDialog($"Tìm thấy {matches} tin nhắn khớp với '{kw}'.", "Kết quả tìm kiếm").ShowAsync();
+                NavigationManager.NavigateTo(new SearchResultsPage(new SearchPageRequest { ConversationKey = _conversation?.Key, Query = kw }));
             }
         }
 

@@ -68,15 +68,19 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var backBtn = CreateTouchBorder(44, 44);
-            backBtn.Child = new TextBlock
+            backBtn.Child = new Image
             {
-                Text = "←",
-                FontSize = 22,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -319,7 +323,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(groupTextStack, 1);
             card3Grid.Children.Add(groupTextStack);
 
-            var chevron1 = new TextBlock { Text = "›", FontSize = 22, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var chevron1 = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(chevron1, 2);
             card3Grid.Children.Add(chevron1);
 
@@ -360,7 +370,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(postTextStack, 1);
             card4Grid.Children.Add(postTextStack);
 
-            var chevron2 = new TextBlock { Text = "›", FontSize = 20, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var chevron2 = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(chevron2, 2);
             card4Grid.Children.Add(chevron2);
 

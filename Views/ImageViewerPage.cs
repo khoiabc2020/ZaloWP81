@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Streams;
 using Windows.UI;
@@ -10,22 +11,28 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
+using Windows.UI.Xaml.Navigation;
 using ZaloLite;
 
 namespace ZaloWP81.Views
 {
     public sealed class ImageViewerPage : Page
     {
-        private readonly string _imageUrl;
+        private string _imageUrl;
         private byte[] _imageBytes;
         private Image _mainImage;
         private ProgressRing _loadingRing;
-        private Border _retryBtn;
+        private Border _retryBottomBtn;
+        private StorageFile _shareImageFile;
 
-        public ImageViewerPage(string imageUrl)
+        public ImageViewerPage()
+        {
+            BuildUI();
+        }
+
+        public ImageViewerPage(string imageUrl) : this()
         {
             _imageUrl = imageUrl;
-            BuildUI();
             this.Loaded += (s, e) => LoadImage();
         }
 
@@ -35,41 +42,36 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Colors.Black)
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(48) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(52) });
 
-            // 1. Top Header Bar
-            var headerBorder = new Border
+            // 1. Top Bar (#99000000, 48px)
+            var topBarBorder = new Border
             {
-                Background = new SolidColorBrush(Color.FromArgb(0xD8, 0x14, 0x14, 0x14)),
-                Padding = new Thickness(8, 0, 14, 0)
+                Background = new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)),
+                Padding = new Thickness(6, 0, 12, 0)
             };
-            var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var topBar = new Grid();
+            topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+            topBar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = new Border
+            var backBtn = CreateTouchBorder(44, 44);
+            backBtn.Child = new Image
             {
-                Width = 44,
-                Height = 44,
-                Background = new SolidColorBrush(Colors.Transparent),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            backBtn.Child = new TextBlock
-            {
-                Text = "←",
-                FontSize = 22,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.PointerPressed += (s, e) => backBtn.Opacity = 0.6;
-            backBtn.PointerReleased += (s, e) => backBtn.Opacity = 1.0;
-            backBtn.PointerCanceled += (s, e) => backBtn.Opacity = 1.0;
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
-            header.Children.Add(backBtn);
+            topBar.Children.Add(backBtn);
 
             var title = new TextBlock
             {
@@ -81,32 +83,11 @@ namespace ZaloWP81.Views
                 Margin = new Thickness(6, 0, 0, 0)
             };
             Grid.SetColumn(title, 1);
-            header.Children.Add(title);
+            topBar.Children.Add(title);
 
-            var saveBtn = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x08, 0x7F, 0xF5)),
-                CornerRadius = new CornerRadius(16),
-                Padding = new Thickness(14, 6, 14, 6),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            saveBtn.Child = new TextBlock
-            {
-                Text = "Lưu ảnh",
-                Foreground = new SolidColorBrush(Colors.White),
-                FontSize = 13,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold
-            };
-            saveBtn.PointerPressed += (s, e) => saveBtn.Opacity = 0.6;
-            saveBtn.PointerReleased += (s, e) => saveBtn.Opacity = 1.0;
-            saveBtn.PointerCanceled += (s, e) => saveBtn.Opacity = 1.0;
-            saveBtn.Tapped += async (s, e) => await SaveImageAsync();
-            Grid.SetColumn(saveBtn, 2);
-            header.Children.Add(saveBtn);
-
-            headerBorder.Child = header;
-            Grid.SetRow(headerBorder, 0);
-            rootGrid.Children.Add(headerBorder);
+            topBarBorder.Child = topBar;
+            Grid.SetRow(topBarBorder, 0);
+            rootGrid.Children.Add(topBarBorder);
 
             // 2. Viewport with Zoom
             var scrollViewer = new ScrollViewer
@@ -136,36 +117,168 @@ namespace ZaloWP81.Views
             {
                 Width = 48,
                 Height = 48,
-                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x08, 0x7F, 0xF5)),
+                Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 IsActive = true
             };
             imageContainer.Children.Add(_loadingRing);
 
-            _retryBtn = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(0xE0, 0x22, 0x22, 0x22)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0x44, 0x44)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(16, 10, 16, 10),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Visibility = Visibility.Collapsed
-            };
-            var retryStack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-            retryStack.Children.Add(new Image { Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_photo_clean_white.png")), Width = 18, Height = 18, Margin = new Thickness(0, 0, 8, 0) });
-            retryStack.Children.Add(new TextBlock { Text = "Không tải được ảnh. Chạm để thử lại", Foreground = new SolidColorBrush(Colors.White), FontSize = 14, VerticalAlignment = VerticalAlignment.Center });
-            _retryBtn.Child = retryStack;
-            _retryBtn.Tapped += (s, e) => LoadImage();
-            imageContainer.Children.Add(_retryBtn);
-
             scrollViewer.Content = imageContainer;
             Grid.SetRow(scrollViewer, 1);
             rootGrid.Children.Add(scrollViewer);
 
+            // 3. Bottom Actions Bar (#99000000, 52px)
+            var bottomBar = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)),
+                Padding = new Thickness(12, 0, 12, 0)
+            };
+            var actionStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            // Retry Button
+            _retryBottomBtn = CreateTouchBorder(48, 48);
+            _retryBottomBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_refresh_clean_white.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _retryBottomBtn.Visibility = Visibility.Collapsed;
+            _retryBottomBtn.Tapped += (s, e) => LoadImage();
+            actionStack.Children.Add(_retryBottomBtn);
+
+            // Share Button
+            var shareBtn = CreateTouchBorder(48, 48);
+            shareBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_share_clean_white.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            shareBtn.Tapped += (s, e) => ShareImage();
+            actionStack.Children.Add(shareBtn);
+
+            // Save Button
+            var saveBtn = CreateTouchBorder(48, 48);
+            saveBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_download_clean_white.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            saveBtn.Tapped += async (s, e) => await SaveImageAsync();
+            actionStack.Children.Add(saveBtn);
+
+            bottomBar.Child = actionStack;
+            Grid.SetRow(bottomBar, 2);
+            rootGrid.Children.Add(bottomBar);
+
             this.Content = rootGrid;
+        }
+
+        protected override void OnNavigatedTo(NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            if (e.Parameter is string url && !string.IsNullOrEmpty(url))
+            {
+                _imageUrl = url;
+                HookShare();
+                LoadImage();
+            }
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            UnhookShare();
+            if (_shareImageFile != null)
+            {
+                var f = _shareImageFile;
+                _shareImageFile = null;
+                _ = f.DeleteAsync();
+            }
+            base.OnNavigatedFrom(e);
+        }
+
+        private void HookShare()
+        {
+            try
+            {
+                var transferManager = DataTransferManager.GetForCurrentView();
+                transferManager.DataRequested -= ShareDataRequested;
+                transferManager.DataRequested += ShareDataRequested;
+            }
+            catch { }
+        }
+
+        private void UnhookShare()
+        {
+            try
+            {
+                DataTransferManager.GetForCurrentView().DataRequested -= ShareDataRequested;
+            }
+            catch { }
+        }
+
+        private void ShareImage()
+        {
+            if (string.IsNullOrWhiteSpace(_imageUrl)) return;
+            try
+            {
+                DataTransferManager.ShowShareUI();
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("Image share UI error: " + ex.Message);
+                _ = new MessageDialog("Không mở được bảng chia sẻ trên thiết bị này.", "Chia sẻ ảnh").ShowAsync();
+            }
+        }
+
+        private async void ShareDataRequested(DataTransferManager sender, DataRequestedEventArgs args)
+        {
+            DataRequestDeferral deferral = args.Request.GetDeferral();
+            try
+            {
+                if (_imageBytes != null && _imageBytes.Length > 0)
+                {
+                    string ext = ImageFileExtension();
+                    string fname = "zalo_share_" + Guid.NewGuid().ToString("N").Substring(0, 8) + ext;
+                    _shareImageFile = await ApplicationData.Current.TemporaryFolder.CreateFileAsync(fname, CreationCollisionOption.ReplaceExisting);
+                    await FileIO.WriteBytesAsync(_shareImageFile, _imageBytes);
+
+                    args.Request.Data.Properties.Title = "Ảnh Zalo";
+                    args.Request.Data.Properties.Description = "Ảnh được chia sẻ từ Zalo.";
+                    args.Request.Data.SetStorageItems(new IStorageItem[] { _shareImageFile });
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ShareDataRequested failed: " + ex.Message);
+                args.Request.FailWithDisplayText("Không tải được ảnh để chia sẻ. Hãy thử lại.");
+            }
+            finally
+            {
+                deferral.Complete();
+            }
+        }
+
+        private string ImageFileExtension()
+        {
+            Uri imageUri;
+            string extension = Uri.TryCreate(_imageUrl, UriKind.Absolute, out imageUri)
+                ? Path.GetExtension(imageUri.AbsolutePath).ToLowerInvariant() : string.Empty;
+            return extension == ".png" || extension == ".webp" || extension == ".jpeg" ? extension : ".jpg";
         }
 
         private async void LoadImage()
@@ -174,13 +287,13 @@ namespace ZaloWP81.Views
             {
                 _loadingRing.IsActive = false;
                 _loadingRing.Visibility = Visibility.Collapsed;
-                _retryBtn.Visibility = Visibility.Visible;
+                if (_retryBottomBtn != null) _retryBottomBtn.Visibility = Visibility.Visible;
                 return;
             }
 
             _loadingRing.IsActive = true;
             _loadingRing.Visibility = Visibility.Visible;
-            _retryBtn.Visibility = Visibility.Collapsed;
+            if (_retryBottomBtn != null) _retryBottomBtn.Visibility = Visibility.Collapsed;
 
             try
             {
@@ -233,7 +346,7 @@ namespace ZaloWP81.Views
             }
             catch
             {
-                _retryBtn.Visibility = Visibility.Visible;
+                if (_retryBottomBtn != null) _retryBottomBtn.Visibility = Visibility.Visible;
             }
             finally
             {
@@ -254,10 +367,11 @@ namespace ZaloWP81.Views
             try
             {
                 var folder = KnownFolders.SavedPictures;
-                string fileName = "Zalo_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".jpg";
+                string ext = ImageFileExtension();
+                string fileName = "Zalo_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ext;
                 var file = await folder.CreateFileAsync(fileName, CreationCollisionOption.GenerateUniqueName);
                 await FileIO.WriteBytesAsync(file, _imageBytes);
-                var md = new MessageDialog("Đã lưu ảnh thành công vào Thư viện ảnh (Saved Pictures).", "Thành công");
+                var md = new MessageDialog("Đã lưu hình ảnh vào Bộ sưu tập (Saved Pictures)!", "Thành công");
                 await md.ShowAsync();
             }
             catch (Exception ex)
@@ -265,6 +379,15 @@ namespace ZaloWP81.Views
                 var md = new MessageDialog("Không thể lưu ảnh: " + ex.Message, "Lỗi");
                 await md.ShowAsync();
             }
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var b = new Border { Width = width, Height = height, Background = new SolidColorBrush(Colors.Transparent) };
+            b.PointerPressed += (s, e) => b.Opacity = 0.6;
+            b.PointerReleased += (s, e) => b.Opacity = 1.0;
+            b.PointerCanceled += (s, e) => b.Opacity = 1.0;
+            return b;
         }
     }
 }

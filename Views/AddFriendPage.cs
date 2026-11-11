@@ -56,8 +56,20 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = CreateTouchButton("←", 22, Colors.White, 44, 44);
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            var backBtn = CreateTouchBorder(44, 44);
+            backBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -198,12 +210,29 @@ namespace ZaloWP81.Views
             };
             addBtn.Click += async (s, e) =>
             {
-                if (_foundFriend != null && !ZaloApp.Friends.Any(f => f.UserId == _foundFriend.UserId))
+                if (_foundFriend == null) return;
+                addBtn.IsEnabled = false;
+                try
                 {
-                    ZaloApp.Friends.Add(_foundFriend);
+                    if (ZaloApp.Session != null)
+                    {
+                        await ZaloAuth.SendFriendRequestAsync(ZaloApp.Session, _foundFriend.UserId,
+                            "Xin chào, mình muốn kết bạn với bạn trên Zalo.", CancellationToken.None);
+                    }
+                    if (!ZaloApp.Friends.Any(f => f.UserId == _foundFriend.UserId))
+                    {
+                        ZaloApp.Friends.Add(_foundFriend);
+                    }
+                    var md = new MessageDialog("Đã gửi lời mời kết bạn thành công!", "Thông báo");
+                    await md.ShowAsync();
+                    addBtn.Content = "Đã gửi";
                 }
-                var md = new MessageDialog("Đã gửi lời mời kết bạn thành công!", "Thông báo");
-                await md.ShowAsync();
+                catch (Exception ex)
+                {
+                    var md = new MessageDialog("Không thể gửi lời mời: " + ex.Message, "Thông báo");
+                    await md.ShowAsync();
+                    addBtn.IsEnabled = true;
+                }
             };
             actionRow.Children.Add(addBtn);
 
@@ -283,6 +312,15 @@ namespace ZaloWP81.Views
             _statusText.Text = "Đã tìm thấy tài khoản Zalo.";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81));
             _resultCard.Visibility = Visibility.Visible;
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var b = new Border { Width = width, Height = height, Background = new SolidColorBrush(Colors.Transparent) };
+            b.PointerPressed += (s, e) => b.Opacity = 0.6;
+            b.PointerReleased += (s, e) => b.Opacity = 1.0;
+            b.PointerCanceled += (s, e) => b.Opacity = 1.0;
+            return b;
         }
 
         private static Border CreateTouchButton(string text, double fontSize, Color fg, double width, double height)

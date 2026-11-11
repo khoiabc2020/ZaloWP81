@@ -141,15 +141,19 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var backBtn = CreateTouchBorder(44, 44);
-            backBtn.Child = new TextBlock
+            backBtn.Child = new Image
             {
-                Text = "←",
-                FontSize = 22,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -302,7 +306,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(aliasTextStack, 1);
             aliasGrid.Children.Add(aliasTextStack);
 
-            var aliasChevron = new TextBlock { Text = "›", FontSize = 22, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var aliasChevron = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(aliasChevron, 2);
             aliasGrid.Children.Add(aliasChevron);
 
@@ -401,7 +411,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(cgTitle, 1);
             commonGrid.Children.Add(cgTitle);
 
-            var cgChevron = new TextBlock { Text = "›", FontSize = 22, Foreground = _textSub, VerticalAlignment = VerticalAlignment.Center };
+            var cgChevron = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_chevron_right_clean_gray.png")),
+                Width = 20,
+                Height = 20,
+                VerticalAlignment = VerticalAlignment.Center
+            };
             Grid.SetColumn(cgChevron, 2);
             commonGrid.Children.Add(cgChevron);
 
@@ -630,42 +646,7 @@ namespace ZaloWP81.Views
             string query = (box.Text ?? string.Empty).Trim();
             if (string.IsNullOrEmpty(query)) return;
 
-            var matches = _conversation.Messages
-                .Where(m => !string.IsNullOrEmpty(m.Text) && m.Text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
-                .ToList();
-
-            if (matches.Count == 0)
-            {
-                await new MessageDialog($"Không tìm thấy tin nhắn nào chứa '{query}'.", "Tìm tin nhắn").ShowAsync();
-                return;
-            }
-
-            var scroll = new ScrollViewer { MaxHeight = 350 };
-            var stack = new StackPanel();
-            foreach (var m in matches)
-            {
-                var row = new Border
-                {
-                    Padding = new Thickness(8, 10, 8, 10),
-                    BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
-                    BorderThickness = new Thickness(0, 0, 0, 1),
-                    Background = new SolidColorBrush(Colors.Transparent)
-                };
-                var rowStack = new StackPanel();
-                rowStack.Children.Add(new TextBlock { Text = m.Text, FontSize = 14, Foreground = _textDark, TextWrapping = TextWrapping.Wrap });
-                rowStack.Children.Add(new TextBlock { Text = (m.FromMe ? "Bạn" : _conversation.Name) + " · " + ZaloFormat.Time(m.Ts), FontSize = 11, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) });
-                row.Child = rowStack;
-                stack.Children.Add(row);
-            }
-            scroll.Content = stack;
-
-            var resultCd = new ContentDialog
-            {
-                Title = $"Kết quả tìm kiếm ({matches.Count})",
-                Content = scroll,
-                PrimaryButtonText = "Đóng"
-            };
-            await resultCd.ShowAsync();
+            NavigationManager.NavigateTo(new SearchResultsPage(new SearchPageRequest { ConversationKey = _conversation.Key, Query = query }));
         }
 
         private async void ShowAliasDialog()

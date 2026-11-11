@@ -56,6 +56,10 @@ namespace ZaloWP81.Views
         private Image _activeVoicePlayIcon;
         private TextBlock _activeVoiceStatusText;
 
+        private Border _voiceCallBtn;
+        private Border _videoCallBtn;
+        private Border _strangerBanner;
+
         public ChatPage(string conversationKey = null)
         {
             BuildUI();
@@ -69,14 +73,20 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            // 1. TOP HEADER (Vibrant Zalo Blue Gradient: ← [Avatar] [Name]        ⋮)
+            // 1. TOP HEADER (Vibrant Zalo Blue Gradient: [Back] [Avatar] [Name] [Audio] [Video] [More])
             var headerGrid = CreateTopHeader();
             Grid.SetRow(headerGrid, 0);
             rootGrid.Children.Add(headerGrid);
+
+            // 1b. STRANGER BANNER
+            _strangerBanner = CreateStrangerBanner();
+            Grid.SetRow(_strangerBanner, 1);
+            rootGrid.Children.Add(_strangerBanner);
 
             // 2. MESSAGE LIST CANVAS (ScrollViewer with StackPanel for Silky Touch & Zero Highlight)
             _messageScroll = new ScrollViewer
@@ -86,17 +96,17 @@ namespace ZaloWP81.Views
             };
             _messageStack = new StackPanel();
             _messageScroll.Content = _messageStack;
-            Grid.SetRow(_messageScroll, 1);
+            Grid.SetRow(_messageScroll, 2);
             rootGrid.Children.Add(_messageScroll);
 
             // 3. INPUT BAR (MATCHING media_1794285355410_9cc5344d.png)
             var inputBar = CreateInputBar();
-            Grid.SetRow(inputBar, 2);
+            Grid.SetRow(inputBar, 3);
             rootGrid.Children.Add(inputBar);
 
             // 4. EMOJI & STICKER DRAWER (MATCHING media_1794285161826_53038b6c.jpg)
             _drawerContainer = CreateStickerDrawer();
-            Grid.SetRow(_drawerContainer, 3);
+            Grid.SetRow(_drawerContainer, 4);
             rootGrid.Children.Add(_drawerContainer);
 
             // Global Voice Audio Player
@@ -158,18 +168,19 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Back Button (Pure Touch Border)
+            // Back Button (Pure Touch Border with official back icon)
             var backBtn = CreateTouchBorder(42, 48);
-            var backArrow = new TextBlock
+            backBtn.Child = new Image
             {
-                Text = "←",
-                FontSize = 24,
-                Foreground = new SolidColorBrush(Colors.White),
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            backBtn.Child = backArrow;
             backBtn.Tapped += (s, e) =>
             {
                 if (NavigationManager.CanGoBack)
@@ -211,8 +222,48 @@ namespace ZaloWP81.Views
             Grid.SetColumn(_titleBlock, 2);
             header.Children.Add(_titleBlock);
 
-            // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage)
-            var moreBtn = CreateTouchBorder(44, 48);
+            // Audio Call Action
+            _voiceCallBtn = CreateTouchBorder(40, 48);
+            _voiceCallBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png")),
+                Width = 26,
+                Height = 26,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _voiceCallBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new CallPage(_conversation));
+                }
+            };
+            Grid.SetColumn(_voiceCallBtn, 3);
+            header.Children.Add(_voiceCallBtn);
+
+            // Video Call Action
+            _videoCallBtn = CreateTouchBorder(40, 48);
+            _videoCallBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png")),
+                Width = 26,
+                Height = 26,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _videoCallBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new CallPage(_conversation));
+                }
+            };
+            Grid.SetColumn(_videoCallBtn, 4);
+            header.Children.Add(_videoCallBtn);
+
+            // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage or GroupInfoPage)
+            var moreBtn = CreateTouchBorder(42, 48);
             var moreIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png")),
@@ -232,11 +283,83 @@ namespace ZaloWP81.Views
                         NavigationManager.NavigateTo(new ConversationOptionsPage(_conversation));
                 }
             };
-            Grid.SetColumn(moreBtn, 3);
+            Grid.SetColumn(moreBtn, 5);
             header.Children.Add(moreBtn);
 
             headerBorder.Child = header;
             return headerBorder;
+        }
+
+        private Border CreateStrangerBanner()
+        {
+            var banner = new Border
+            {
+                Background = new SolidColorBrush(Colors.White),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE8, 0xED, 0xF2)),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Height = 50,
+                Padding = new Thickness(14, 0, 14, 0),
+                Visibility = Visibility.Collapsed
+            };
+
+            var grid = new Grid();
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var stack = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            stack.Children.Add(new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_add_user_clean_blue.png")),
+                Width = 22,
+                Height = 22,
+                Margin = new Thickness(0, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = "Người lạ muốn trò chuyện · Chạm để kết bạn",
+                FontSize = 13.5,
+                Foreground = _textDark,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            Grid.SetColumn(stack, 0);
+            grid.Children.Add(stack);
+
+            var addBtn = new Button
+            {
+                Content = "Kết bạn",
+                Background = _activeBlue,
+                Foreground = new SolidColorBrush(Colors.White),
+                FontSize = 13,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Padding = new Thickness(12, 4, 12, 4),
+                BorderThickness = new Thickness(0)
+            };
+            addBtn.Click += async (s, e) =>
+            {
+                if (_conversation == null) return;
+                addBtn.IsEnabled = false;
+                try
+                {
+                    if (ZaloApp.Session != null)
+                    {
+                        await ZaloAuth.SendFriendRequestAsync(ZaloApp.Session, _conversation.ThreadId,
+                            "Xin chào, mình muốn kết bạn với bạn trên Zalo.", CancellationToken.None);
+                    }
+                    await new MessageDialog("Đã gửi yêu cầu kết bạn thành công.", "Thông báo").ShowAsync();
+                    banner.Visibility = Visibility.Collapsed;
+                }
+                catch (Exception ex)
+                {
+                    await new MessageDialog("Không thể kết bạn: " + ex.Message, "Thông báo").ShowAsync();
+                    addBtn.IsEnabled = true;
+                }
+            };
+            Grid.SetColumn(addBtn, 1);
+            grid.Children.Add(addBtn);
+
+            banner.Child = grid;
+            return banner;
         }
 
         // EXACT INPUT BAR MATCHING media_1794285355410_9cc5344d.png - ZERO SYSTEM BUTTON HIGHLIGHT
@@ -730,6 +853,14 @@ namespace ZaloWP81.Views
                     _recipientInitial.Text = string.Empty;
                 }
 
+                if (_voiceCallBtn != null) _voiceCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
+                if (_videoCallBtn != null) _videoCallBtn.Visibility = _conversation.IsGroup ? Visibility.Collapsed : Visibility.Visible;
+                if (_strangerBanner != null)
+                {
+                    bool isStranger = !_conversation.IsGroup && ZaloApp.FriendsLoaded && !ZaloApp.IsFriend(_conversation.ThreadId);
+                    _strangerBanner.Visibility = isStranger ? Visibility.Visible : Visibility.Collapsed;
+                }
+
                 ZaloApp.CurrentChat = _conversation;
 
                 string wp = ZaloSettingsService.Current.GetConversationWallpaper(ZaloApp.Session?.Uid, _conversation.Key);
@@ -846,7 +977,14 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
-            InitializeChat(e.Parameter as string);
+            if (e.Parameter is Tuple<string, string> hit)
+            {
+                InitializeChat(hit.Item1);
+            }
+            else
+            {
+                InitializeChat(e.Parameter as string);
+            }
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)

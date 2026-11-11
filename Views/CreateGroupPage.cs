@@ -51,8 +51,20 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = CreateTouchButton("←", 22, Colors.White, 44, 44);
-            backBtn.Tapped += (s, e) => NavigationManager.GoBack();
+            var backBtn = CreateTouchBorder(44, 44);
+            backBtn.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            backBtn.Tapped += (s, e) =>
+            {
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
@@ -280,6 +292,15 @@ namespace ZaloWP81.Views
             ZaloApp.Conversations.Insert(0, newGroup);
 
             NavigationManager.NavigateTo(new ChatPage(newGroup.Key));
+        }
+
+        private static Border CreateTouchBorder(double width, double height)
+        {
+            var b = new Border { Width = width, Height = height, Background = new SolidColorBrush(Colors.Transparent) };
+            b.PointerPressed += (s, e) => b.Opacity = 0.6;
+            b.PointerReleased += (s, e) => b.Opacity = 1.0;
+            b.PointerCanceled += (s, e) => b.Opacity = 1.0;
+            return b;
         }
 
         private static Border CreateTouchButton(string text, double fontSize, Color fg, double width, double height)

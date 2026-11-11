@@ -162,6 +162,9 @@
     <Compile Include="Views\AddFriendPage.cs" />
     <Compile Include="Views\CreateGroupPage.cs" />
     <Compile Include="Views\GroupInfoPage.cs" />
+    <Compile Include="Views\CallPage.cs" />
+    <Compile Include="Views\StrangerMessagesPage.cs" />
+    <Compile Include="Views\SearchResultsPage.cs" />
   </ItemGroup>
 
   <ItemGroup>

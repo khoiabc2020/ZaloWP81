@@ -46,6 +46,9 @@ namespace ZaloWP81.Views
         private StackPanel _conversationStack;
         private TextBox _searchBox;
         private Border _syncBanner;
+        private Border _strangerInboxBanner;
+        private Border _strangerBadgeBorder;
+        private TextBlock _strangerBadgeText;
 
         // Contacts Elements
         private StackPanel _friendStack;
@@ -205,6 +208,18 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _searchBox.TextChanged += (s, e) => OnSearchChanged(_searchBox.Text);
+            _searchBox.KeyDown += (s, e) =>
+            {
+                if (e.Key == Windows.System.VirtualKey.Enter)
+                {
+                    e.Handled = true;
+                    string q = _searchBox.Text?.Trim();
+                    if (!string.IsNullOrEmpty(q))
+                    {
+                        NavigationManager.NavigateTo(new SearchResultsPage(q));
+                    }
+                }
+            };
             Grid.SetColumn(_searchBox, 1);
             searchGrid.Children.Add(_searchBox);
 
@@ -355,6 +370,87 @@ namespace ZaloWP81.Views
 
             _syncBanner.Child = syncGrid;
             listStack.Children.Add(_syncBanner);
+
+            // Stranger Messages Header Banner
+            _strangerInboxBanner = new Border
+            {
+                Background = new SolidColorBrush(Colors.White),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
+                BorderThickness = new Thickness(0, 0, 0, 1),
+                Padding = new Thickness(16, 12, 16, 12),
+                Visibility = Visibility.Collapsed
+            };
+            var strangerGrid = new Grid();
+            strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+            strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var strangerIconBorder = new Border
+            {
+                Width = 44,
+                Height = 44,
+                CornerRadius = new CornerRadius(22),
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF6, 0xFF)),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            strangerIconBorder.Child = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_user_clean_blue.png")),
+                Width = 24,
+                Height = 24,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(strangerIconBorder, 0);
+            strangerGrid.Children.Add(strangerIconBorder);
+
+            var strangerTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            strangerTextStack.Children.Add(new TextBlock
+            {
+                Text = "Tin nhắn từ người lạ",
+                FontSize = 15.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _textDark
+            });
+            strangerTextStack.Children.Add(new TextBlock
+            {
+                Text = "Xem tin nhắn từ người chưa kết bạn",
+                FontSize = 13,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 0)
+            });
+            Grid.SetColumn(strangerTextStack, 1);
+            strangerGrid.Children.Add(strangerTextStack);
+
+            _strangerBadgeBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE5, 0x39, 0x35)),
+                CornerRadius = new CornerRadius(10),
+                MinWidth = 20,
+                Height = 20,
+                Padding = new Thickness(6, 0, 6, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _strangerBadgeText = new TextBlock
+            {
+                Text = "0",
+                FontSize = 11,
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _strangerBadgeBorder.Child = _strangerBadgeText;
+            Grid.SetColumn(_strangerBadgeBorder, 2);
+            strangerGrid.Children.Add(_strangerBadgeBorder);
+
+            _strangerInboxBanner.Child = strangerGrid;
+            _strangerInboxBanner.PointerPressed += (s, e) => _strangerInboxBanner.Opacity = 0.6;
+            _strangerInboxBanner.PointerReleased += (s, e) => _strangerInboxBanner.Opacity = 1.0;
+            _strangerInboxBanner.PointerCanceled += (s, e) => _strangerInboxBanner.Opacity = 1.0;
+            _strangerInboxBanner.Tapped += (s, e) => NavigationManager.NavigateTo(new StrangerMessagesPage());
+
+            listStack.Children.Add(_strangerInboxBanner);
 
             _conversationStack = new StackPanel();
             listStack.Children.Add(_conversationStack);
@@ -1029,6 +1125,16 @@ namespace ZaloWP81.Views
             var otherKeys = new HashSet<string>(
                 ZaloSettingsService.Current.GetOtherConversationKeys(ZaloApp.Session?.Uid),
                 StringComparer.Ordinal);
+
+            if (_strangerInboxBanner != null)
+            {
+                int strangerCount = ZaloApp.FriendsLoaded
+                    ? ZaloApp.Conversations.Count(c => c != null && !c.IsGroup && !ZaloApp.IsArchived(c)
+                        && !otherKeys.Contains(c.Key) && !ZaloApp.IsFriend(c.ThreadId))
+                    : 0;
+                _strangerInboxBanner.Visibility = (!_isOtherSubTab && string.IsNullOrEmpty(query) && strangerCount > 0) ? Visibility.Visible : Visibility.Collapsed;
+                if (_strangerBadgeText != null) _strangerBadgeText.Text = strangerCount > 99 ? "99+" : strangerCount.ToString();
+            }
 
             var list = ZaloApp.Conversations.Where(c =>
             {
