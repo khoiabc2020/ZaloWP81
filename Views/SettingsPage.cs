@@ -88,8 +88,8 @@ namespace ZaloWP81.Views
             var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
             var stack = new StackPanel();
 
-            // Section 0: Tương thích màn hình & Kích thước giao diện (UI Scale)
-            stack.Children.Add(CreateSectionHeader("TƯƠNG THÍCH MÀN HÌNH & KÍCH THƯỚC"));
+            // Section 0: Cỡ chữ trò chuyện (Chat Font Size)
+            stack.Children.Add(CreateSectionHeader("CỠ CHỮ TRÒ CHUYỆN"));
 
             var scaleGroup = new Border
             {
@@ -102,14 +102,14 @@ namespace ZaloWP81.Views
 
             scaleStack.Children.Add(new TextBlock
             {
-                Text = "Kích thước chữ trò chuyện:",
+                Text = "Kích thước chữ tin nhắn:",
                 FontSize = 14,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark
             });
             scaleStack.Children.Add(new TextBlock
             {
-                Text = "Tăng giảm cỡ chữ tin nhắn để nhìn rõ ràng hơn",
+                Text = "Tăng giảm cỡ chữ tin nhắn để dễ nhìn hơn trên màn hình của bạn",
                 FontSize = 12,
                 Foreground = _textSub,
                 Margin = new Thickness(0, 2, 0, 10)
@@ -135,7 +135,7 @@ namespace ZaloWP81.Views
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(12),
                 Padding = new Thickness(12, 8, 12, 8),
-                Margin = new Thickness(0, 0, 0, 16),
+                Margin = new Thickness(0, 0, 0, 6),
                 HorizontalAlignment = HorizontalAlignment.Right
             };
             var previewText = new TextBlock
@@ -204,84 +204,6 @@ namespace ZaloWP81.Views
 
             scaleStack.Children.Add(fontPillGrid);
             scaleStack.Children.Add(previewBubble);
-
-            // Divider
-            scaleStack.Children.Add(new Border
-            {
-                Height = 1,
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF2, 0xF6)),
-                Margin = new Thickness(0, 0, 0, 14)
-            });
-
-            // UI Scale Factor (Display Compatibility)
-            scaleStack.Children.Add(new TextBlock
-            {
-                Text = "Tỷ lệ phóng đại giao diện:",
-                FontSize = 14,
-                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Foreground = _textDark
-            });
-            scaleStack.Children.Add(new TextBlock
-            {
-                Text = "Tối ưu độ tương thích cho màn hình Lumia 450x800, 720p hoặc 1080p",
-                FontSize = 12,
-                Foreground = _textSub,
-                Margin = new Thickness(0, 2, 0, 10)
-            });
-
-            var scalePillGrid = new Grid();
-            for (int k = 0; k < 4; k++)
-                scalePillGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-            double[] scales = new double[] { 1.0, 1.1, 1.2, 1.3 };
-            string[] scaleLabels = new string[] { "100%", "110%", "120%", "130%" };
-            var scaleBorders = new Border[4];
-            var scaleTexts = new TextBlock[4];
-
-            double currentScale = ZaloSettingsService.Current.UiScaleFactor;
-
-            for (int k = 0; k < 4; k++)
-            {
-                int sIdx = k;
-                double sc = scales[k];
-                bool isSelected = Math.Abs(currentScale - sc) < 0.05;
-
-                var sBorder = new Border
-                {
-                    Height = 36,
-                    CornerRadius = new CornerRadius(8),
-                    Margin = new Thickness(sIdx == 0 ? 0 : 3, 0, sIdx == 3 ? 0 : 3, 0),
-                    Background = isSelected ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9))
-                };
-                var sText = new TextBlock
-                {
-                    Text = scaleLabels[k],
-                    FontSize = 13,
-                    FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
-                    Foreground = isSelected ? new SolidColorBrush(Colors.White) : _textDark,
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                sBorder.Child = sText;
-                scaleBorders[k] = sBorder;
-                scaleTexts[k] = sText;
-
-                sBorder.Tapped += (s, e) =>
-                {
-                    ZaloSettingsService.Current.UiScaleFactor = sc;
-                    for (int m = 0; m < 4; m++)
-                    {
-                        bool sel = m == sIdx;
-                        scaleBorders[m].Background = sel ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
-                        scaleTexts[m].Foreground = sel ? new SolidColorBrush(Colors.White) : _textDark;
-                        scaleTexts[m].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
-                    }
-                };
-
-                Grid.SetColumn(sBorder, k);
-                scalePillGrid.Children.Add(sBorder);
-            }
-            scaleStack.Children.Add(scalePillGrid);
 
             scaleGroup.Child = scaleStack;
             stack.Children.Add(scaleGroup);

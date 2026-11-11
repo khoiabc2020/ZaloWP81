@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Popups;
@@ -76,6 +77,23 @@ namespace ZaloWP81.Views
         private bool _friendsRendered = false;
         private bool _friendsDirty = true;
         private bool _profileRendered = false;
+
+        private class ConversationItemViewHolder
+        {
+            public Border Container;
+            public TextBlock NameBlock;
+            public TextBlock LastTextBlock;
+            public TextBlock TimeBlock;
+            public Border UnreadBadge;
+            public TextBlock UnreadText;
+            public Image PinIcon;
+            public Image MuteIcon;
+            public Ellipse AvatarImageEllipse;
+        }
+
+        private readonly Dictionary<string, ConversationItemViewHolder> _convItemCache = new Dictionary<string, ConversationItemViewHolder>();
+        private readonly Dictionary<string, FrameworkElement> _friendItemCache = new Dictionary<string, FrameworkElement>();
+        private bool _refreshPending = false;
 
         public MainPage()
         {
@@ -1222,8 +1240,24 @@ namespace ZaloWP81.Views
             int count = 0;
             foreach (var conv in list.OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.LastTs))
             {
-                var item = CreateConversationItem(conv);
-                _conversationStack.Children.Add(item);
+                if (!_convItemCache.TryGetValue(conv.Key, out var holder))
+                {
+                    holder = CreateConversationItem(conv);
+                    _convItemCache[conv.Key] = holder;
+                }
+                else
+                {
+                    holder.LastTextBlock.Text = conv.LastText ?? string.Empty;
+                    holder.TimeBlock.Text = conv.TimeText ?? string.Empty;
+                    holder.UnreadText.Text = conv.UnreadLabel;
+                    holder.UnreadBadge.Visibility = conv.UnreadVisibility;
+                    holder.NameBlock.Text = conv.Name ?? "Trò chuyện";
+                    if (holder.PinIcon != null) holder.PinIcon.Visibility = conv.IsPinned ? Visibility.Visible : Visibility.Collapsed;
+                    if (holder.MuteIcon != null) holder.MuteIcon.Visibility = conv.IsMuted ? Visibility.Visible : Visibility.Collapsed;
+                    if (holder.AvatarImageEllipse != null && conv.AvatarImageBrush != null)
+                        holder.AvatarImageEllipse.Fill = conv.AvatarImageBrush;
+                }
+                _conversationStack.Children.Add(holder.Container);
                 count++;
             }
 
@@ -1277,7 +1311,7 @@ namespace ZaloWP81.Views
         }
 
         // EXACT 100% RECONSTRUCTION OF CONVERSATION ITEM IN WP10 - PURE BORDER WITH SILKY TOUCH
-        private FrameworkElement CreateConversationItem(ZaloConversation conv)
+        private ConversationItemViewHolder CreateConversationItem(ZaloConversation conv)
         {
             var itemBorder = new Border
             {
@@ -1310,11 +1344,13 @@ namespace ZaloWP81.Views
             avatarGrid.Children.Add(ellipse);
             avatarGrid.Children.Add(initial);
 
-            if (conv.AvatarImageBrush != null)
+            var imgEllipse = new Ellipse
             {
-                var imgEllipse = new Ellipse { Width = 56, Height = 56, Fill = conv.AvatarImageBrush };
-                avatarGrid.Children.Add(imgEllipse);
-            }
+                Width = 56,
+                Height = 56,
+                Fill = conv.AvatarImageBrush ?? new SolidColorBrush(Colors.Transparent)
+            };
+            avatarGrid.Children.Add(imgEllipse);
 
             if (conv.IsGroup)
             {
@@ -1365,18 +1401,16 @@ namespace ZaloWP81.Views
                 titleLine.Children.Add(groupIconBorder);
             }
 
-            if (conv.IsPinned)
+            var pinIcon = new Image
             {
-                var pinIcon = new Image
-                {
-                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_pin_clean_gray.png")),
-                    Width = 14,
-                    Height = 14,
-                    Margin = new Thickness(0, 0, 5, 0),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                titleLine.Children.Add(pinIcon);
-            }
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_pin_clean_gray.png")),
+                Width = 14,
+                Height = 14,
+                Margin = new Thickness(0, 0, 5, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = conv.IsPinned ? Visibility.Visible : Visibility.Collapsed
+            };
+            titleLine.Children.Add(pinIcon);
 
             var nameBlock = new TextBlock
             {
@@ -1389,18 +1423,17 @@ namespace ZaloWP81.Views
             };
             titleLine.Children.Add(nameBlock);
 
-            if (conv.IsMuted)
+            var muteIcon = new Image
             {
-                var muteIcon = new Image
-                {
-                    Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_mute_clean_gray.png")),
-                    Width = 14,
-                    Height = 14,
-                    Margin = new Thickness(5, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                titleLine.Children.Add(muteIcon);
-            }
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_mute_clean_gray.png")),
+                Width = 14,
+                Height = 14,
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center,
+                Visibility = conv.IsMuted ? Visibility.Visible : Visibility.Collapsed
+            };
+            titleLine.Children.Add(muteIcon);
+
             textStack.Children.Add(titleLine);
 
             var lastTextBlock = new TextBlock
@@ -1426,30 +1459,28 @@ namespace ZaloWP81.Views
             };
             rightStack.Children.Add(timeBlock);
 
-            if (conv.Unread > 0)
+            var unreadBorder = new Border
             {
-                var unreadBorder = new Border
-                {
-                    Background = ColorBrush(0xFF, 0xE8, 0x4B, 0x50),
-                    CornerRadius = new CornerRadius(11),
-                    MinWidth = 22,
-                    Height = 22,
-                    Padding = new Thickness(6, 0, 6, 0),
-                    HorizontalAlignment = HorizontalAlignment.Right,
-                    Margin = new Thickness(0, 7, 0, 0)
-                };
-                var unreadText = new TextBlock
-                {
-                    Text = conv.UnreadLabel,
-                    FontSize = 11.5,
-                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(Colors.White),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    VerticalAlignment = VerticalAlignment.Center
-                };
-                unreadBorder.Child = unreadText;
-                rightStack.Children.Add(unreadBorder);
-            }
+                Background = ColorBrush(0xFF, 0xE8, 0x4B, 0x50),
+                CornerRadius = new CornerRadius(11),
+                MinWidth = 22,
+                Height = 22,
+                Padding = new Thickness(6, 0, 6, 0),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                Margin = new Thickness(0, 7, 0, 0),
+                Visibility = conv.UnreadVisibility
+            };
+            var unreadText = new TextBlock
+            {
+                Text = conv.UnreadLabel,
+                FontSize = 11.5,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            unreadBorder.Child = unreadText;
+            rightStack.Children.Add(unreadBorder);
 
             Grid.SetColumn(rightStack, 2);
             itemGrid.Children.Add(rightStack);
@@ -1512,6 +1543,7 @@ namespace ZaloWP81.Views
                     confirm.Commands.Add(new UICommand("Xóa", c =>
                     {
                         ZaloApp.Conversations.Remove(conv);
+                        _convItemCache.Remove(conv.Key);
                         RefreshConversations();
                     }));
                     confirm.Commands.Add(new UICommand("Hủy"));
@@ -1521,7 +1553,18 @@ namespace ZaloWP81.Views
                 await dialog.ShowAsync();
             };
 
-            return itemBorder;
+            return new ConversationItemViewHolder
+            {
+                Container = itemBorder,
+                NameBlock = nameBlock,
+                LastTextBlock = lastTextBlock,
+                TimeBlock = timeBlock,
+                UnreadBadge = unreadBorder,
+                UnreadText = unreadText,
+                PinIcon = pinIcon,
+                MuteIcon = muteIcon,
+                AvatarImageEllipse = imgEllipse
+            };
         }
 
         private void RefreshFriends()
@@ -1539,7 +1582,12 @@ namespace ZaloWP81.Views
             int count = 0;
             foreach (var friend in friends)
             {
-                var item = CreateFriendItem(friend);
+                string fKey = friend.UserId ?? friend.PhoneNumber ?? friend.Name ?? count.ToString();
+                if (!_friendItemCache.TryGetValue(fKey, out var item))
+                {
+                    item = CreateFriendItem(friend);
+                    _friendItemCache[fKey] = item;
+                }
                 _friendStack.Children.Add(item);
                 count++;
             }
@@ -1725,10 +1773,14 @@ namespace ZaloWP81.Views
             else if (_selectedTab == 1) { _friendsDirty = true; RefreshFriends(); }
         }
 
-        private async void Conversations_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        private void Conversations_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
         {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            if (_refreshPending) return;
+            _refreshPending = true;
+            var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Low, async () =>
             {
+                await Task.Delay(200);
+                _refreshPending = false;
                 _conversationsDirty = true;
                 if (_selectedTab == 0) RefreshConversations();
                 UpdateUnreadBadge();

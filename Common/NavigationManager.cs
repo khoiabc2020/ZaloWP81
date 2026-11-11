@@ -56,7 +56,7 @@ namespace ZaloWP81
             }
 
             Window.Current.Content = page;
-            ZaloUWP.Services.ZaloSettingsService.ApplyUiScale();
+            ZaloUWP.Services.ZaloSettingsService.ResetUiScale();
         }
 
         public static void GoBack()
@@ -65,7 +65,7 @@ namespace ZaloWP81
             {
                 var prevPage = _backStack.Pop();
                 Window.Current.Content = prevPage;
-                ZaloUWP.Services.ZaloSettingsService.ApplyUiScale();
+                ZaloUWP.Services.ZaloSettingsService.ResetUiScale();
             }
         }
     }
