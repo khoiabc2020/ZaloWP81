@@ -99,11 +99,12 @@ namespace ZaloWP81.Views
 
         private void BuildUI()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             _rootGrid = new Grid
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(64 * scale)) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -221,13 +222,15 @@ namespace ZaloWP81.Views
             Grid.SetColumn(backBtn, 0);
             header.Children.Add(backBtn);
 
-            // Recipient Avatar (42x42 Circle)
-            var avatarGrid = new Grid { Width = 42, Height = 42, VerticalAlignment = VerticalAlignment.Center };
-            _recipientAvatar = new Ellipse { Width = 42, Height = 42, Fill = _activeBlue };
+            // Recipient Avatar
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
+            double avaSize = Math.Round(42 * scale);
+            var avatarGrid = new Grid { Width = avaSize, Height = avaSize, VerticalAlignment = VerticalAlignment.Center };
+            _recipientAvatar = new Ellipse { Width = avaSize, Height = avaSize, Fill = _activeBlue };
             _recipientInitial = new TextBlock
             {
                 Text = "Z",
-                FontSize = 18,
+                FontSize = Math.Round(18 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -244,7 +247,7 @@ namespace ZaloWP81.Views
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
-                FontSize = 18,
+                FontSize = Math.Round(18 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -252,7 +255,7 @@ namespace ZaloWP81.Views
             _subtitleBlock = new TextBlock
             {
                 Text = string.Empty,
-                FontSize = 13,
+                FontSize = Math.Round(13 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Visibility = Visibility.Collapsed
@@ -1627,7 +1630,8 @@ namespace ZaloWP81.Views
                     _messageStack.Children.Add(loadOlderBtn);
                 }
 
-                foreach (var m in _conversation.Messages)
+                var msgList = _conversation.Messages.ToList();
+                foreach (var m in msgList)
                 {
                     try
                     {
@@ -1656,9 +1660,9 @@ namespace ZaloWP81.Views
                 try
                 {
                     double offset = _messageScroll.ScrollableHeight;
-                    if (!double.IsNaN(offset) && offset > 0)
+                    if (!double.IsNaN(offset) && !double.IsInfinity(offset) && offset > 0)
                     {
-                        _messageScroll.ChangeView(0.0, offset, 1.0f, true);
+                        _messageScroll.ChangeView(null, offset, null, true);
                     }
                 }
                 catch { }
@@ -1687,10 +1691,11 @@ namespace ZaloWP81.Views
 
             if (isGroupOther)
             {
+                double scale = ZaloSettingsService.Current.UiScaleFactor;
                 var senderNameBlock = new TextBlock
                 {
                     Text = msg.Sender ?? "Thành viên",
-                    FontSize = 13.5,
+                    FontSize = Math.Round(13.5 * scale, 1),
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                     Foreground = ZaloAvatar.ColorFor(msg.Sender ?? "Z"),
                     Margin = new Thickness(2, 0, 0, 3)
@@ -2204,6 +2209,7 @@ namespace ZaloWP81.Views
             else
             {
                 // Regular Text Bubble
+                double scale = ZaloSettingsService.Current.UiScaleFactor;
                 var bubbleBorder = new Border
                 {
                     Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
@@ -2211,10 +2217,10 @@ namespace ZaloWP81.Views
                     BorderThickness = new Thickness(1),
                     CornerRadius = new CornerRadius(16),
                     Padding = new Thickness(14, 10, 14, 10),
-                    MaxWidth = 310
+                    MaxWidth = Math.Round(310 * scale)
                 };
 
-                double msgFontSize = ZaloSettingsService.Current.MessageFontSize;
+                double msgFontSize = Math.Round(ZaloSettingsService.Current.MessageFontSize * scale, 1);
                 var textBlock = new TextBlock
                 {
                     Text = msg.Text ?? string.Empty,
@@ -2257,6 +2263,7 @@ namespace ZaloWP81.Views
             }
 
             // Timestamp and Status
+            double uiScale = ZaloSettingsService.Current.UiScaleFactor;
             var timeStack = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
@@ -2267,7 +2274,7 @@ namespace ZaloWP81.Views
             timeStack.Children.Add(new TextBlock
             {
                 Text = msg.TimeText ?? string.Empty,
-                FontSize = 11.5,
+                FontSize = Math.Round(11.5 * uiScale, 1),
                 Foreground = _timeColor
             });
 
@@ -2294,7 +2301,7 @@ namespace ZaloWP81.Views
                 timeStack.Children.Add(new TextBlock
                 {
                     Text = statusText,
-                    FontSize = 11.5,
+                    FontSize = Math.Round(11.5 * uiScale, 1),
                     FontWeight = msg.ReceiptState >= 2 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                     Foreground = statusColor
                 });
@@ -2306,10 +2313,11 @@ namespace ZaloWP81.Views
                     {
                         deliveryBrush = ZaloAvatar.ImageFor(msg.DeliveryAvatarUrl);
                     }
+                    double miniAvaSize = Math.Round(14 * uiScale);
                     var miniAvatar = new Ellipse
                     {
-                        Width = 14,
-                        Height = 14,
+                        Width = miniAvaSize,
+                        Height = miniAvaSize,
                         Margin = new Thickness(4, 0, 0, 0),
                         VerticalAlignment = VerticalAlignment.Center,
                         Fill = deliveryBrush ?? _activeBlue
@@ -2325,23 +2333,24 @@ namespace ZaloWP81.Views
                 container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
+                double memberAvaSize = Math.Round(40 * uiScale);
                 var avatarGrid = new Grid
                 {
-                    Width = 40,
-                    Height = 40,
+                    Width = memberAvaSize,
+                    Height = memberAvaSize,
                     VerticalAlignment = VerticalAlignment.Top,
-                    Margin = new Thickness(0, 0, 8, 0)
+                    Margin = new Thickness(0, 0, Math.Round(8 * uiScale), 0)
                 };
                 var avatarEllipse = new Ellipse
                 {
-                    Width = 40,
-                    Height = 40,
+                    Width = memberAvaSize,
+                    Height = memberAvaSize,
                     Fill = ZaloAvatar.ColorFor(msg.Sender ?? "Z")
                 };
                 var avatarInitial = new TextBlock
                 {
                     Text = msg.SenderInitial ?? "Z",
-                    FontSize = 15,
+                    FontSize = Math.Round(15 * uiScale, 1),
                     FontWeight = Windows.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -2359,8 +2368,8 @@ namespace ZaloWP81.Views
                         {
                             var imgEllipse = new Ellipse
                             {
-                                Width = 40,
-                                Height = 40,
+                                Width = memberAvaSize,
+                                Height = memberAvaSize,
                                 Fill = brush
                             };
                             avatarGrid.Children.Add(imgEllipse);

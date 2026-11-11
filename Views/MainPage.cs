@@ -221,13 +221,14 @@ namespace ZaloWP81.Views
 
         private void BuildUI()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var rootGrid = new Grid
             {
                 Background = new SolidColorBrush(Colors.White)
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(60) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(60 * scale)) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(58 * scale)) });
 
             // 1. TOP HEADER (Vibrant Zalo Blue Gradient #2878F0 -> #08A9E8)
             var headerGrid = CreateTopHeader();
@@ -260,6 +261,7 @@ namespace ZaloWP81.Views
 
         private FrameworkElement CreateTopHeader()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var headerBorder = new Border
             {
                 Padding = new Thickness(10, 0, 10, 0)
@@ -278,26 +280,26 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Search Bar (Translucent Pill)
+            // Search Bar (Translucent Pill - Fixed WP8.1 white-focus bug and baseline clipping)
             var searchBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                Height = 40,
+                CornerRadius = new CornerRadius(14),
+                Height = Math.Round(42 * scale),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0)
             };
             var searchGrid = new Grid();
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(34 * scale)) });
             searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var lensIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_search_white.png")),
-                Width = 22,
-                Height = 22,
+                Width = Math.Round(20 * scale),
+                Height = Math.Round(20 * scale),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -307,13 +309,28 @@ namespace ZaloWP81.Views
             _searchBox = new TextBox
             {
                 PlaceholderText = "Tìm kiếm",
-                Height = 40,
-                FontSize = 16,
+                Height = Math.Round(38 * scale),
+                MinHeight = 32,
+                FontSize = Math.Round(15 * scale, 1),
                 Foreground = new SolidColorBrush(Colors.White),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
-                VerticalAlignment = VerticalAlignment.Center
+                Padding = new Thickness(2, 0, 8, 2),
+                VerticalAlignment = VerticalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                RequestedTheme = ElementTheme.Dark
             };
+            _searchBox.Resources["PhoneTextBoxBrush"] = new SolidColorBrush(Colors.Transparent);
+            _searchBox.Resources["PhoneTextBoxEditBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            _searchBox.Resources["PhoneTextBoxEditForegroundBrush"] = new SolidColorBrush(Colors.White);
+            _searchBox.Resources["PhoneTextBoxBorderThemeBrush"] = new SolidColorBrush(Colors.Transparent);
+            _searchBox.Resources["PhoneMidBrush"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+            _searchBox.Resources["TextControlBackground"] = new SolidColorBrush(Colors.Transparent);
+            _searchBox.Resources["TextControlBackgroundFocused"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            _searchBox.Resources["TextControlForeground"] = new SolidColorBrush(Colors.White);
+            _searchBox.Resources["TextControlForegroundFocused"] = new SolidColorBrush(Colors.White);
+            _searchBox.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+
             _searchBox.TextChanged += (s, e) => OnSearchChanged(_searchBox.Text);
             _searchBox.KeyDown += (s, e) =>
             {
@@ -897,34 +914,39 @@ namespace ZaloWP81.Views
                 return;
             }
 
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
+            double rowHeight = Math.Round(64 * scale);
+            double avatarSize = Math.Round(44 * scale);
+            double col0Width = Math.Round(48 * scale);
+
             foreach (var group in groups)
             {
                 var itemBorder = new Border
                 {
-                    Height = 64,
+                    Height = rowHeight,
                     Padding = new Thickness(14, 0, 14, 0),
                     Background = new SolidColorBrush(Colors.White),
                     IsTapEnabled = true
                 };
                 var grid = new Grid();
-                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(col0Width) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-                var avaGrid = new Grid { Width = 44, Height = 44, VerticalAlignment = VerticalAlignment.Center };
+                var avaGrid = new Grid { Width = avatarSize, Height = avatarSize, VerticalAlignment = VerticalAlignment.Center };
                 avaGrid.Children.Add(new Ellipse { Fill = group.AvatarColor ?? _activeBlue });
-                avaGrid.Children.Add(new TextBlock { Text = group.Initial ?? "N", Foreground = new SolidColorBrush(Colors.White), FontSize = 17, FontWeight = Windows.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+                avaGrid.Children.Add(new TextBlock { Text = group.Initial ?? "N", Foreground = new SolidColorBrush(Colors.White), FontSize = Math.Round(17 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
                 if (group.AvatarImageBrush != null) avaGrid.Children.Add(new Ellipse { Fill = group.AvatarImageBrush });
                 Grid.SetColumn(avaGrid, 0);
                 grid.Children.Add(avaGrid);
 
                 var txtStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 8, 0) };
-                txtStack.Children.Add(new TextBlock { Text = group.Name ?? "Nhóm", FontSize = 15, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
-                txtStack.Children.Add(new TextBlock { Text = group.LastText ?? "", FontSize = 13, Foreground = _textSub, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) });
+                txtStack.Children.Add(new TextBlock { Text = group.Name ?? "Nhóm", FontSize = Math.Round(15 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark, TextTrimming = TextTrimming.CharacterEllipsis });
+                txtStack.Children.Add(new TextBlock { Text = group.LastText ?? "", FontSize = Math.Round(13 * scale, 1), Foreground = _textSub, TextTrimming = TextTrimming.CharacterEllipsis, Margin = new Thickness(0, 3, 0, 0) });
                 Grid.SetColumn(txtStack, 1);
                 grid.Children.Add(txtStack);
 
-                var timeTxt = new TextBlock { Text = group.TimeText ?? "", FontSize = 11.5, Foreground = _textMuted, VerticalAlignment = VerticalAlignment.Center };
+                var timeTxt = new TextBlock { Text = group.TimeText ?? "", FontSize = Math.Round(11.5 * scale, 1), Foreground = _textMuted, VerticalAlignment = VerticalAlignment.Center };
                 Grid.SetColumn(timeTxt, 2);
                 grid.Children.Add(timeTxt);
 
@@ -1811,29 +1833,34 @@ namespace ZaloWP81.Views
         // EXACT 100% RECONSTRUCTION OF CONVERSATION ITEM IN WP10 - PURE BORDER WITH SILKY TOUCH
         private ConversationItemViewHolder CreateConversationItem(ZaloConversation conv)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
+            double rowHeight = Math.Round(80 * scale);
+            double avatarSize = Math.Round(52 * scale);
+            double col0Width = Math.Round(60 * scale);
+
             var itemBorder = new Border
             {
-                Height = 84,
+                Height = rowHeight,
                 Padding = new Thickness(14, 0, 14, 0),
                 Background = new SolidColorBrush(Colors.White)
             };
             var itemGrid = new Grid();
-            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(62) });
+            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(col0Width) });
             itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(80) });
+            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(80 * scale)) });
 
-            // 1. Column 0: 56x56 Avatar with Group badge
-            var avatarGrid = new Grid { Width = 56, Height = 56, VerticalAlignment = VerticalAlignment.Center };
+            // 1. Column 0: Avatar with Group badge
+            var avatarGrid = new Grid { Width = avatarSize, Height = avatarSize, VerticalAlignment = VerticalAlignment.Center };
             var ellipse = new Ellipse
             {
-                Width = 56,
-                Height = 56,
+                Width = avatarSize,
+                Height = avatarSize,
                 Fill = conv.AvatarColor ?? _activeBlue
             };
             var initial = new TextBlock
             {
                 Text = conv.Initial ?? "?",
-                FontSize = 20,
+                FontSize = Math.Round(19 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1844,8 +1871,8 @@ namespace ZaloWP81.Views
 
             var imgEllipse = new Ellipse
             {
-                Width = 56,
-                Height = 56,
+                Width = avatarSize,
+                Height = avatarSize,
                 Fill = conv.AvatarImageBrush ?? new SolidColorBrush(Colors.Transparent)
             };
             avatarGrid.Children.Add(imgEllipse);
@@ -1854,9 +1881,9 @@ namespace ZaloWP81.Views
             {
                 var groupBadge = new Border
                 {
-                    Width = 20,
-                    Height = 20,
-                    CornerRadius = new CornerRadius(10),
+                    Width = Math.Round(20 * scale),
+                    Height = Math.Round(20 * scale),
+                    CornerRadius = new CornerRadius(10 * scale),
                     Background = ColorBrush(0xFF, 0xEA, 0xF3, 0xFC),
                     BorderBrush = new SolidColorBrush(Colors.White),
                     BorderThickness = new Thickness(1.5),
@@ -1866,8 +1893,8 @@ namespace ZaloWP81.Views
                 groupBadge.Child = new Image
                 {
                     Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_blue.png")),
-                    Width = 12,
-                    Height = 12
+                    Width = Math.Round(12 * scale),
+                    Height = Math.Round(12 * scale)
                 };
                 avatarGrid.Children.Add(groupBadge);
             }
@@ -1883,8 +1910,8 @@ namespace ZaloWP81.Views
             {
                 var groupIconBorder = new Border
                 {
-                    Width = 18,
-                    Height = 18,
+                    Width = Math.Round(18 * scale),
+                    Height = Math.Round(18 * scale),
                     CornerRadius = new CornerRadius(5),
                     Background = ColorBrush(0xFF, 0xEE, 0xF4, 0xFA),
                     Margin = new Thickness(0, 0, 6, 0),
@@ -1893,8 +1920,8 @@ namespace ZaloWP81.Views
                 groupIconBorder.Child = new Image
                 {
                     Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_blue.png")),
-                    Width = 11,
-                    Height = 11
+                    Width = Math.Round(11 * scale),
+                    Height = Math.Round(11 * scale)
                 };
                 titleLine.Children.Add(groupIconBorder);
             }
@@ -1902,8 +1929,8 @@ namespace ZaloWP81.Views
             var pinIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_pin_clean_gray.png")),
-                Width = 14,
-                Height = 14,
+                Width = Math.Round(14 * scale),
+                Height = Math.Round(14 * scale),
                 Margin = new Thickness(0, 0, 5, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = conv.IsPinned ? Visibility.Visible : Visibility.Collapsed
@@ -1913,7 +1940,7 @@ namespace ZaloWP81.Views
             var nameBlock = new TextBlock
             {
                 Text = conv.Name ?? "Trò chuyện",
-                FontSize = 17.5,
+                FontSize = Math.Round(17 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -1924,8 +1951,8 @@ namespace ZaloWP81.Views
             var muteIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_mute_clean_gray.png")),
-                Width = 14,
-                Height = 14,
+                Width = Math.Round(14 * scale),
+                Height = Math.Round(14 * scale),
                 Margin = new Thickness(5, 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Center,
                 Visibility = conv.IsMuted ? Visibility.Visible : Visibility.Collapsed
@@ -1937,7 +1964,7 @@ namespace ZaloWP81.Views
             var lastTextBlock = new TextBlock
             {
                 Text = conv.LastText ?? string.Empty,
-                FontSize = 14.5,
+                FontSize = Math.Round(14 * scale, 1),
                 Foreground = _textSub,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Margin = new Thickness(0, 4, 0, 0)
@@ -1951,7 +1978,7 @@ namespace ZaloWP81.Views
             var timeBlock = new TextBlock
             {
                 Text = conv.TimeText ?? string.Empty,
-                FontSize = 12.5,
+                FontSize = Math.Round(12 * scale, 1),
                 Foreground = _textMuted,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
@@ -1988,7 +2015,7 @@ namespace ZaloWP81.Views
             {
                 BorderBrush = ColorBrush(0xFF, 0xEA, 0xEC, 0xEF),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Margin = new Thickness(64, 0, 0, 0),
+                Margin = new Thickness(Math.Round(60 * scale), 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Bottom
             };
             Grid.SetColumnSpan(divider, 3);
@@ -2169,24 +2196,29 @@ namespace ZaloWP81.Views
 
         private FrameworkElement CreateFriendItem(ZaloFriend friend)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
+            double rowHeight = Math.Round(64 * scale);
+            double avatarSize = Math.Round(44 * scale);
+            double col0Width = Math.Round(50 * scale);
+
             var itemBorder = new Border
             {
-                Height = 64,
+                Height = rowHeight,
                 Padding = new Thickness(16, 0, 16, 0),
                 Background = new SolidColorBrush(Colors.White),
                 IsTapEnabled = true,
                 IsHoldingEnabled = true
             };
             var itemGrid = new Grid();
-            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(50) });
+            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(col0Width) });
             itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var avatarGrid = new Grid { Width = 44, Height = 44, VerticalAlignment = VerticalAlignment.Center };
-            var ellipse = new Ellipse { Width = 44, Height = 44, Fill = friend.AvatarColor ?? _activeBlue };
+            var avatarGrid = new Grid { Width = avatarSize, Height = avatarSize, VerticalAlignment = VerticalAlignment.Center };
+            var ellipse = new Ellipse { Width = avatarSize, Height = avatarSize, Fill = friend.AvatarColor ?? _activeBlue };
             var initial = new TextBlock
             {
                 Text = friend.Initial ?? "?",
-                FontSize = 17,
+                FontSize = Math.Round(17 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -2200,7 +2232,7 @@ namespace ZaloWP81.Views
                 var imgBrush = friend.AvatarImageBrush ?? ZaloAvatar.ImageFor(friend.Avatar);
                 if (imgBrush != null)
                 {
-                    avatarGrid.Children.Add(new Ellipse { Width = 44, Height = 44, Fill = imgBrush });
+                    avatarGrid.Children.Add(new Ellipse { Width = avatarSize, Height = avatarSize, Fill = imgBrush });
                 }
             }
 
@@ -2210,7 +2242,7 @@ namespace ZaloWP81.Views
             var nameBlock = new TextBlock
             {
                 Text = friend.Name ?? "Bạn bè",
-                FontSize = 16,
+                FontSize = Math.Round(16 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 VerticalAlignment = VerticalAlignment.Center,

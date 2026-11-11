@@ -112,10 +112,10 @@ namespace ZaloWP81.Views
             var queryBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0x35, 0x00, 0x00, 0x00)),
-                CornerRadius = new CornerRadius(12),
-                Height = 38,
+                CornerRadius = new CornerRadius(14),
+                Height = 40,
                 VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(10, 0, 10, 0)
+                Padding = new Thickness(8, 0, 8, 0)
             };
             _queryBox = new TextBox
             {
@@ -124,8 +124,23 @@ namespace ZaloWP81.Views
                 Foreground = new SolidColorBrush(Colors.White),
                 BorderThickness = new Thickness(0),
                 FontSize = 15,
-                VerticalAlignment = VerticalAlignment.Center
+                MinHeight = 32,
+                Height = 36,
+                Padding = new Thickness(2, 0, 6, 2),
+                VerticalAlignment = VerticalAlignment.Center,
+                VerticalContentAlignment = VerticalAlignment.Center,
+                RequestedTheme = ElementTheme.Dark
             };
+            _queryBox.Resources["PhoneTextBoxBrush"] = new SolidColorBrush(Colors.Transparent);
+            _queryBox.Resources["PhoneTextBoxEditBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            _queryBox.Resources["PhoneTextBoxEditForegroundBrush"] = new SolidColorBrush(Colors.White);
+            _queryBox.Resources["PhoneTextBoxBorderThemeBrush"] = new SolidColorBrush(Colors.Transparent);
+            _queryBox.Resources["PhoneMidBrush"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+            _queryBox.Resources["TextControlBackground"] = new SolidColorBrush(Colors.Transparent);
+            _queryBox.Resources["TextControlBackgroundFocused"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+            _queryBox.Resources["TextControlForeground"] = new SolidColorBrush(Colors.White);
+            _queryBox.Resources["TextControlForegroundFocused"] = new SolidColorBrush(Colors.White);
+            _queryBox.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
             _queryBox.TextChanged += (s, e) => SearchMessages(_queryBox.Text);
             _queryBox.KeyDown += (s, e) =>
             {

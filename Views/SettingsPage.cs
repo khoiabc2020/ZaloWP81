@@ -88,7 +88,104 @@ namespace ZaloWP81.Views
             var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
             var stack = new StackPanel();
 
-            // Section 0: Cỡ chữ trò chuyện (Chat Font Size)
+            // Section 0: Thu phóng giao diện (UI Scale)
+            stack.Children.Add(CreateSectionHeader("THU PHÓNG GIAO DIỆN (UI SCALE)"));
+
+            var uiScaleGroup = new Border
+            {
+                Background = new SolidColorBrush(Colors.White),
+                CornerRadius = new CornerRadius(14),
+                Padding = new Thickness(14, 14, 14, 14),
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+            var uiScaleStack = new StackPanel();
+
+            uiScaleStack.Children.Add(new TextBlock
+            {
+                Text = "Tỷ lệ kích thước toàn bộ ứng dụng:",
+                FontSize = 14,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _textDark
+            });
+            uiScaleStack.Children.Add(new TextBlock
+            {
+                Text = "Tùy chỉnh tỷ lệ (100%, 125%, 150%, 175%) phù hợp với màn hình lớn như Lumia 640 XL. Hiển thị phóng to rõ nét mượt mà 60 FPS, không méo hay giật lag.",
+                FontSize = 12,
+                Foreground = _textSub,
+                Margin = new Thickness(0, 2, 0, 10),
+                TextWrapping = TextWrapping.Wrap
+            });
+
+            // 4 UI Scale pills: 100%, 125%, 150%, 175%
+            var uiScaleGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            for (int k = 0; k < 4; k++)
+                uiScaleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            double[] scaleFactors = new double[] { 1.0, 1.25, 1.50, 1.75 };
+            string[] scaleLabels = new string[] { "100%", "125%", "150%", "175%" };
+            var scaleBorders = new Border[4];
+            var scaleTexts = new TextBlock[4];
+
+            double currentUiScale = ZaloSettingsService.Current.UiScaleFactor;
+
+            var scaleStatusText = new TextBlock
+            {
+                Text = $"Đang chọn: {(int)(currentUiScale * 100)}% · Áp dụng ngay lập tức cho các danh sách và trang trò chuyện.",
+                FontSize = 12,
+                Foreground = _activeBlue,
+                Margin = new Thickness(2, 4, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            };
+
+            for (int k = 0; k < 4; k++)
+            {
+                int pillIdx = k;
+                double factor = scaleFactors[k];
+                bool isSelected = Math.Abs(currentUiScale - factor) < 0.05;
+
+                var pBorder = new Border
+                {
+                    Height = 36,
+                    CornerRadius = new CornerRadius(8),
+                    Margin = new Thickness(pillIdx == 0 ? 0 : 3, 0, pillIdx == 3 ? 0 : 3, 0),
+                    Background = isSelected ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9))
+                };
+                var pText = new TextBlock
+                {
+                    Text = scaleLabels[k],
+                    FontSize = 13,
+                    FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
+                    Foreground = isSelected ? new SolidColorBrush(Colors.White) : _textDark,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                pBorder.Child = pText;
+                scaleBorders[k] = pBorder;
+                scaleTexts[k] = pText;
+
+                pBorder.Tapped += (s, e) =>
+                {
+                    ZaloSettingsService.Current.UiScaleFactor = factor;
+                    scaleStatusText.Text = $"Đang chọn: {(int)(factor * 100)}% · Đã lưu! Các trang tiếp theo sẽ áp dụng kích thước này.";
+                    for (int m = 0; m < 4; m++)
+                    {
+                        bool sel = m == pillIdx;
+                        scaleBorders[m].Background = sel ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9));
+                        scaleTexts[m].Foreground = sel ? new SolidColorBrush(Colors.White) : _textDark;
+                        scaleTexts[m].FontWeight = sel ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+                    }
+                };
+
+                Grid.SetColumn(pBorder, k);
+                uiScaleGrid.Children.Add(pBorder);
+            }
+
+            uiScaleStack.Children.Add(uiScaleGrid);
+            uiScaleStack.Children.Add(scaleStatusText);
+            uiScaleGroup.Child = uiScaleStack;
+            stack.Children.Add(uiScaleGroup);
+
+            // Section 1: Cỡ chữ trò chuyện (Chat Font Size)
             stack.Children.Add(CreateSectionHeader("CỠ CHỮ TRÒ CHUYỆN"));
 
             var scaleGroup = new Border
