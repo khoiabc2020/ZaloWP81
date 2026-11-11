@@ -23,6 +23,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.Web.Http;
 using ZaloUWP.Services;
+using ZaloUWP.Models;
 
 namespace ZaloLite
 {
@@ -38,6 +39,7 @@ namespace ZaloLite
         public string Name { get; set; }
         public string OriginalName { get; set; }
         public string Alias { get; set; }
+        public string DisplayName { get { return !string.IsNullOrWhiteSpace(Alias) ? Alias : (!string.IsNullOrWhiteSpace(Name) ? Name : (OriginalName ?? string.Empty)); } }
         public string Avatar { get; set; }
         public string Subtitle { get; set; }
         public bool IsOnline { get; set; }
@@ -1026,6 +1028,54 @@ namespace ZaloLite
         {
             get { return _groupMemberCount; }
             set { if (_groupMemberCount != value) { _groupMemberCount = Math.Max(0, value); Raise("GroupMemberCount"); } }
+        }
+
+        public Dictionary<string, UserInfo> GroupMembers { get; } = new Dictionary<string, UserInfo>(StringComparer.OrdinalIgnoreCase);
+
+        public void SetGroupMember(string userId, string displayName, string avatarUrl, bool isOwner = false, bool isDeputy = false)
+        {
+            if (string.IsNullOrEmpty(userId)) return;
+            GroupMembers[userId] = new UserInfo
+            {
+                UserId = userId,
+                DisplayName = !string.IsNullOrWhiteSpace(displayName) ? displayName : userId,
+                AvatarUrl = avatarUrl ?? string.Empty,
+                IsGroupOwner = isOwner,
+                IsGroupDeputy = isDeputy
+            };
+        }
+
+        public void ResolveMemberForMessage(ZaloChatMessage msg)
+        {
+            if (msg == null || msg.FromMe || !IsGroup || string.IsNullOrEmpty(msg.SenderUid)) return;
+            if (GroupMembers.TryGetValue(msg.SenderUid, out var member))
+            {
+                if (!string.IsNullOrWhiteSpace(member.DisplayName) && (string.IsNullOrWhiteSpace(msg.Sender) || msg.Sender == "Thành viên" || msg.Sender == "Zalo" || msg.Sender == msg.SenderUid))
+                {
+                    msg.Sender = member.DisplayName;
+                    msg.SenderAvatarBrush = ZaloAvatar.ColorFor(msg.Sender);
+                }
+                if (string.IsNullOrEmpty(msg.SenderAvatarUrl) && !string.IsNullOrEmpty(member.AvatarUrl))
+                {
+                    msg.SenderAvatarUrl = member.AvatarUrl;
+                }
+            }
+            else
+            {
+                var fr = ZaloApp.Friends?.FirstOrDefault(f => f.UserId == msg.SenderUid);
+                if (fr != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(fr.DisplayName) && (string.IsNullOrWhiteSpace(msg.Sender) || msg.Sender == "Thành viên" || msg.Sender == "Zalo" || msg.Sender == msg.SenderUid))
+                    {
+                        msg.Sender = fr.DisplayName;
+                        msg.SenderAvatarBrush = ZaloAvatar.ColorFor(msg.Sender);
+                    }
+                    if (string.IsNullOrEmpty(msg.SenderAvatarUrl) && !string.IsNullOrEmpty(fr.Avatar))
+                    {
+                        msg.SenderAvatarUrl = fr.Avatar;
+                    }
+                }
+            }
         }
         public bool GroupSettingsLoaded
         {

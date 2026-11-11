@@ -1197,6 +1197,13 @@ namespace ZaloLite
                         if (target != null) MarkRecalled(conversation, target);
                     }
                     foreach (ZaloChatMessage message in history.Where(m => !m.IsRecallEvent)) AddMessage(conversation, message, false);
+                    if (conversation.IsGroup)
+                    {
+                        foreach (var m in conversation.Messages)
+                        {
+                            conversation.ResolveMemberForMessage(m);
+                        }
+                    }
                     if (conversation.Messages.Count > 0 && (string.IsNullOrWhiteSpace(conversation.LastText) || conversation.LastTs <= 0))
                     {
                         var latest = conversation.Messages.OrderBy(m => m.Ts).LastOrDefault();
@@ -1212,6 +1219,80 @@ namespace ZaloLite
             finally
             {
                 LoadingHistory.Remove(key);
+            }
+        }
+
+        public static async Task LoadGroupMembersAsync(ZaloConversation conversation, CancellationToken ct)
+        {
+            if (conversation == null || !conversation.IsGroup || Session == null) return;
+            try
+            {
+                JsonObject info = await ZaloMessaging.GetGroupInfoAsync(Session, conversation.ThreadId, ct);
+                if (info != null)
+                {
+                    string creatorId = ZaloAuth.Str(info, "creatorId");
+                    var adminIds = new HashSet<string>();
+                    IJsonValue adminVal;
+                    if (info.TryGetValue("adminIds", out adminVal) && adminVal.ValueType == JsonValueType.Array)
+                    {
+                        foreach (IJsonValue v in adminVal.GetArray())
+                        {
+                            if (v.ValueType == JsonValueType.String) adminIds.Add(v.GetString());
+                        }
+                    }
+
+                    IJsonValue memValue;
+                    if (info.TryGetValue("currentMems", out memValue) && memValue.ValueType == JsonValueType.Array)
+                    {
+                        foreach (IJsonValue value in memValue.GetArray())
+                        {
+                            if (value.ValueType != JsonValueType.Object) continue;
+                            JsonObject member = value.GetObject();
+                            string id = ZaloAuth.Str(member, "id");
+                            if (string.IsNullOrEmpty(id)) id = ZaloAuth.Str(member, "uid");
+                            if (string.IsNullOrEmpty(id)) continue;
+
+                            string memberName = ZaloAuth.Str(member, "dName");
+                            if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "displayName");
+                            if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "zaloName");
+                            if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "name");
+                            if (memberName.Length == 0)
+                            {
+                                var fr = Friends?.FirstOrDefault(f => f.UserId == id);
+                                if (fr != null && !string.IsNullOrEmpty(fr.DisplayName)) memberName = fr.DisplayName;
+                            }
+                            if (memberName.Length == 0) memberName = id;
+
+                            string avatar = ZaloAuth.Str(member, "avatar");
+                            if (avatar.Length == 0) avatar = ZaloAuth.Str(member, "avatarUrl");
+                            if (avatar.Length == 0) avatar = ZaloAuth.Str(member, "avt");
+                            if (avatar.Length == 0) avatar = ZaloAuth.Str(member, "fullAvt");
+                            if (avatar.Length == 0)
+                            {
+                                var fr = Friends?.FirstOrDefault(f => f.UserId == id);
+                                if (fr != null && !string.IsNullOrEmpty(fr.Avatar)) avatar = fr.Avatar;
+                            }
+
+                            conversation.SetGroupMember(id, memberName, avatar, id == creatorId, adminIds.Contains(id));
+                        }
+                    }
+
+                    int total = (int)ZaloAuth.Num(info, "totalMember");
+                    if (total < conversation.GroupMembers.Count) total = conversation.GroupMembers.Count;
+                    conversation.GroupMemberCount = total;
+
+                    await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        foreach (var msg in conversation.Messages)
+                        {
+                            conversation.ResolveMemberForMessage(msg);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("LoadGroupMembersAsync failed: " + ex.Message);
             }
         }
 
@@ -1235,6 +1316,10 @@ namespace ZaloLite
                         if (target != null) MarkRecalled(conversation, target);
                     }
                     foreach (ZaloChatMessage message in history.Where(m => !m.IsRecallEvent)) AddMessage(conversation, message, false);
+                    foreach (var m in conversation.Messages)
+                    {
+                        conversation.ResolveMemberForMessage(m);
+                    }
                     conversation.HistoryLoadedCount = targetCount;
                     conversation.HasMoreHistory = targetCount < 500 && history.Count >= targetCount;
                 });
@@ -1346,11 +1431,44 @@ namespace ZaloLite
             if (!long.TryParse(ZaloAuth.Str(m, "ts"), out ts) || ts <= 0) ts = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             string senderName = isSelf ? "Tôi" : ZaloAuth.Str(m, "dName");
-            if (senderName.Length == 0) senderName = "Zalo";
+            if (senderName.Length == 0) senderName = ZaloAuth.Str(m, "displayName");
+            if (senderName.Length == 0) senderName = ZaloAuth.Str(m, "fromName");
+            if (senderName.Length == 0) senderName = ZaloAuth.Str(m, "zaloName");
 
             ZaloConversation conversation = GetOrCreate(threadId, incoming.IsGroup);
-            if (!incoming.IsGroup && !isSelf && !_friendNames.ContainsKey(threadId) && senderName != "Zalo")
+            if (!incoming.IsGroup && !isSelf && !_friendNames.ContainsKey(threadId) && senderName.Length > 0 && senderName != "Zalo")
                 conversation.Name = senderName;
+
+            string senderAvatar = string.Empty;
+            if (!isSelf)
+            {
+                if (!incoming.IsGroup)
+                {
+                    senderAvatar = conversation.AvatarUrl;
+                }
+                else
+                {
+                    senderAvatar = ZaloAuth.Str(m, "avatar");
+                    if (senderAvatar.Length == 0) senderAvatar = ZaloAuth.Str(m, "avt");
+                    if (senderAvatar.Length == 0) senderAvatar = ZaloAuth.Str(m, "userAvatar");
+                    if (senderAvatar.Length == 0 && conversation.GroupMembers.TryGetValue(uidFrom, out var gm))
+                    {
+                        senderAvatar = gm.AvatarUrl;
+                        if (senderName.Length == 0 || senderName == "Zalo") senderName = gm.DisplayName;
+                    }
+                    if (senderAvatar.Length == 0)
+                    {
+                        var fr = Friends?.FirstOrDefault(f => f.UserId == uidFrom);
+                        if (fr != null)
+                        {
+                            if (!string.IsNullOrEmpty(fr.Avatar)) senderAvatar = fr.Avatar;
+                            if (senderName.Length == 0 || senderName == "Zalo") senderName = fr.DisplayName;
+                        }
+                    }
+                }
+            }
+
+            if (senderName.Length == 0) senderName = isSelf ? "Tôi" : (incoming.IsGroup ? "Thành viên" : "Zalo");
 
             var chatMessage = new ZaloChatMessage
             {
@@ -1361,7 +1479,7 @@ namespace ZaloLite
                 RecipientUid = idTo == "0" ? Session?.Uid : idTo,
                 Sender = senderName,
                 SenderAvatarBrush = ZaloAvatar.ColorFor(senderName),
-                SenderAvatarUrl = !incoming.IsGroup && !isSelf ? conversation.AvatarUrl : string.Empty,
+                SenderAvatarUrl = senderAvatar,
                 Text = ZaloFormat.Describe(m),
                 ReplyContent = ZaloFormat.PlainContent(m),
                 MsgType = ZaloAuth.Str(m, "msgType"),

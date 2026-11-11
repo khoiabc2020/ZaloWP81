@@ -747,11 +747,32 @@ namespace ZaloWP81.Views
                 }
 
                 RenderMessages();
+                if (_conversation.IsGroup)
+                {
+                    _ = EnsureGroupMembersLoadedAsync();
+                }
                 _ = LoadHistoryCoreAsync();
                 _ = ZaloApp.MarkConversationSeenAsync(_conversation);
 
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 _conversation.Messages.CollectionChanged += Messages_CollectionChanged;
+            }
+        }
+
+        private async System.Threading.Tasks.Task EnsureGroupMembersLoadedAsync()
+        {
+            if (_conversation == null || !_conversation.IsGroup) return;
+            try
+            {
+                await ZaloApp.LoadGroupMembersAsync(_conversation, System.Threading.CancellationToken.None);
+                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    RenderMessages();
+                });
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ChatPage EnsureGroupMembersLoaded error: " + ex.Message);
             }
         }
 
@@ -761,6 +782,13 @@ namespace ZaloWP81.Views
             try
             {
                 await ZaloApp.LoadHistoryAsync(_conversation, System.Threading.CancellationToken.None);
+                if (_conversation.IsGroup)
+                {
+                    foreach (var m in _conversation.Messages)
+                    {
+                        _conversation.ResolveMemberForMessage(m);
+                    }
+                }
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     RenderMessages();
@@ -778,6 +806,13 @@ namespace ZaloWP81.Views
             try
             {
                 await ZaloApp.LoadOlderGroupHistoryAsync(_conversation, System.Threading.CancellationToken.None);
+                if (_conversation.IsGroup)
+                {
+                    foreach (var m in _conversation.Messages)
+                    {
+                        _conversation.ResolveMemberForMessage(m);
+                    }
+                }
                 await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     RenderMessages();
@@ -888,6 +923,13 @@ namespace ZaloWP81.Views
         {
             bool isMe = msg.FromMe;
 
+            if (_conversation != null && _conversation.IsGroup)
+            {
+                _conversation.ResolveMemberForMessage(msg);
+            }
+
+            bool isGroupOther = !isMe && _conversation != null && _conversation.IsGroup;
+
             var container = new Grid
             {
                 Margin = new Thickness(0, 4, 0, 4),
@@ -895,6 +937,28 @@ namespace ZaloWP81.Views
             };
 
             var stack = new StackPanel();
+
+            if (isGroupOther)
+            {
+                var senderNameBlock = new TextBlock
+                {
+                    Text = msg.Sender ?? "Thành viên",
+                    FontSize = 13,
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = msg.SenderAvatarBrush ?? ZaloAvatar.ColorFor(msg.Sender ?? "Z"),
+                    Margin = new Thickness(2, 0, 0, 3)
+                };
+                senderNameBlock.Tapped += (s, e) =>
+                {
+                    if (!string.IsNullOrEmpty(msg.SenderUid))
+                    {
+                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == msg.SenderUid)
+                            ?? new ZaloFriend { UserId = msg.SenderUid, Name = msg.Sender, Avatar = msg.SenderAvatarUrl };
+                        NavigationManager.NavigateTo(new FriendProfilePage(fr));
+                    }
+                };
+                stack.Children.Add(senderNameBlock);
+            }
 
             // Render Quoted Reply Box if message is a reply
             if (!string.IsNullOrEmpty(msg.QuotedText))
@@ -1470,7 +1534,75 @@ namespace ZaloWP81.Views
             }
 
             stack.Children.Add(timeStack);
-            container.Children.Add(stack);
+
+            if (isGroupOther)
+            {
+                container.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                container.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                var avatarGrid = new Grid
+                {
+                    Width = 36,
+                    Height = 36,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 0, 8, 0)
+                };
+                var avatarEllipse = new Ellipse
+                {
+                    Width = 36,
+                    Height = 36,
+                    Fill = msg.SenderAvatarBrush ?? ZaloAvatar.ColorFor(msg.Sender ?? "Z")
+                };
+                var avatarInitial = new TextBlock
+                {
+                    Text = msg.SenderInitial ?? "Z",
+                    FontSize = 14,
+                    FontWeight = Windows.UI.Text.FontWeights.Bold,
+                    Foreground = new SolidColorBrush(Colors.White),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                avatarGrid.Children.Add(avatarEllipse);
+                avatarGrid.Children.Add(avatarInitial);
+
+                if (!string.IsNullOrEmpty(msg.SenderAvatarUrl))
+                {
+                    try
+                    {
+                        var bmp = new BitmapImage(new Uri(msg.SenderAvatarUrl));
+                        var imgEllipse = new Ellipse
+                        {
+                            Width = 36,
+                            Height = 36,
+                            Fill = new ImageBrush { ImageSource = bmp, Stretch = Stretch.UniformToFill }
+                        };
+                        avatarGrid.Children.Add(imgEllipse);
+                        avatarInitial.Text = string.Empty;
+                    }
+                    catch { }
+                }
+
+                avatarGrid.Tapped += (s, e) =>
+                {
+                    if (!string.IsNullOrEmpty(msg.SenderUid))
+                    {
+                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == msg.SenderUid)
+                            ?? new ZaloFriend { UserId = msg.SenderUid, Name = msg.Sender, Avatar = msg.SenderAvatarUrl };
+                        NavigationManager.NavigateTo(new FriendProfilePage(fr));
+                    }
+                };
+
+                Grid.SetColumn(avatarGrid, 0);
+                container.Children.Add(avatarGrid);
+
+                Grid.SetColumn(stack, 1);
+                container.Children.Add(stack);
+            }
+            else
+            {
+                container.Children.Add(stack);
+            }
+
             return container;
         }
 

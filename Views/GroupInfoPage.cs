@@ -586,16 +586,42 @@ namespace ZaloWP81.Views
                             if (value.ValueType != JsonValueType.Object) continue;
                             JsonObject member = value.GetObject();
                             string id = ZaloAuth.Str(member, "id");
+                            if (string.IsNullOrEmpty(id)) id = ZaloAuth.Str(member, "uid");
+                            if (string.IsNullOrEmpty(id)) continue;
+
                             string memberName = ZaloAuth.Str(member, "dName");
+                            if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "displayName");
                             if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "zaloName");
+                            if (memberName.Length == 0) memberName = ZaloAuth.Str(member, "name");
+                            if (memberName.Length == 0)
+                            {
+                                var fr = ZaloApp.Friends?.FirstOrDefault(f => f.UserId == id);
+                                if (fr != null && !string.IsNullOrEmpty(fr.DisplayName)) memberName = fr.DisplayName;
+                            }
                             if (memberName.Length == 0) memberName = id;
+
+                            string memAvatar = ZaloAuth.Str(member, "avatar");
+                            if (memAvatar.Length == 0) memAvatar = ZaloAuth.Str(member, "avatarUrl");
+                            if (memAvatar.Length == 0) memAvatar = ZaloAuth.Str(member, "avt");
+                            if (memAvatar.Length == 0) memAvatar = ZaloAuth.Str(member, "fullAvt");
+                            if (memAvatar.Length == 0)
+                            {
+                                var fr = ZaloApp.Friends?.FirstOrDefault(f => f.UserId == id);
+                                if (fr != null && !string.IsNullOrEmpty(fr.Avatar)) memAvatar = fr.Avatar;
+                            }
+
+                            bool isOwner = id == _creatorId;
+                            bool isDeputy = id != _creatorId && _adminIds.Contains(id);
+
+                            _conversation.SetGroupMember(id, memberName, memAvatar, isOwner, isDeputy);
+
                             members.Add(new UserInfo
                             {
                                 UserId = id,
                                 DisplayName = memberName,
-                                AvatarUrl = ZaloAuth.Str(member, "avatar"),
-                                IsGroupOwner = id == _creatorId,
-                                IsGroupDeputy = id != _creatorId && _adminIds.Contains(id)
+                                AvatarUrl = memAvatar,
+                                IsGroupOwner = isOwner,
+                                IsGroupDeputy = isDeputy
                             });
                         }
                     }
@@ -1253,22 +1279,22 @@ namespace ZaloWP81.Views
         {
             var border = new Border
             {
-                Padding = new Thickness(0, 8, 0, 8),
+                Padding = new Thickness(0, 10, 0, 10),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0)),
                 BorderThickness = new Thickness(0, 0, 0, 1),
                 Background = new SolidColorBrush(Colors.Transparent)
             };
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(52) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var avatarGrid = new Grid { Width = 36, Height = 36, VerticalAlignment = VerticalAlignment.Center };
-            var ellipse = new Ellipse { Width = 36, Height = 36, Fill = _activeBlue };
+            var avatarGrid = new Grid { Width = 44, Height = 44, VerticalAlignment = VerticalAlignment.Center };
+            var ellipse = new Ellipse { Width = 44, Height = 44, Fill = ZaloAvatar.ColorFor(name ?? "Z") };
             var initial = new TextBlock
             {
                 Text = ZaloAvatar.InitialOf(name),
-                FontSize = 14,
+                FontSize = 16,
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = new SolidColorBrush(Colors.White),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -1281,7 +1307,7 @@ namespace ZaloWP81.Views
             {
                 try
                 {
-                    var img = new Ellipse { Width = 36, Height = 36, Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(avatarUrl)), Stretch = Stretch.UniformToFill } };
+                    var img = new Ellipse { Width = 44, Height = 44, Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(avatarUrl)), Stretch = Stretch.UniformToFill } };
                     avatarGrid.Children.Add(img);
                     initial.Text = string.Empty;
                 }
@@ -1293,7 +1319,7 @@ namespace ZaloWP81.Views
             var nameText = new TextBlock
             {
                 Text = name,
-                FontSize = 14.5,
+                FontSize = 16,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -1306,7 +1332,7 @@ namespace ZaloWP81.Views
             var roleText = new TextBlock
             {
                 Text = role,
-                FontSize = 12,
+                FontSize = 13,
                 Foreground = role == "Trưởng nhóm" ? _activeBlue : (role == "Phó nhóm" ? ColorBrush(0xFF, 0x10, 0xB9, 0x81) : _textSub),
                 FontWeight = role != "Thành viên" ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                 VerticalAlignment = VerticalAlignment.Center

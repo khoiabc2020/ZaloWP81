@@ -1001,8 +1001,16 @@ namespace ZaloLite
                 }
 
                 string sender = fromMe ? "Tôi" : ZaloAuth.Str(message, "dName");
+                if (sender.Length == 0) sender = ZaloAuth.Str(message, "displayName");
+                if (sender.Length == 0) sender = ZaloAuth.Str(message, "zaloName");
                 if (sender.Length == 0) sender = ZaloAuth.Str(message, "name");
                 if (sender.Length == 0) sender = isGroup ? "Thành viên" : "Bạn bè";
+
+                string avatar = fromMe ? string.Empty : ZaloAuth.Str(message, "avatar");
+                if (avatar.Length == 0) avatar = ZaloAuth.Str(message, "avt");
+                if (avatar.Length == 0) avatar = ZaloAuth.Str(message, "fullAvt");
+                if (avatar.Length == 0) avatar = ZaloAuth.Str(message, "avatarUrl");
+                if (avatar.Length == 0) avatar = ZaloAuth.Str(message, "userAvatar");
 
                 var chatMessage = new ZaloChatMessage
                 {
@@ -1012,6 +1020,8 @@ namespace ZaloLite
                     SenderUid = fromUid == "0" ? s.Uid : fromUid,
                     RecipientUid = ZaloAuth.Str(message, "idTo") == "0" ? s.Uid : ZaloAuth.Str(message, "idTo"),
                     Sender = sender,
+                    SenderAvatarBrush = ZaloAvatar.ColorFor(sender),
+                    SenderAvatarUrl = avatar,
                     Text = ZaloFormat.Describe(message),
                     ReplyContent = ZaloFormat.PlainContent(message),
                     MsgType = ZaloAuth.Str(message, "msgType"),
