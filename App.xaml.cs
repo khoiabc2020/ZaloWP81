@@ -8,6 +8,7 @@ using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Markup;
 using ZaloLite;
+using ZaloUWP.Common;
 using ZaloWP81.Views;
 
 namespace ZaloWP81
@@ -65,6 +66,19 @@ namespace ZaloWP81
         {
             try
             {
+                try
+                {
+                    ApiInfo.ConfigureMobileStatusBar(Windows.UI.Color.FromArgb(255, 0, 104, 255), Windows.UI.Colors.White);
+                }
+                catch { }
+
+                try
+                {
+                    var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
+                    appView.SetDesiredBoundsMode(Windows.UI.ViewManagement.ApplicationViewBoundsMode.UseVisible);
+                }
+                catch { }
+
                 NavigationManager.Initialize();
                 NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                 Window.Current.Activate();

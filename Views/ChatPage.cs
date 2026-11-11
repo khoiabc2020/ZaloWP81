@@ -1043,6 +1043,16 @@ namespace ZaloWP81.Views
             else
             {
                 _conversation = ZaloApp.Conversations.FirstOrDefault(c => c.Key == conversationKey);
+                if (_conversation == null && !string.IsNullOrEmpty(conversationKey))
+                {
+                    _conversation = ZaloApp.GetOrCreate(conversationKey, false, true);
+                    var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == conversationKey);
+                    if (fr != null)
+                    {
+                        if (fr.Name.Length > 0) _conversation.Name = fr.Name;
+                        if (!string.IsNullOrEmpty(fr.Avatar)) _conversation.AvatarUrl = fr.Avatar;
+                    }
+                }
             }
 
             if (_conversation != null)
@@ -1107,6 +1117,8 @@ namespace ZaloWP81.Views
 
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 _conversation.Messages.CollectionChanged += Messages_CollectionChanged;
+                ZaloApp.StatusChanged -= ZaloApp_StatusChanged;
+                ZaloApp.StatusChanged += ZaloApp_StatusChanged;
             }
         }
 
@@ -1225,6 +1237,7 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            ZaloApp.StatusChanged -= ZaloApp_StatusChanged;
             if (_isRecordingVoice)
             {
                 CancelVoiceRecording();
@@ -1234,6 +1247,14 @@ namespace ZaloWP81.Views
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 ZaloApp.CurrentChat = null;
             }
+        }
+
+        private async void ZaloApp_StatusChanged()
+        {
+            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                RenderMessages();
+            });
         }
 
         private async void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
@@ -1292,16 +1313,18 @@ namespace ZaloWP81.Views
         private void ScrollToBottom()
         {
             if (_messageScroll == null) return;
-            try
+            var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
             {
-                _messageScroll.UpdateLayout();
-                double offset = _messageScroll.ScrollableHeight;
-                if (!double.IsNaN(offset) && offset > 0)
+                try
                 {
-                    _messageScroll.ChangeView(0.0, offset, null, true);
+                    double offset = _messageScroll.ScrollableHeight;
+                    if (!double.IsNaN(offset) && offset > 0)
+                    {
+                        _messageScroll.ChangeView(null, offset, null, true);
+                    }
                 }
-            }
-            catch { }
+                catch { }
+            });
         }
 
         // EXACT MESSAGE BUBBLE MATCHING media_1794285355410_9cc5344d.png
@@ -2028,23 +2051,33 @@ namespace ZaloWP81.Views
             return container;
         }
 
-        private void SendMessage()
+        private bool _isSendingText = false;
+        private async void SendMessage()
         {
             string text = _inputBox.Text?.Trim();
-            if (string.IsNullOrEmpty(text) || _conversation == null) return;
+            if (string.IsNullOrEmpty(text) || _conversation == null || _isSendingText) return;
 
+            _isSendingText = true;
             _inputBox.Text = string.Empty;
             if (_isDrawerOpen) ToggleDrawer();
 
-            if (_replyTarget != null)
+            try
             {
-                var target = _replyTarget;
-                SetReplyTarget(null);
-                _ = ZaloApp.SendAsync(_conversation, text, target);
+                if (_replyTarget != null)
+                {
+                    var target = _replyTarget;
+                    SetReplyTarget(null);
+                    await ZaloApp.SendAsync(_conversation, text, target);
+                }
+                else
+                {
+                    await ZaloApp.SendAsync(_conversation, text);
+                }
             }
-            else
+            catch { }
+            finally
             {
-                _ = ZaloApp.SendAsync(_conversation, text);
+                _isSendingText = false;
             }
         }
 
@@ -2064,18 +2097,36 @@ namespace ZaloWP81.Views
             {
                 try
                 {
-                    img.Source = new BitmapImage(new Uri(url));
+                    var bmp = new BitmapImage(new Uri(url));
+                    img.Source = bmp;
+                    msg.SetDownloadedMediaImage(bmp);
                     if (ring != null) { ring.IsActive = false; ring.Visibility = Visibility.Collapsed; }
                 }
                 catch { }
                 return;
             }
 
-            if (ring != null) { ring.IsActive = true; ring.Visibility = Visibility.Visible; }
-            if (retryBtn != null) retryBtn.Visibility = Visibility.Collapsed;
+            uint hash = 5381;
+            foreach (char c in url) hash = ((hash << 5) + hash) + c;
+            string fileName = "img_" + hash.ToString("x8") + ".jpg";
 
             try
             {
+                var folder = ApplicationData.Current.LocalFolder;
+                var cacheFolder = await folder.CreateFolderAsync("cache", CreationCollisionOption.OpenIfExists);
+                var existingItem = await cacheFolder.TryGetItemAsync(fileName);
+                if (existingItem != null)
+                {
+                    var cachedBmp = new BitmapImage(new Uri("ms-appdata:///local/cache/" + fileName)) { DecodePixelWidth = 520 };
+                    img.Source = cachedBmp;
+                    msg.SetDownloadedMediaImage(cachedBmp);
+                    if (ring != null) { ring.IsActive = false; ring.Visibility = Visibility.Collapsed; }
+                    return;
+                }
+
+                if (ring != null) { ring.IsActive = true; ring.Visibility = Visibility.Visible; }
+                if (retryBtn != null) retryBtn.Visibility = Visibility.Collapsed;
+
                 byte[] bytes = null;
                 if (ZaloApp.Session != null)
                 {
@@ -2096,19 +2147,11 @@ namespace ZaloWP81.Views
 
                 if (bytes != null && bytes.Length > 0)
                 {
-                    using (var stream = new InMemoryRandomAccessStream())
-                    using (var writer = new DataWriter(stream))
-                    {
-                        writer.WriteBytes(bytes);
-                        await writer.StoreAsync();
-                        await writer.FlushAsync();
-                        writer.DetachStream();
-                        stream.Seek(0);
-                        var bitmap = new BitmapImage { DecodePixelWidth = 520 };
-                        await bitmap.SetSourceAsync(stream);
-                        img.Source = bitmap;
-                        msg.SetDownloadedMediaImage(bitmap);
-                    }
+                    var file = await cacheFolder.CreateFileAsync(fileName, CreationCollisionOption.ReplaceExisting);
+                    await FileIO.WriteBytesAsync(file, bytes);
+                    var newBmp = new BitmapImage(new Uri("ms-appdata:///local/cache/" + fileName)) { DecodePixelWidth = 520 };
+                    img.Source = newBmp;
+                    msg.SetDownloadedMediaImage(newBmp);
                 }
                 else
                 {

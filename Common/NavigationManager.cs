@@ -56,6 +56,12 @@ namespace ZaloWP81
             }
 
             Window.Current.Content = page;
+            try
+            {
+                var appView = Windows.UI.ViewManagement.ApplicationView.GetForCurrentView();
+                appView.SetDesiredBoundsMode(Windows.UI.ViewManagement.ApplicationViewBoundsMode.UseVisible);
+            }
+            catch { }
             ZaloUWP.Services.ZaloSettingsService.ResetUiScale();
         }
 
