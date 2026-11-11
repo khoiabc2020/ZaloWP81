@@ -34,7 +34,7 @@ namespace ZaloWP81.Views
         private TextBlock _mediaSummaryText;
         private TextBlock _commonGroupsStatusText;
         private TextBlock _hiddenStatusText;
-        private ToggleSwitch _hiddenToggle;
+        private ZaloModernSwitch _hiddenToggle;
         private bool _loadingHidden;
         private bool _updatingHidden;
 
@@ -457,7 +457,7 @@ namespace ZaloWP81.Views
             Grid.SetColumn(hTitle, 0);
             hGrid.Children.Add(hTitle);
 
-            _hiddenToggle = new ToggleSwitch { MinWidth = 54, HorizontalAlignment = HorizontalAlignment.Right, IsEnabled = false };
+            _hiddenToggle = new ZaloModernSwitch { HorizontalAlignment = HorizontalAlignment.Right, IsEnabled = false };
             _hiddenToggle.Toggled += HiddenToggle_Toggled;
             Grid.SetColumn(_hiddenToggle, 1);
             hGrid.Children.Add(_hiddenToggle);
@@ -831,41 +831,8 @@ namespace ZaloWP81.Views
 
                 _commonGroupsStatusText.Text = matches.Count == 0 ? "Không có nhóm chung nào." : $"{matches.Count} nhóm chung";
 
-                if (matches.Count > 0)
-                {
-                    var scroll = new ScrollViewer { MaxHeight = 320 };
-                    var stack = new StackPanel();
-                    foreach (var g in matches)
-                    {
-                        var row = new Border
-                        {
-                            Padding = new Thickness(10, 10, 10, 10),
-                            BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
-                            BorderThickness = new Thickness(0, 0, 0, 1),
-                            Background = new SolidColorBrush(Colors.Transparent)
-                        };
-                        row.Child = new TextBlock { Text = g.Name, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
-                        row.Tapped += (s, e) =>
-                        {
-                            var conv = ZaloApp.GetOrCreate(g.ThreadId, true, true);
-                            NavigationManager.NavigateTo(new ChatPage(conv.Key));
-                        };
-                        stack.Children.Add(row);
-                    }
-                    scroll.Content = stack;
-
-                    var cd = new ContentDialog
-                    {
-                        Title = $"Nhóm chung ({matches.Count})",
-                        Content = scroll,
-                        PrimaryButtonText = "Đóng"
-                    };
-                    await cd.ShowAsync();
-                }
-                else
-                {
-                    await new MessageDialog("Bạn và người này không cùng tham gia nhóm nào.", "Nhóm chung").ShowAsync();
-                }
+                _commonGroupsStatusText.Text = matches.Count == 0 ? "Không có nhóm chung nào." : $"{matches.Count} nhóm chung";
+                NavigationManager.NavigateTo(new MutualGroupsPage(_conversation?.Name ?? "Bạn bè", matches));
             }
             catch (Exception ex)
             {
@@ -938,6 +905,69 @@ namespace ZaloWP81.Views
             finally
             {
                 _hiddenToggle.IsEnabled = true;
+            }
+        }
+    }
+
+    public sealed class ZaloModernSwitch : ContentControl
+    {
+        private readonly Border _track;
+        private readonly Ellipse _thumb;
+        private bool _isOn = false;
+
+        public event RoutedEventHandler Toggled;
+
+        public ZaloModernSwitch()
+        {
+            Width = 50;
+            Height = 28;
+            VerticalAlignment = VerticalAlignment.Center;
+            HorizontalAlignment = HorizontalAlignment.Right;
+
+            _thumb = new Ellipse
+            {
+                Width = 22,
+                Height = 22,
+                Fill = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(3, 0, 0, 0)
+            };
+
+            _track = new Border
+            {
+                Width = 50,
+                Height = 28,
+                CornerRadius = new CornerRadius(14),
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)),
+                Child = _thumb
+            };
+            Content = _track;
+
+            IsEnabledChanged += (s, e) =>
+            {
+                Opacity = IsEnabled ? 1.0 : 0.45;
+            };
+
+            Tapped += (s, e) =>
+            {
+                if (!IsEnabled) return;
+                IsOn = !IsOn;
+                Toggled?.Invoke(this, new RoutedEventArgs());
+            };
+        }
+
+        public bool IsOn
+        {
+            get => _isOn;
+            set
+            {
+                _isOn = value;
+                _track.Background = _isOn
+                    ? new SolidColorBrush(Color.FromArgb(0xFF, 0x07, 0x86, 0xF9))
+                    : new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1));
+                _thumb.HorizontalAlignment = _isOn ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+                _thumb.Margin = _isOn ? new Thickness(0, 0, 3, 0) : new Thickness(3, 0, 0, 0);
             }
         }
     }

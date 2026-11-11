@@ -351,8 +351,8 @@ namespace ZaloWP81.Views
             var session = ZaloApp.Session;
             if (session == null) return;
 
-            var md = new MessageDialog("Chọn phương thức đổi ảnh đại diện:", "Đổi ảnh đại diện");
-            md.Commands.Add(new UICommand("Chọn từ thư viện máy", cmd =>
+            var sheet = new Common.ZaloActionSheet("Đổi ảnh đại diện");
+            sheet.AddAction("Chọn từ thư viện máy", () =>
             {
                 try
                 {
@@ -370,13 +370,12 @@ namespace ZaloWP81.Views
                 {
                     _profileFeedback.Text = "Lỗi mở thư viện: " + ex.Message;
                 }
-            }));
-            md.Commands.Add(new UICommand("Nhập liên kết ảnh (URL)", async cmd =>
+            });
+            sheet.AddAction("Nhập liên kết ảnh (URL)", async () =>
             {
                 await ShowAvatarUrlDialog();
-            }));
-            md.Commands.Add(new UICommand("Hủy"));
-            await md.ShowAsync();
+            });
+            sheet.Show();
         }
 
         public async void ContinueWithFileOpenPicker(Windows.ApplicationModel.Activation.FileOpenPickerContinuationEventArgs args)

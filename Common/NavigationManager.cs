@@ -32,6 +32,12 @@ namespace ZaloWP81
 
         private static void HardwareButtons_BackPressed(object sender, BackPressedEventArgs e)
         {
+            if (Common.ZaloActionSheet.TryDismissActive())
+            {
+                e.Handled = true;
+                return;
+            }
+
             if (CanGoBack)
             {
                 e.Handled = true;

@@ -27,6 +27,8 @@ namespace ZaloWP81.Views
     public sealed class ChatPage : Page, IFileOpenPickerContinuable
     {
         private Grid _rootGrid;
+        private FrameworkElement _headerGrid;
+        private double _keyboardHeight = 0;
         private InputPane _inputPane;
         private Border _groupPostingNotice;
         private TextBlock _groupPostingNoticeText;
@@ -80,6 +82,7 @@ namespace ZaloWP81.Views
         public ChatPage(string conversationKey = null)
         {
             BuildUI();
+            LayoutUpdated += (s, e) => PinHeaderToTop();
             _recordingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _recordingTimer.Tick += (s, e) =>
             {
@@ -111,9 +114,10 @@ namespace ZaloWP81.Views
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             // 1. TOP HEADER (Vibrant Zalo Blue Gradient: [Back] [Avatar] [Name] [Audio] [Video] [More])
-            var headerGrid = CreateTopHeader();
-            Grid.SetRow(headerGrid, 0);
-            _rootGrid.Children.Add(headerGrid);
+            _headerGrid = CreateTopHeader();
+            Canvas.SetZIndex(_headerGrid, 9999);
+            Grid.SetRow(_headerGrid, 0);
+            _rootGrid.Children.Add(_headerGrid);
 
             // 1b. STRANGER BANNER
             _strangerBanner = CreateStrangerBanner();
@@ -195,19 +199,20 @@ namespace ZaloWP81.Views
             gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x08, 0xA9, 0xE8), Offset = 1 });
             headerBorder.Background = gradient;
 
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(50 * scale)) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(46 * scale)) });
 
             // Back Button (Pure Touch Border with clean white vector back icon)
-            var backBtn = CreateTouchBorder(42, 48);
+            var backBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(48 * scale));
             var backIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
-                Width = 24,
-                Height = 24,
+                Width = Math.Round(26 * scale),
+                Height = Math.Round(26 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -223,8 +228,7 @@ namespace ZaloWP81.Views
             header.Children.Add(backBtn);
 
             // Recipient Avatar
-            double scale = ZaloSettingsService.Current.UiScaleFactor;
-            double avaSize = Math.Round(42 * scale);
+            double avaSize = Math.Round(44 * scale);
             var avatarGrid = new Grid { Width = avaSize, Height = avaSize, VerticalAlignment = VerticalAlignment.Center };
             _recipientAvatar = new Ellipse { Width = avaSize, Height = avaSize, Fill = _activeBlue };
             _recipientInitial = new TextBlock
@@ -243,7 +247,7 @@ namespace ZaloWP81.Views
             header.Children.Add(avatarGrid);
 
             // Recipient Title & Subtitle Stack
-            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
+            var titleStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(8 * scale), 0, 0, 0) };
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
@@ -267,12 +271,12 @@ namespace ZaloWP81.Views
             header.Children.Add(titleStack);
 
             // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage or GroupInfoPage)
-            var moreBtn = CreateTouchBorder(42, 48);
+            var moreBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(48 * scale));
             var moreIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png"),
-                Width = 26,
-                Height = 26,
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -408,31 +412,32 @@ namespace ZaloWP81.Views
             _replyBar.Child = replyGrid;
             container.Children.Add(_replyBar);
 
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var bar = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE2, 0xE8, 0xF0)),
                 BorderThickness = new Thickness(0, 1, 0, 0),
-                Padding = new Thickness(6, 4, 6, 4)
+                Padding = new Thickness(Math.Round(6 * scale), Math.Round(5 * scale), Math.Round(6 * scale), Math.Round(5 * scale))
             };
 
             var barRoot = new Grid();
 
             // 1. Normal Composer Input Grid
             _inputBarGrid = new Grid();
-            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
-            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
-            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
-            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(38) });
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 0. Emoji
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });     // 1. Text input pill
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 2. More dots
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 3. Mic
+            _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 4. Photo/Send
 
             // Emoji Button
-            var emojiBtn = CreateTouchBorder(38, 42);
+            var emojiBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(46 * scale));
             emojiBtn.Child = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png"),
-                Width = 24,
-                Height = 24,
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -440,17 +445,35 @@ namespace ZaloWP81.Views
             Grid.SetColumn(emojiBtn, 0);
             _inputBarGrid.Children.Add(emojiBtn);
 
-            // Composer TextBox
+            // Composer TextBox wrapped in spacious modern rounded pill
+            var inputPill = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
+                CornerRadius = new CornerRadius(Math.Round(21 * scale)),
+                Height = Math.Round(42 * scale),
+                Padding = new Thickness(Math.Round(12 * scale), 0, Math.Round(8 * scale), 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
             _inputBox = new TextBox
             {
                 PlaceholderText = "Tin nhắn",
-                FontSize = 16.5,
+                FontSize = Math.Round(16 * scale, 1),
                 Foreground = _textDark,
                 BorderThickness = new Thickness(0),
                 Background = new SolidColorBrush(Colors.Transparent),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 4, 0)
+                VerticalContentAlignment = VerticalAlignment.Center,
+                Padding = new Thickness(0)
             };
+            try
+            {
+                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
+                {
+                    _inputBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
+                }
+            }
+            catch { }
             _inputBox.TextChanged += (s, e) =>
             {
                 bool hasText = !string.IsNullOrWhiteSpace(_inputBox.Text);
@@ -466,40 +489,35 @@ namespace ZaloWP81.Views
                     e.Handled = true;
                 }
             };
-            Grid.SetColumn(_inputBox, 1);
-            _inputBarGrid.Children.Add(_inputBox);
+            inputPill.Child = _inputBox;
+            Grid.SetColumn(inputPill, 1);
+            _inputBarGrid.Children.Add(inputPill);
 
             // More Options Button (...)
-            var moreDotsBtn = CreateTouchBorder(34, 42);
+            var moreDotsBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(46 * scale));
             var dotsStack = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
-            dotsStack.Children.Add(new Ellipse { Width = 3.5, Height = 3.5, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(1.5, 0, 1.5, 0) });
+            double dotSize = Math.Round(4 * scale);
+            dotsStack.Children.Add(new Ellipse { Width = dotSize, Height = dotSize, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(2, 0, 2, 0) });
+            dotsStack.Children.Add(new Ellipse { Width = dotSize, Height = dotSize, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(2, 0, 2, 0) });
+            dotsStack.Children.Add(new Ellipse { Width = dotSize, Height = dotSize, Fill = new SolidColorBrush(Color.FromArgb(0xFF, 0x73, 0x73, 0x73)), Margin = new Thickness(2, 0, 2, 0) });
             moreDotsBtn.Child = dotsStack;
-            moreDotsBtn.Tapped += async (s, e) =>
+            moreDotsBtn.Tapped += (s, e) =>
             {
-                var md = new MessageDialog("Chọn chức năng đính kèm:", "Tùy chọn");
-                md.Commands.Add(new UICommand("Gửi ảnh từ liên kết URL", async cmd =>
-                {
-                    await ShowSendUrlPhotoDialog();
-                }));
-                md.Commands.Add(new UICommand("Chia sẻ danh thiếp", async cmd =>
-                {
-                    await ShowShareContactDialog();
-                }));
-                md.Commands.Add(new UICommand("Đóng"));
-                await md.ShowAsync();
+                var sheet = new Common.ZaloActionSheet("Tùy chọn đính kèm");
+                sheet.AddAction("Gửi ảnh từ liên kết URL", async () => await ShowSendUrlPhotoDialog());
+                sheet.AddAction("Chia sẻ danh thiếp", async () => await ShowShareContactDialog());
+                sheet.Show();
             };
             Grid.SetColumn(moreDotsBtn, 2);
             _inputBarGrid.Children.Add(moreDotsBtn);
 
             // 4. Microphone Button (Real Voice Notes)
-            _micButton = CreateTouchBorder(36, 42);
+            _micButton = CreateTouchBorder(Math.Round(44 * scale), Math.Round(46 * scale));
             var micImg = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/ic_fotohavevoice.png"),
-                Width = 24,
-                Height = 24,
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -509,12 +527,12 @@ namespace ZaloWP81.Views
             _inputBarGrid.Children.Add(_micButton);
 
             // 5. Photo Button (Direct Native Gallery Picker)
-            _photoButton = CreateTouchBorder(36, 42);
+            _photoButton = CreateTouchBorder(Math.Round(44 * scale), Math.Round(46 * scale));
             var photoImg = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_camera_gallery.png"),
-                Width = 24,
-                Height = 24,
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -524,20 +542,21 @@ namespace ZaloWP81.Views
             _inputBarGrid.Children.Add(_photoButton);
 
             // 6. Send Button (Blue Circle #0786F9 with btn_send_white.png)
-            _sendButton = CreateTouchBorder(36, 42);
+            _sendButton = CreateTouchBorder(Math.Round(44 * scale), Math.Round(46 * scale));
             _sendButton.Visibility = Visibility.Collapsed;
+            double sendCircleSize = Math.Round(38 * scale);
             var sendCircle = new Border
             {
-                Width = 34,
-                Height = 34,
-                CornerRadius = new CornerRadius(17),
+                Width = sendCircleSize,
+                Height = sendCircleSize,
+                CornerRadius = new CornerRadius(Math.Round(sendCircleSize / 2)),
                 Background = _activeBlue
             };
             sendCircle.Child = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_send_white.png"),
-                Width = 17,
-                Height = 17,
+                Width = Math.Round(22 * scale),
+                Height = Math.Round(22 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1536,22 +1555,47 @@ namespace ZaloWP81.Views
             }
         }
 
+        private void PinHeaderToTop()
+        {
+            if (_headerGrid == null) return;
+            try
+            {
+                var transform = _headerGrid.TransformToVisual(null);
+                var pt = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+                if (pt.Y < 0)
+                {
+                    _headerGrid.RenderTransform = new TranslateTransform { Y = -pt.Y };
+                }
+                else if (_keyboardHeight == 0 && _headerGrid.RenderTransform != null)
+                {
+                    _headerGrid.RenderTransform = null;
+                }
+            }
+            catch { }
+        }
+
         private void InputPane_Showing(InputPane sender, InputPaneVisibilityEventArgs args)
         {
-            double keyboardHeight = Math.Max(0, args.OccludedRect.Height);
+            _keyboardHeight = Math.Max(0, args.OccludedRect.Height);
             if (_rootGrid != null)
             {
-                _rootGrid.Margin = new Thickness(0, 0, 0, keyboardHeight);
+                _rootGrid.Margin = new Thickness(0, 0, 0, _keyboardHeight);
             }
             args.EnsuredFocusedElementInView = true;
+            PinHeaderToTop();
             ScrollToBottom();
         }
 
         private void InputPane_Hiding(InputPane sender, InputPaneVisibilityEventArgs args)
         {
+            _keyboardHeight = 0;
             if (_rootGrid != null)
             {
                 _rootGrid.Margin = new Thickness(0);
+            }
+            if (_headerGrid != null)
+            {
+                _headerGrid.RenderTransform = null;
             }
             args.EnsuredFocusedElementInView = true;
         }
@@ -2230,33 +2274,32 @@ namespace ZaloWP81.Views
                 };
                 bubbleBorder.Child = textBlock;
 
-                // Tap message bubble shows options (Trả lời, Sao chép, Thu hồi, Xóa)
+                // Tap message bubble shows options (Trả lời, Sao chép, Thu hồi, Xóa) via ZaloActionSheet
                 bubbleBorder.PointerPressed += (s, e) => bubbleBorder.Opacity = 0.7;
                 bubbleBorder.PointerReleased += (s, e) => bubbleBorder.Opacity = 1.0;
                 bubbleBorder.PointerCanceled += (s, e) => bubbleBorder.Opacity = 1.0;
-                bubbleBorder.Tapped += async (s, e) =>
+                bubbleBorder.Tapped += (s, e) =>
                 {
-                    var md = new MessageDialog("Chọn thao tác cho tin nhắn:", "Tin nhắn");
-                    md.Commands.Add(new UICommand("Trả lời", cmd => SetReplyTarget(msg)));
-                    md.Commands.Add(new UICommand("Sao chép vào ô soạn", cmd =>
+                    var sheet = new Common.ZaloActionSheet("Tùy chọn tin nhắn");
+                    sheet.AddAction("Trả lời", () => SetReplyTarget(msg));
+                    sheet.AddAction("Sao chép vào ô soạn", () =>
                     {
                         _inputBox.Text = msg.Text ?? string.Empty;
-                    }));
+                    });
                     if (isMe)
                     {
-                        md.Commands.Add(new UICommand("Thu hồi tin nhắn", async cmd =>
+                        sheet.AddAction("Thu hồi tin nhắn", async () =>
                         {
                             await ZaloApp.RecallMessageAsync(_conversation, msg);
                             RenderMessages();
-                        }));
+                        }, isDestructive: true);
                     }
-                    md.Commands.Add(new UICommand("Xóa phía tôi", async cmd =>
+                    sheet.AddAction("Xóa phía tôi", async () =>
                     {
                         await ZaloApp.DeleteMessageForMeAsync(_conversation, msg);
                         RenderMessages();
-                    }));
-                    md.Commands.Add(new UICommand("Đóng"));
-                    await md.ShowAsync();
+                    }, isDestructive: true);
+                    sheet.Show();
                 };
 
                 stack.Children.Add(bubbleBorder);

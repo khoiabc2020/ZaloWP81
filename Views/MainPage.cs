@@ -280,26 +280,26 @@ namespace ZaloWP81.Views
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            // Search Bar (Translucent Pill - Fixed WP8.1 white-focus bug and baseline clipping)
+            // Search Bar (Translucent Pill - Styled via SearchTextBoxStyle to completely prevent white focus box)
             var searchBorder = new Border
             {
                 Background = new SolidColorBrush(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(14),
+                CornerRadius = new CornerRadius(21),
                 Height = Math.Round(42 * scale),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0)
             };
             var searchGrid = new Grid();
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(34 * scale)) });
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) });
             searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var lensIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_search_white.png")),
-                Width = Math.Round(20 * scale),
-                Height = Math.Round(20 * scale),
+                Width = Math.Round(22 * scale),
+                Height = Math.Round(22 * scale),
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -310,26 +310,22 @@ namespace ZaloWP81.Views
             {
                 PlaceholderText = "Tìm kiếm",
                 Height = Math.Round(38 * scale),
-                MinHeight = 32,
-                FontSize = Math.Round(15 * scale, 1),
+                FontSize = Math.Round(15.5 * scale, 1),
                 Foreground = new SolidColorBrush(Colors.White),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
-                Padding = new Thickness(2, 0, 8, 2),
+                Padding = new Thickness(2, 0, 10, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                RequestedTheme = ElementTheme.Dark
+                VerticalContentAlignment = VerticalAlignment.Center
             };
-            _searchBox.Resources["PhoneTextBoxBrush"] = new SolidColorBrush(Colors.Transparent);
-            _searchBox.Resources["PhoneTextBoxEditBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
-            _searchBox.Resources["PhoneTextBoxEditForegroundBrush"] = new SolidColorBrush(Colors.White);
-            _searchBox.Resources["PhoneTextBoxBorderThemeBrush"] = new SolidColorBrush(Colors.Transparent);
-            _searchBox.Resources["PhoneMidBrush"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
-            _searchBox.Resources["TextControlBackground"] = new SolidColorBrush(Colors.Transparent);
-            _searchBox.Resources["TextControlBackgroundFocused"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
-            _searchBox.Resources["TextControlForeground"] = new SolidColorBrush(Colors.White);
-            _searchBox.Resources["TextControlForegroundFocused"] = new SolidColorBrush(Colors.White);
-            _searchBox.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+            try
+            {
+                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
+                {
+                    _searchBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
+                }
+            }
+            catch { }
 
             _searchBox.TextChanged += (s, e) => OnSearchChanged(_searchBox.Text);
             _searchBox.KeyDown += (s, e) =>
@@ -352,13 +348,13 @@ namespace ZaloWP81.Views
             header.Children.Add(searchBorder);
 
             // Group Switcher Button (shown only on Tab 1 Contacts, matching WP10)
-            _contactGroupsHeaderBtn = CreateTouchBorder(38, 38);
+            _contactGroupsHeaderBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(42 * scale));
             _contactGroupsHeaderBtn.Visibility = Visibility.Collapsed;
             var groupIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_clean_white.png")),
-                Width = 22,
-                Height = 22,
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -371,12 +367,12 @@ namespace ZaloWP81.Views
             var actionGrid = new Grid();
 
             // 1. Plus Button (Tab 0)
-            _plusBtn = CreateTouchBorder(38, 38);
+            _plusBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(42 * scale));
             var plusIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_plus_white.png")),
-                Width = 20,
-                Height = 20,
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -385,13 +381,13 @@ namespace ZaloWP81.Views
             actionGrid.Children.Add(_plusBtn);
 
             // 2. Contact Requests Button (Tab 1)
-            _contactRequestsHeaderBtn = CreateTouchBorder(38, 38);
+            _contactRequestsHeaderBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(42 * scale));
             _contactRequestsHeaderBtn.Visibility = Visibility.Collapsed;
             var reqIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png")),
-                Width = 22,
-                Height = 22,
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -422,16 +418,15 @@ namespace ZaloWP81.Views
             return headerBorder;
         }
 
-        private async void ShowContactRequestsMenu()
+        private void ShowContactRequestsMenu()
         {
-            var md = new MessageDialog("Chọn thao tác danh bạ:", "Danh bạ");
-            md.Commands.Add(new UICommand("Lời mời kết bạn", cmd => NavigationManager.NavigateTo(new AddFriendPage())));
-            md.Commands.Add(new UICommand("Lời mời đã gửi", cmd => NavigationManager.NavigateTo(new AddFriendPage())));
-            md.Commands.Add(new UICommand("Thêm bạn mới", cmd => NavigationManager.NavigateTo(new AddFriendPage())));
-            md.Commands.Add(new UICommand("Làm mới danh bạ", cmd => { _friendsDirty = true; RefreshFriends(); }));
-            md.Commands.Add(new UICommand("Tạo nhóm chat", cmd => NavigationManager.NavigateTo(new CreateGroupPage())));
-            md.Commands.Add(new UICommand("Đóng"));
-            await md.ShowAsync();
+            var sheet = new Common.ZaloActionSheet("Tùy chọn danh bạ");
+            sheet.AddAction("Lời mời kết bạn", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Lời mời đã gửi", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Thêm bạn mới", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Làm mới danh bạ", () => { _friendsDirty = true; RefreshFriends(); });
+            sheet.AddAction("Tạo nhóm chat", () => NavigationManager.NavigateTo(new CreateGroupPage()));
+            sheet.Show();
         }
 
         private void ToggleGroupsView()
@@ -444,14 +439,13 @@ namespace ZaloWP81.Views
             if (showGroups) UpdateGroupList();
         }
 
-        private async void ShowHeaderMenu()
+        private void ShowHeaderMenu()
         {
-            var md = new MessageDialog("Chọn thao tác:", "Zalo");
-            md.Commands.Add(new UICommand("Tạo nhóm mới", cmd => NavigationManager.NavigateTo(new CreateGroupPage())));
-            md.Commands.Add(new UICommand("Thêm bạn mới", cmd => NavigationManager.NavigateTo(new AddFriendPage())));
-            md.Commands.Add(new UICommand("Cài đặt", cmd => NavigationManager.NavigateTo(new SettingsPage())));
-            md.Commands.Add(new UICommand("Đóng"));
-            await md.ShowAsync();
+            var sheet = new Common.ZaloActionSheet("Tùy chọn Zalo");
+            sheet.AddAction("Tạo nhóm mới", () => NavigationManager.NavigateTo(new CreateGroupPage()));
+            sheet.AddAction("Thêm bạn mới", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Cài đặt", () => NavigationManager.NavigateTo(new SettingsPage()));
+            sheet.Show();
         }
 
         private Grid CreateChatsTab()
@@ -1596,10 +1590,11 @@ namespace ZaloWP81.Views
                 var itemGrid = new Grid { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
                 var stack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
 
+                double tabScale = ZaloSettingsService.Current.UiScaleFactor;
                 var img = new Image
                 {
-                    Width = 24,
-                    Height = 24,
+                    Width = Math.Round(28 * tabScale),
+                    Height = Math.Round(28 * tabScale),
                     HorizontalAlignment = HorizontalAlignment.Center
                 };
                 _tabIcons[i] = img;
@@ -1608,11 +1603,11 @@ namespace ZaloWP81.Views
                 var txt = new TextBlock
                 {
                     Text = titles[i],
-                    FontSize = 11.5,
+                    FontSize = Math.Round(12 * tabScale, 1),
                     FontWeight = i == 0 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                     Foreground = i == 0 ? _activeBlue : _inactiveGray,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 3, 0, 0)
+                    Margin = new Thickness(0, 2, 0, 0)
                 };
                 _tabLabels[i] = txt;
                 stack.Children.Add(txt);
@@ -2032,37 +2027,37 @@ namespace ZaloWP81.Views
                 NavigationManager.NavigateTo(new ChatPage(conv.Key));
             };
 
-            itemBorder.Holding += async (s, e) =>
+            itemBorder.Holding += (s, e) =>
             {
                 if (e.HoldingState != Windows.UI.Input.HoldingState.Started) return;
-                var dialog = new MessageDialog(conv.Name ?? "Trò chuyện", "Tùy chọn");
-                dialog.Commands.Add(new UICommand(conv.IsPinned ? "Bỏ ghim" : "Ghim lên đầu", cmd =>
+                var sheet = new Common.ZaloActionSheet(conv.Name ?? "Trò chuyện");
+                sheet.AddAction(conv.IsPinned ? "Bỏ ghim" : "Ghim lên đầu", () =>
                 {
                     conv.IsPinned = !conv.IsPinned;
                     RefreshConversations();
-                }));
-                dialog.Commands.Add(new UICommand(conv.IsMuted ? "Bật thông báo" : "Tắt thông báo", async cmd =>
+                });
+                sheet.AddAction(conv.IsMuted ? "Bật thông báo" : "Tắt thông báo", async () =>
                 {
                     await ZaloApp.SetMutedAsync(conv, !conv.IsMuted);
                     RefreshConversations();
-                }));
-                dialog.Commands.Add(new UICommand(_isOtherSubTab ? "Chuyển sang Ưu tiên" : "Chuyển sang Khác", cmd =>
+                });
+                sheet.AddAction(_isOtherSubTab ? "Chuyển sang Ưu tiên" : "Chuyển sang Khác", () =>
                 {
                     var keys = ZaloSettingsService.Current.GetOtherConversationKeys(ZaloApp.Session?.Uid);
                     keys.RemoveAll(k => string.Equals(k, conv.Key, StringComparison.Ordinal));
                     if (!_isOtherSubTab) keys.Add(conv.Key);
                     ZaloSettingsService.Current.SetOtherConversationKeys(ZaloApp.Session?.Uid, keys);
                     RefreshConversations();
-                }));
+                });
                 if (conv.Unread > 0)
                 {
-                    dialog.Commands.Add(new UICommand("Đánh dấu đã đọc", cmd =>
+                    sheet.AddAction("Đánh dấu đã đọc", () =>
                     {
                         conv.Unread = 0;
                         RefreshConversations();
-                    }));
+                    });
                 }
-                dialog.Commands.Add(new UICommand("Xóa cuộc trò chuyện", async cmd =>
+                sheet.AddAction("Xóa cuộc trò chuyện", async () =>
                 {
                     var confirm = new MessageDialog("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?", "Xác nhận xóa");
                     confirm.Commands.Add(new UICommand("Xóa", c =>
@@ -2073,9 +2068,8 @@ namespace ZaloWP81.Views
                     }));
                     confirm.Commands.Add(new UICommand("Hủy"));
                     await confirm.ShowAsync();
-                }));
-                dialog.Commands.Add(new UICommand("Đóng"));
-                await dialog.ShowAsync();
+                }, isDestructive: true);
+                sheet.Show();
             };
 
             return new ConversationItemViewHolder
@@ -2278,20 +2272,19 @@ namespace ZaloWP81.Views
             };
 
             // HOLD TO SHOW OPTIONS (Message or View Profile)
-            itemBorder.Holding += async (s, e) =>
+            itemBorder.Holding += (s, e) =>
             {
-                var md = new MessageDialog(friend.Name ?? "Bạn bè", "Tùy chọn");
-                md.Commands.Add(new UICommand("Nhắn tin", cmd =>
+                var sheet = new Common.ZaloActionSheet(friend.Name ?? "Bạn bè");
+                sheet.AddAction("Nhắn tin", () =>
                 {
                     var conv = ZaloApp.OpenFriend(friend);
                     if (conv != null) NavigationManager.NavigateTo(new ChatPage(conv.Key));
-                }));
-                md.Commands.Add(new UICommand("Xem trang cá nhân", cmd =>
+                });
+                sheet.AddAction("Xem trang cá nhân", () =>
                 {
                     NavigationManager.NavigateTo(new FriendProfilePage(friend));
-                }));
-                md.Commands.Add(new UICommand("Đóng"));
-                await md.ShowAsync();
+                });
+                sheet.Show();
             };
 
             return itemBorder;

@@ -150,6 +150,7 @@
     <Compile Include="Common\ApiInfo.cs" />
     <Compile Include="Common\WP81CompatExtensions.cs" />
     <Compile Include="Common\NavigationManager.cs" />
+    <Compile Include="Common\ZaloActionSheet.cs" />
     <Compile Include="App.xaml.cs" />
     <Compile Include="Views\LoginPage.cs" />
     <Compile Include="Views\MainPage.cs" />
@@ -158,6 +159,7 @@
     <Compile Include="Views\ProfilePage.cs" />
     <Compile Include="Views\FriendProfilePage.cs" />
     <Compile Include="Views\ConversationOptionsPage.cs" />
+    <Compile Include="Views\MutualGroupsPage.cs" />
     <Compile Include="Views\ImageViewerPage.cs" />
     <Compile Include="Views\AddFriendPage.cs" />
     <Compile Include="Views\CreateGroupPage.cs" />

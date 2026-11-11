@@ -572,42 +572,8 @@ namespace ZaloWP81.Views
 
                 statusText.Text = mutual.Count == 0 ? "Không có nhóm chung nào." : $"{mutual.Count} nhóm chung";
 
-                if (mutual.Count > 0)
-                {
-                    var scroll = new ScrollViewer { MaxHeight = 300 };
-                    var stack = new StackPanel();
-                    foreach (var mg in mutual)
-                    {
-                        var row = new Border
-                        {
-                            Padding = new Thickness(6, 10, 6, 10),
-                            BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
-                            BorderThickness = new Thickness(0, 0, 0, 1),
-                            Background = new SolidColorBrush(Colors.Transparent)
-                        };
-                        var rowText = new TextBlock { Text = mg.Item2, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
-                        row.Child = rowText;
-                        string targetId = mg.Item1;
-                        row.Tapped += (s, e) =>
-                        {
-                            var conv = ZaloApp.GetOrCreate(targetId, true, true);
-                            NavigationManager.NavigateTo(new ChatPage(conv.Key));
-                        };
-                        stack.Children.Add(row);
-                    }
-                    scroll.Content = stack;
-                    var cd = new ContentDialog
-                    {
-                        Title = $"Nhóm chung ({mutual.Count})",
-                        Content = scroll,
-                        PrimaryButtonText = "Đóng"
-                    };
-                    await cd.ShowAsync();
-                }
-                else
-                {
-                    await new MessageDialog("Bạn và người này chưa tham gia nhóm chung nào.", "Nhóm chung").ShowAsync();
-                }
+                statusText.Text = mutual.Count == 0 ? "Không có nhóm chung nào." : $"{mutual.Count} nhóm chung";
+                NavigationManager.NavigateTo(new MutualGroupsPage(_friend?.Name ?? "Bạn bè", mutual));
             }
             catch (Exception ex)
             {

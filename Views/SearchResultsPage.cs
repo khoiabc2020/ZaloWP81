@@ -123,24 +123,20 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Colors.Transparent),
                 Foreground = new SolidColorBrush(Colors.White),
                 BorderThickness = new Thickness(0),
-                FontSize = 15,
-                MinHeight = 32,
-                Height = 36,
-                Padding = new Thickness(2, 0, 6, 2),
+                FontSize = 15.5,
+                Height = 38,
+                Padding = new Thickness(2, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
-                VerticalContentAlignment = VerticalAlignment.Center,
-                RequestedTheme = ElementTheme.Dark
+                VerticalContentAlignment = VerticalAlignment.Center
             };
-            _queryBox.Resources["PhoneTextBoxBrush"] = new SolidColorBrush(Colors.Transparent);
-            _queryBox.Resources["PhoneTextBoxEditBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
-            _queryBox.Resources["PhoneTextBoxEditForegroundBrush"] = new SolidColorBrush(Colors.White);
-            _queryBox.Resources["PhoneTextBoxBorderThemeBrush"] = new SolidColorBrush(Colors.Transparent);
-            _queryBox.Resources["PhoneMidBrush"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
-            _queryBox.Resources["TextControlBackground"] = new SolidColorBrush(Colors.Transparent);
-            _queryBox.Resources["TextControlBackgroundFocused"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
-            _queryBox.Resources["TextControlForeground"] = new SolidColorBrush(Colors.White);
-            _queryBox.Resources["TextControlForegroundFocused"] = new SolidColorBrush(Colors.White);
-            _queryBox.Resources["TextControlPlaceholderForeground"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+            try
+            {
+                if (Application.Current.Resources.ContainsKey("SearchTextBoxStyle"))
+                {
+                    _queryBox.Style = (Style)Application.Current.Resources["SearchTextBoxStyle"];
+                }
+            }
+            catch { }
             _queryBox.TextChanged += (s, e) => SearchMessages(_queryBox.Text);
             _queryBox.KeyDown += (s, e) =>
             {
