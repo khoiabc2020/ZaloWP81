@@ -66,7 +66,7 @@ namespace ZaloWP81
             try
             {
                 NavigationManager.Initialize();
-                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+                NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                 Window.Current.Activate();
             }
             catch (Exception ex)

@@ -246,19 +246,11 @@ namespace ZaloWP81.Views
             avatarGrid.Children.Add(ellipse);
             avatarGrid.Children.Add(initial);
 
-            if (conv.AvatarImageBrush != null)
+            var brush = conv.AvatarImageBrush ?? ZaloAvatar.ImageFor(conv.AvatarUrl);
+            if (brush != null)
             {
-                ellipse.Fill = conv.AvatarImageBrush;
+                ellipse.Fill = brush;
                 initial.Text = string.Empty;
-            }
-            else if (!string.IsNullOrEmpty(conv.AvatarUrl))
-            {
-                try
-                {
-                    ellipse.Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(conv.AvatarUrl)), Stretch = Stretch.UniformToFill };
-                    initial.Text = string.Empty;
-                }
-                catch { }
             }
             Grid.SetColumn(avatarGrid, 0);
             grid.Children.Add(avatarGrid);

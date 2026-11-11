@@ -326,8 +326,12 @@ namespace ZaloWP81.Views
             {
                 try
                 {
-                    _profileAvatar.Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(session.AvatarUrl)), Stretch = Stretch.UniformToFill };
-                    _profileInitial.Visibility = Visibility.Collapsed;
+                    var brush = ZaloAvatar.ImageFor(session.AvatarUrl);
+                    if (brush != null)
+                    {
+                        _profileAvatar.Fill = brush;
+                        _profileInitial.Visibility = Visibility.Collapsed;
+                    }
                 }
                 catch
                 {

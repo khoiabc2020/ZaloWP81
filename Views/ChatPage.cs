@@ -1051,7 +1051,7 @@ namespace ZaloWP81.Views
             {
                 if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
                 {
-                    _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                    _messageScroll.ChangeView(null, _messageScroll.ScrollableHeight, null, true);
                 }
             }
             catch { }
@@ -1063,7 +1063,7 @@ namespace ZaloWP81.Views
             {
                 if (_messageScroll != null && !double.IsNaN(_messageScroll.ScrollableHeight) && _messageScroll.ScrollableHeight > 0)
                 {
-                    _messageScroll.ChangeView(0, _messageScroll.ScrollableHeight, null, false);
+                    _messageScroll.ChangeView(null, _messageScroll.ScrollableHeight, null, true);
                 }
             }
             catch { }
@@ -1720,15 +1720,18 @@ namespace ZaloWP81.Views
                 {
                     try
                     {
-                        var bmp = new BitmapImage(new Uri(msg.SenderAvatarUrl));
-                        var imgEllipse = new Ellipse
+                        var brush = ZaloAvatar.ImageFor(msg.SenderAvatarUrl);
+                        if (brush != null)
                         {
-                            Width = 36,
-                            Height = 36,
-                            Fill = new ImageBrush { ImageSource = bmp, Stretch = Stretch.UniformToFill }
-                        };
-                        avatarGrid.Children.Add(imgEllipse);
-                        avatarInitial.Text = string.Empty;
+                            var imgEllipse = new Ellipse
+                            {
+                                Width = 36,
+                                Height = 36,
+                                Fill = brush
+                            };
+                            avatarGrid.Children.Add(imgEllipse);
+                            avatarInitial.Text = string.Empty;
+                        }
                     }
                     catch { }
                 }

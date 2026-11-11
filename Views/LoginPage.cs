@@ -26,7 +26,15 @@ namespace ZaloWP81.Views
         public LoginPage()
         {
             BuildUI();
-            this.Loaded += (s, e) => CheckSessionOrLogin();
+            this.Loaded += (s, e) =>
+            {
+                if (ZaloApp.Session != null)
+                {
+                    NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+                    return;
+                }
+                StartQrLogin();
+            };
         }
 
         private void BuildUI()

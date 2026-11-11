@@ -193,8 +193,12 @@ namespace ZaloWP81.Views
                 {
                     try
                     {
-                        _avatarEllipse.Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(friend.Avatar)), Stretch = Stretch.UniformToFill };
-                        _avatarInitial.Text = string.Empty;
+                        var brush = friend.AvatarImageBrush ?? ZaloAvatar.ImageFor(friend.Avatar);
+                        if (brush != null)
+                        {
+                            _avatarEllipse.Fill = brush;
+                            _avatarInitial.Text = string.Empty;
+                        }
                     }
                     catch { }
                 }
@@ -204,19 +208,11 @@ namespace ZaloWP81.Views
                 _calleeNameText.Text = conv.Name ?? "Trò chuyện";
                 _avatarInitial.Text = conv.Initial ?? "Z";
                 _avatarEllipse.Fill = conv.AvatarColor ?? _activeBlue;
-                if (conv.AvatarImageBrush != null)
+                var brush = conv.AvatarImageBrush ?? ZaloAvatar.ImageFor(conv.AvatarUrl);
+                if (brush != null)
                 {
-                    _avatarEllipse.Fill = conv.AvatarImageBrush;
+                    _avatarEllipse.Fill = brush;
                     _avatarInitial.Text = string.Empty;
-                }
-                else if (!string.IsNullOrEmpty(conv.AvatarUrl))
-                {
-                    try
-                    {
-                        _avatarEllipse.Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(conv.AvatarUrl)), Stretch = Stretch.UniformToFill };
-                        _avatarInitial.Text = string.Empty;
-                    }
-                    catch { }
                 }
             }
         }

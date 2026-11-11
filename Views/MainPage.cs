@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Popups;
@@ -82,23 +83,63 @@ namespace ZaloWP81.Views
             this.Loaded += (s, e) => Initialize();
         }
 
-        private void Initialize()
+        private async void Initialize()
         {
-            if (ZaloApp.Session == null)
+            ZaloApp.SetDispatcher(Dispatcher);
+
+            if (ZaloApp.Session != null)
             {
-                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+                CleanupMockConversations();
+                RefreshConversations();
+                RefreshFriends();
+                RefreshProfile();
+                UpdateUnreadBadge();
+
+                ZaloApp.Conversations.CollectionChanged -= Conversations_CollectionChanged;
+                ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
                 return;
             }
 
-            ZaloApp.SetDispatcher(Dispatcher);
-            CleanupMockConversations();
-            RefreshConversations();
-            RefreshFriends();
-            RefreshProfile();
-            UpdateUnreadBadge();
+            // Cold start session bootstrap: restore stored session seamlessly without flashing QR login!
+            try
+            {
+                if (await ZaloStore.HasSessionAsync())
+                {
+                    string cachedUid = await ZaloStore.GetCachedUserIdAsync();
+                    if (!string.IsNullOrWhiteSpace(cachedUid))
+                    {
+                        await ZaloApp.PreloadOfflineCacheAsync(cachedUid);
+                        CleanupMockConversations();
+                        RefreshConversations();
+                        RefreshFriends();
+                    }
 
-            ZaloApp.Conversations.CollectionChanged -= Conversations_CollectionChanged;
-            ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    var session = await ZaloStore.RestoreAsync(cts.Token);
+                    if (session != null)
+                    {
+                        await ZaloApp.StartAsync(session);
+                        CleanupMockConversations();
+                        RefreshConversations();
+                        RefreshFriends();
+                        RefreshProfile();
+                        UpdateUnreadBadge();
+
+                        ZaloApp.Conversations.CollectionChanged -= Conversations_CollectionChanged;
+                        ZaloApp.Conversations.CollectionChanged += Conversations_CollectionChanged;
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("MainPage Initialize error: " + ex.Message);
+            }
+
+            if (ZaloApp.Session == null)
+            {
+                NavigationManager.NavigateTo(new LoginPage(), clearStack: true);
+            }
         }
 
         private void CleanupMockConversations()
@@ -1566,7 +1607,7 @@ namespace ZaloWP81.Views
 
             if (!string.IsNullOrEmpty(friend.Avatar))
             {
-                var imgBrush = ZaloAvatar.ImageFor(friend.Avatar);
+                var imgBrush = friend.AvatarImageBrush ?? ZaloAvatar.ImageFor(friend.Avatar);
                 if (imgBrush != null)
                 {
                     avatarGrid.Children.Add(new Ellipse { Width = 44, Height = 44, Fill = imgBrush });
@@ -1603,9 +1644,32 @@ namespace ZaloWP81.Views
             itemBorder.PointerPressed += (s, e) => itemBorder.Opacity = 0.6;
             itemBorder.PointerReleased += (s, e) => itemBorder.Opacity = 1.0;
             itemBorder.PointerCanceled += (s, e) => itemBorder.Opacity = 1.0;
+
+            // DIRECTLY OPEN CHAT ON TAP! (Matches WP10 & official Zalo)
             itemBorder.Tapped += (s, e) =>
             {
-                NavigationManager.NavigateTo(new FriendProfilePage(friend));
+                var conv = ZaloApp.OpenFriend(friend);
+                if (conv != null)
+                {
+                    NavigationManager.NavigateTo(new ChatPage(conv.Key));
+                }
+            };
+
+            // HOLD TO SHOW OPTIONS (Message or View Profile)
+            itemBorder.Holding += async (s, e) =>
+            {
+                var md = new MessageDialog(friend.Name ?? "Bạn bè", "Tùy chọn");
+                md.Commands.Add(new UICommand("Nhắn tin", cmd =>
+                {
+                    var conv = ZaloApp.OpenFriend(friend);
+                    if (conv != null) NavigationManager.NavigateTo(new ChatPage(conv.Key));
+                }));
+                md.Commands.Add(new UICommand("Xem trang cá nhân", cmd =>
+                {
+                    NavigationManager.NavigateTo(new FriendProfilePage(friend));
+                }));
+                md.Commands.Add(new UICommand("Đóng"));
+                await md.ShowAsync();
             };
 
             return itemBorder;

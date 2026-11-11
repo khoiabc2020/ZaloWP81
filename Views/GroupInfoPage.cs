@@ -1323,9 +1323,13 @@ namespace ZaloWP81.Views
             {
                 try
                 {
-                    var img = new Ellipse { Width = 44, Height = 44, Fill = new ImageBrush { ImageSource = new BitmapImage(new Uri(avatarUrl)), Stretch = Stretch.UniformToFill } };
-                    avatarGrid.Children.Add(img);
-                    initial.Text = string.Empty;
+                    var brush = ZaloAvatar.ImageFor(avatarUrl);
+                    if (brush != null)
+                    {
+                        var img = new Ellipse { Width = 44, Height = 44, Fill = brush };
+                        avatarGrid.Children.Add(img);
+                        initial.Text = string.Empty;
+                    }
                 }
                 catch { }
             }
