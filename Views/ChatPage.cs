@@ -12,6 +12,7 @@ using Windows.Storage.Streams;
 using Windows.UI;
 using Windows.UI.Core;
 using Windows.UI.Popups;
+using Windows.UI.ViewManagement;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media;
@@ -25,6 +26,16 @@ namespace ZaloWP81.Views
 {
     public sealed class ChatPage : Page, IFileOpenPickerContinuable
     {
+        private Grid _rootGrid;
+        private InputPane _inputPane;
+        private Border _groupPostingNotice;
+        private TextBlock _groupPostingNoticeText;
+        private Border _groupPostingNoticeBtn;
+        private DispatcherTimer _renderDebounceTimer;
+        private readonly System.Collections.Generic.HashSet<string> _senderAvatarLookupsAttempted = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private bool _senderAvatarResolveRunning = false;
+        private bool _senderAvatarResolveRequested = false;
+
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x07, 0x86, 0xF9));
         private readonly SolidColorBrush _textDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
         private readonly SolidColorBrush _bubbleMeBg = new SolidColorBrush(Color.FromArgb(0xFF, 0xD8, 0xEC, 0xFF));
@@ -88,25 +99,25 @@ namespace ZaloWP81.Views
 
         private void BuildUI()
         {
-            var rootGrid = new Grid
+            _rootGrid = new Grid
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(62) });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(64) });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             // 1. TOP HEADER (Vibrant Zalo Blue Gradient: [Back] [Avatar] [Name] [Audio] [Video] [More])
             var headerGrid = CreateTopHeader();
             Grid.SetRow(headerGrid, 0);
-            rootGrid.Children.Add(headerGrid);
+            _rootGrid.Children.Add(headerGrid);
 
             // 1b. STRANGER BANNER
             _strangerBanner = CreateStrangerBanner();
             Grid.SetRow(_strangerBanner, 1);
-            rootGrid.Children.Add(_strangerBanner);
+            _rootGrid.Children.Add(_strangerBanner);
 
             // 2. MESSAGE LIST CANVAS (ScrollViewer with StackPanel for Silky Touch & Zero Highlight)
             _messageScroll = new ScrollViewer
@@ -117,17 +128,17 @@ namespace ZaloWP81.Views
             _messageStack = new StackPanel();
             _messageScroll.Content = _messageStack;
             Grid.SetRow(_messageScroll, 2);
-            rootGrid.Children.Add(_messageScroll);
+            _rootGrid.Children.Add(_messageScroll);
 
             // 3. INPUT BAR (MATCHING media_1794285355410_9cc5344d.png)
             var inputBar = CreateInputBar();
             Grid.SetRow(inputBar, 3);
-            rootGrid.Children.Add(inputBar);
+            _rootGrid.Children.Add(inputBar);
 
             // 4. EMOJI & STICKER DRAWER (MATCHING media_1794285161826_53038b6c.jpg)
             _drawerContainer = CreateStickerDrawer();
             Grid.SetRow(_drawerContainer, 4);
-            rootGrid.Children.Add(_drawerContainer);
+            _rootGrid.Children.Add(_drawerContainer);
 
             // Global Voice Audio Player
             _voicePlayer = new MediaElement { AutoPlay = true, Width = 0, Height = 0, Visibility = Visibility.Collapsed };
@@ -144,9 +155,9 @@ namespace ZaloWP81.Views
                     ResetActiveVoicePlayer();
                 }
             };
-            rootGrid.Children.Add(_voicePlayer);
+            _rootGrid.Children.Add(_voicePlayer);
 
-            this.Content = rootGrid;
+            this.Content = _rootGrid;
         }
 
         private void ResetActiveVoicePlayer()
@@ -233,7 +244,7 @@ namespace ZaloWP81.Views
             _titleBlock = new TextBlock
             {
                 Text = "Trò chuyện",
-                FontSize = 17,
+                FontSize = 18,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 TextTrimming = TextTrimming.CharacterEllipsis
@@ -241,7 +252,7 @@ namespace ZaloWP81.Views
             _subtitleBlock = new TextBlock
             {
                 Text = string.Empty,
-                FontSize = 11.5,
+                FontSize = 13,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 Visibility = Visibility.Collapsed
@@ -600,6 +611,55 @@ namespace ZaloWP81.Views
             _recordingBarGrid.Children.Add(sendRecBtn);
 
             barRoot.Children.Add(_recordingBarGrid);
+
+            // 3. Group Posting Restricted Notice matching WP10
+            _groupPostingNotice = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)),
+                BorderThickness = new Thickness(0, 1, 0, 0),
+                Padding = new Thickness(14, 10, 14, 10),
+                Visibility = Visibility.Collapsed
+            };
+            var noticeGrid = new Grid();
+            noticeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            noticeGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            _groupPostingNoticeText = new TextBlock
+            {
+                Text = "Chỉ trưởng và phó nhóm được gửi tin nhắn trong nhóm.",
+                FontSize = 13.5,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x47, 0x55, 0x69)),
+                VerticalAlignment = VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
+            };
+            Grid.SetColumn(_groupPostingNoticeText, 0);
+            noticeGrid.Children.Add(_groupPostingNoticeText);
+
+            _groupPostingNoticeBtn = CreateTouchBorder(74, 36);
+            _groupPostingNoticeBtn.Background = _activeBlue;
+            _groupPostingNoticeBtn.CornerRadius = new CornerRadius(6);
+            var noticeBtnText = new TextBlock
+            {
+                Text = "Thông tin",
+                FontSize = 13,
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _groupPostingNoticeBtn.Child = noticeBtnText;
+            _groupPostingNoticeBtn.Tapped += (s, e) =>
+            {
+                if (_conversation != null)
+                {
+                    NavigationManager.NavigateTo(new GroupInfoPage(_conversation.Key));
+                }
+            };
+            Grid.SetColumn(_groupPostingNoticeBtn, 1);
+            noticeGrid.Children.Add(_groupPostingNoticeBtn);
+            _groupPostingNotice.Child = noticeGrid;
+            barRoot.Children.Add(_groupPostingNotice);
 
             bar.Child = barRoot;
             container.Children.Add(bar);
@@ -1077,11 +1137,7 @@ namespace ZaloWP81.Views
                     }
                     else
                     {
-                        bool isOnline = false;
-                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == _conversation.ThreadId);
-                        if (fr != null && fr.IsOnline) isOnline = true;
-                        _subtitleBlock.Text = isOnline ? "Đang hoạt động" : "Vừa mới truy cập";
-                        _subtitleBlock.Visibility = Visibility.Visible;
+                        _ = RefreshFriendSubtitleAsync(_conversation.ThreadId);
                     }
                 }
 
@@ -1107,18 +1163,213 @@ namespace ZaloWP81.Views
                     catch { }
                 }
 
-                RenderMessages();
+                UpdateGroupPostingState();
+                RequestRenderMessages();
                 if (_conversation.IsGroup)
                 {
                     _ = EnsureGroupMembersLoadedAsync();
+                    _ = ResolveSenderAvatarsAsync();
+                }
+                else
+                {
+                    _ = RefreshFriendSubtitleAsync(_conversation.ThreadId);
                 }
                 _ = LoadHistoryCoreAsync();
                 _ = ZaloApp.MarkConversationSeenAsync(_conversation);
 
+                _conversation.PropertyChanged -= Conversation_PropertyChanged;
+                _conversation.PropertyChanged += Conversation_PropertyChanged;
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 _conversation.Messages.CollectionChanged += Messages_CollectionChanged;
                 ZaloApp.StatusChanged -= ZaloApp_StatusChanged;
                 ZaloApp.StatusChanged += ZaloApp_StatusChanged;
+            }
+        }
+
+        private void UpdateGroupPostingState()
+        {
+            if (_conversation == null || !_conversation.IsGroup)
+            {
+                if (_groupPostingNotice != null) _groupPostingNotice.Visibility = Visibility.Collapsed;
+                if (_inputBarGrid != null) _inputBarGrid.Visibility = Visibility.Visible;
+                if (_inputBox != null) _inputBox.IsEnabled = true;
+                return;
+            }
+
+            bool restricted = _conversation.GroupSettingsLoaded && _conversation.GroupPostingRestricted;
+            if (_groupPostingNotice != null)
+            {
+                _groupPostingNotice.Visibility = restricted ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (_inputBarGrid != null)
+            {
+                _inputBarGrid.Visibility = restricted ? Visibility.Collapsed : Visibility.Visible;
+            }
+            if (_inputBox != null)
+            {
+                _inputBox.IsEnabled = !restricted;
+            }
+        }
+
+        private async System.Threading.Tasks.Task RefreshFriendSubtitleAsync(string userId)
+        {
+            if (_conversation == null || _conversation.IsGroup || string.IsNullOrEmpty(userId)) return;
+            try
+            {
+                if (ZaloApp.IsFriendOnline(userId))
+                {
+                    if (_subtitleBlock != null)
+                    {
+                        _subtitleBlock.Text = "Đang hoạt động";
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                    return;
+                }
+
+                var fr = ZaloApp.Friends?.FirstOrDefault(f => f.UserId == userId);
+                if (fr != null && fr.LastActionTime > 0)
+                {
+                    if (_subtitleBlock != null)
+                    {
+                        _subtitleBlock.Text = FormatLastOnline(UnixTime.FromMilliseconds(fr.LastActionTime));
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                }
+                else
+                {
+                    if (_subtitleBlock != null)
+                    {
+                        _subtitleBlock.Text = "Vừa mới truy cập";
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                }
+
+                if (ZaloApp.Session != null)
+                {
+                    DateTimeOffset? lastOnline = await ZaloAuth.GetFriendLastOnlineAsync(
+                        ZaloApp.Session, userId, System.Threading.CancellationToken.None);
+                    if (_conversation == null || _conversation.IsGroup || _conversation.ThreadId != userId) return;
+
+                    if (ZaloApp.IsFriendOnline(userId))
+                    {
+                        if (_subtitleBlock != null)
+                        {
+                            _subtitleBlock.Text = "Đang hoạt động";
+                            _subtitleBlock.Visibility = Visibility.Visible;
+                        }
+                    }
+                    else if (lastOnline.HasValue)
+                    {
+                        if (_subtitleBlock != null)
+                        {
+                            _subtitleBlock.Text = FormatLastOnline(lastOnline.Value);
+                            _subtitleBlock.Visibility = Visibility.Visible;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ChatPage RefreshFriendSubtitle error: " + ex.Message);
+            }
+        }
+
+        private static string FormatLastOnline(DateTimeOffset timestamp)
+        {
+            TimeSpan age = DateTimeOffset.Now - timestamp.ToLocalTime();
+            if (age < TimeSpan.Zero) return "Vừa mới truy cập";
+            if (age.TotalMinutes < 3) return "Vừa mới truy cập";
+            if (age.TotalHours < 1) return "Truy cập " + Math.Max(1, (int)age.TotalMinutes) + " phút trước";
+            if (age.TotalDays < 1) return "Truy cập " + Math.Max(1, (int)age.TotalHours) + " giờ trước";
+            if (age.TotalDays < 2) return "Truy cập hôm qua lúc " + timestamp.ToLocalTime().ToString("HH:mm");
+            return "Truy cập " + timestamp.ToLocalTime().ToString("dd/MM lúc HH:mm");
+        }
+
+        private void Conversation_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "GroupSettingsLoaded" || e.PropertyName == "GroupPostingRestricted")
+            {
+                var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                {
+                    UpdateGroupPostingState();
+                });
+            }
+        }
+
+        private async System.Threading.Tasks.Task ResolveSenderAvatarsAsync()
+        {
+            if (_senderAvatarResolveRunning)
+            {
+                _senderAvatarResolveRequested = true;
+                return;
+            }
+            _senderAvatarResolveRunning = true;
+            try
+            {
+                do
+                {
+                    _senderAvatarResolveRequested = false;
+                    if (_conversation == null || !_conversation.IsGroup || ZaloApp.Session == null) return;
+                    var incoming = _conversation.Messages
+                        .Where(message => !message.FromMe && !string.IsNullOrWhiteSpace(message.SenderUid))
+                        .ToList();
+                    if (incoming.Count == 0) return;
+
+                    var friendAvatars = (ZaloApp.Friends ?? new System.Collections.Generic.List<ZaloFriend>())
+                        .Where(friend => !string.IsNullOrWhiteSpace(friend.UserId) && !string.IsNullOrWhiteSpace(friend.Avatar))
+                        .GroupBy(friend => friend.UserId, StringComparer.Ordinal)
+                        .ToDictionary(group => group.Key, group => group.First().Avatar, StringComparer.Ordinal);
+                    foreach (ZaloChatMessage message in incoming)
+                    {
+                        if (!string.IsNullOrWhiteSpace(message.SenderAvatarUrl)) continue;
+                        if (friendAvatars.TryGetValue(message.SenderUid, out string avatar))
+                        {
+                            message.SenderAvatarUrl = avatar;
+                        }
+                    }
+
+                    var missingIds = incoming.Where(message => string.IsNullOrWhiteSpace(message.SenderAvatarUrl))
+                        .Select(message => message.SenderUid).Distinct(StringComparer.Ordinal)
+                        .Where(id => !_senderAvatarLookupsAttempted.Contains(id)).Take(50).ToList();
+                    if (missingIds.Count == 0) continue;
+
+                    foreach (string id in missingIds) _senderAvatarLookupsAttempted.Add(id);
+                    var profiles = await ZaloAuth.GetGroupMemberProfilesAsync(
+                        ZaloApp.Session, missingIds, System.Threading.CancellationToken.None);
+                    bool anyUpdated = false;
+                    foreach (ZaloChatMessage message in incoming)
+                    {
+                        if (profiles.TryGetValue(message.SenderUid, out ZaloFriend profile))
+                        {
+                            if (!string.IsNullOrWhiteSpace(profile.Avatar) && string.IsNullOrWhiteSpace(message.SenderAvatarUrl))
+                            {
+                                message.SenderAvatarUrl = profile.Avatar;
+                                anyUpdated = true;
+                            }
+                            if (!string.IsNullOrWhiteSpace(profile.DisplayName) && (string.IsNullOrWhiteSpace(message.Sender) || message.Sender == "Thành viên" || message.Sender == message.SenderUid))
+                            {
+                                message.Sender = profile.DisplayName;
+                                anyUpdated = true;
+                            }
+                            _conversation.SetGroupMember(profile.UserId, profile.DisplayName, profile.Avatar, false, false);
+                        }
+                    }
+                    if (anyUpdated)
+                    {
+                        RequestRenderMessages();
+                        _ = ZaloApp.SaveCachedConversationsAsync();
+                    }
+                }
+                while (_senderAvatarResolveRequested);
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ChatPage ResolveSenderAvatars error: " + ex.Message);
+            }
+            finally
+            {
+                _senderAvatarResolveRunning = false;
+                if (_senderAvatarResolveRequested) _ = ResolveSenderAvatarsAsync();
             }
         }
 
@@ -1135,8 +1386,10 @@ namespace ZaloWP81.Views
                         int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
                         _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
                     }
-                    RenderMessages();
+                    UpdateGroupPostingState();
+                    RequestRenderMessages();
                 });
+                _ = ResolveSenderAvatarsAsync();
             }
             catch (Exception ex)
             {
@@ -1164,8 +1417,13 @@ namespace ZaloWP81.Views
                         int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
                         _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
                     }
-                    RenderMessages();
+                    UpdateGroupPostingState();
+                    RequestRenderMessages();
                 });
+                if (_conversation.IsGroup)
+                {
+                    _ = ResolveSenderAvatarsAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -1193,8 +1451,13 @@ namespace ZaloWP81.Views
                         int count = _conversation.GroupMemberCount > 0 ? _conversation.GroupMemberCount : _conversation.GroupMembers.Count;
                         _subtitleBlock.Text = count > 0 ? $"{count} thành viên" : "Nhóm trò chuyện";
                     }
-                    RenderMessages();
+                    UpdateGroupPostingState();
+                    RequestRenderMessages();
                 });
+                if (_conversation.IsGroup)
+                {
+                    _ = ResolveSenderAvatarsAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -1224,6 +1487,19 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedTo(NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
+            try
+            {
+                _inputPane = InputPane.GetForCurrentView();
+                _inputPane.Showing -= InputPane_Showing;
+                _inputPane.Hiding -= InputPane_Hiding;
+                _inputPane.Showing += InputPane_Showing;
+                _inputPane.Hiding += InputPane_Hiding;
+            }
+            catch { }
+
+            ZaloAvatar.AvatarUpdated -= OnAvatarUpdated;
+            ZaloAvatar.AvatarUpdated += OnAvatarUpdated;
+
             if (e.Parameter is Tuple<string, string> hit)
             {
                 InitializeChat(hit.Item1);
@@ -1237,6 +1513,13 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            if (_inputPane != null)
+            {
+                _inputPane.Showing -= InputPane_Showing;
+                _inputPane.Hiding -= InputPane_Hiding;
+                _inputPane = null;
+            }
+            ZaloAvatar.AvatarUpdated -= OnAvatarUpdated;
             ZaloApp.StatusChanged -= ZaloApp_StatusChanged;
             if (_isRecordingVoice)
             {
@@ -1244,70 +1527,125 @@ namespace ZaloWP81.Views
             }
             if (_conversation != null)
             {
+                _conversation.PropertyChanged -= Conversation_PropertyChanged;
                 _conversation.Messages.CollectionChanged -= Messages_CollectionChanged;
                 ZaloApp.CurrentChat = null;
             }
         }
 
-        private async void ZaloApp_StatusChanged()
+        private void InputPane_Showing(InputPane sender, InputPaneVisibilityEventArgs args)
         {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            double keyboardHeight = Math.Max(0, args.OccludedRect.Height);
+            if (_rootGrid != null)
             {
-                RenderMessages();
+                _rootGrid.Margin = new Thickness(0, 0, 0, keyboardHeight);
+            }
+            args.EnsuredFocusedElementInView = true;
+            ScrollToBottom();
+        }
+
+        private void InputPane_Hiding(InputPane sender, InputPaneVisibilityEventArgs args)
+        {
+            if (_rootGrid != null)
+            {
+                _rootGrid.Margin = new Thickness(0);
+            }
+            args.EnsuredFocusedElementInView = true;
+        }
+
+        private void OnAvatarUpdated(string url)
+        {
+            var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+            {
+                RequestRenderMessages();
             });
         }
 
-        private async void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        private void RequestRenderMessages()
         {
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            if (_renderDebounceTimer == null)
             {
-                RenderMessages();
+                _renderDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+                _renderDebounceTimer.Tick += (s, e) =>
+                {
+                    _renderDebounceTimer.Stop();
+                    RenderMessages();
+                };
+            }
+            _renderDebounceTimer.Stop();
+            _renderDebounceTimer.Start();
+        }
+
+        private void ZaloApp_StatusChanged()
+        {
+            var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                RequestRenderMessages();
+            });
+        }
+
+        private void Messages_CollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+            {
+                RequestRenderMessages();
+                if (_conversation != null && _conversation.IsGroup)
+                {
+                    _ = ResolveSenderAvatarsAsync();
+                }
             });
         }
 
         private void RenderMessages()
         {
             if (_conversation == null) return;
-            _messageStack.Children.Clear();
-
-            if (_conversation.HasMoreHistory)
+            try
             {
-                var loadOlderBtn = new Border
-                {
-                    Background = new SolidColorBrush(Colors.White),
-                    CornerRadius = new CornerRadius(14),
-                    Padding = new Thickness(14, 6, 14, 6),
-                    HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 4, 0, 8)
-                };
-                loadOlderBtn.Child = new TextBlock
-                {
-                    Text = "Tải tin nhắn cũ hơn",
-                    FontSize = 12.5,
-                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                    Foreground = _activeBlue
-                };
-                loadOlderBtn.PointerPressed += (s, e) => loadOlderBtn.Opacity = 0.6;
-                loadOlderBtn.PointerReleased += (s, e) => loadOlderBtn.Opacity = 1.0;
-                loadOlderBtn.PointerCanceled += (s, e) => loadOlderBtn.Opacity = 1.0;
-                loadOlderBtn.Tapped += (s, e) => { var ignored = LoadOlderHistoryCoreAsync(); };
-                _messageStack.Children.Add(loadOlderBtn);
-            }
+                _messageStack.Children.Clear();
 
-            foreach (var m in _conversation.Messages)
+                if (_conversation.HasMoreHistory)
+                {
+                    var loadOlderBtn = new Border
+                    {
+                        Background = new SolidColorBrush(Colors.White),
+                        CornerRadius = new CornerRadius(14),
+                        Padding = new Thickness(14, 6, 14, 6),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        Margin = new Thickness(0, 4, 0, 8)
+                    };
+                    loadOlderBtn.Child = new TextBlock
+                    {
+                        Text = "Tải tin nhắn cũ hơn",
+                        FontSize = 13,
+                        FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                        Foreground = _activeBlue
+                    };
+                    loadOlderBtn.PointerPressed += (s, e) => loadOlderBtn.Opacity = 0.6;
+                    loadOlderBtn.PointerReleased += (s, e) => loadOlderBtn.Opacity = 1.0;
+                    loadOlderBtn.PointerCanceled += (s, e) => loadOlderBtn.Opacity = 1.0;
+                    loadOlderBtn.Tapped += (s, e) => { var ignored = LoadOlderHistoryCoreAsync(); };
+                    _messageStack.Children.Add(loadOlderBtn);
+                }
+
+                foreach (var m in _conversation.Messages)
+                {
+                    try
+                    {
+                        var bubble = CreateMessageBubble(m);
+                        if (bubble != null) _messageStack.Children.Add(bubble);
+                    }
+                    catch (Exception ex)
+                    {
+                        ZaloLog.Add("ChatPage bubble error: " + ex.Message);
+                    }
+                }
+
+                ScrollToBottom();
+            }
+            catch (Exception ex)
             {
-                try
-                {
-                    var bubble = CreateMessageBubble(m);
-                    if (bubble != null) _messageStack.Children.Add(bubble);
-                }
-                catch (Exception ex)
-                {
-                    ZaloLog.Add("ChatPage bubble error: " + ex.Message);
-                }
+                ZaloLog.Add("ChatPage RenderMessages error: " + ex.Message);
             }
-
-            ScrollToBottom();
         }
 
         private void ScrollToBottom()
@@ -1320,7 +1658,7 @@ namespace ZaloWP81.Views
                     double offset = _messageScroll.ScrollableHeight;
                     if (!double.IsNaN(offset) && offset > 0)
                     {
-                        _messageScroll.ChangeView(null, offset, null, true);
+                        _messageScroll.ChangeView(0.0, offset, 1.0f, true);
                     }
                 }
                 catch { }
@@ -1352,9 +1690,9 @@ namespace ZaloWP81.Views
                 var senderNameBlock = new TextBlock
                 {
                     Text = msg.Sender ?? "Thành viên",
-                    FontSize = 13,
+                    FontSize = 13.5,
                     FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                    Foreground = msg.SenderAvatarBrush ?? ZaloAvatar.ColorFor(msg.Sender ?? "Z"),
+                    Foreground = ZaloAvatar.ColorFor(msg.Sender ?? "Z"),
                     Margin = new Thickness(2, 0, 0, 3)
                 };
                 senderNameBlock.Tapped += (s, e) =>
@@ -1963,13 +2301,18 @@ namespace ZaloWP81.Views
 
                 if (msg.ReceiptState >= 2 && !string.IsNullOrEmpty(msg.DeliveryAvatarUrl))
                 {
+                    Brush deliveryBrush = null;
+                    if (msg.DeliveryAvatarUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    {
+                        deliveryBrush = ZaloAvatar.ImageFor(msg.DeliveryAvatarUrl);
+                    }
                     var miniAvatar = new Ellipse
                     {
                         Width = 14,
                         Height = 14,
                         Margin = new Thickness(4, 0, 0, 0),
                         VerticalAlignment = VerticalAlignment.Center,
-                        Fill = ZaloAvatar.ImageFor(msg.DeliveryAvatarUrl) ?? _activeBlue
+                        Fill = deliveryBrush ?? _activeBlue
                     };
                     timeStack.Children.Add(miniAvatar);
                 }
@@ -1984,21 +2327,21 @@ namespace ZaloWP81.Views
 
                 var avatarGrid = new Grid
                 {
-                    Width = 36,
-                    Height = 36,
+                    Width = 40,
+                    Height = 40,
                     VerticalAlignment = VerticalAlignment.Top,
                     Margin = new Thickness(0, 0, 8, 0)
                 };
                 var avatarEllipse = new Ellipse
                 {
-                    Width = 36,
-                    Height = 36,
-                    Fill = msg.SenderAvatarBrush ?? ZaloAvatar.ColorFor(msg.Sender ?? "Z")
+                    Width = 40,
+                    Height = 40,
+                    Fill = ZaloAvatar.ColorFor(msg.Sender ?? "Z")
                 };
                 var avatarInitial = new TextBlock
                 {
                     Text = msg.SenderInitial ?? "Z",
-                    FontSize = 14,
+                    FontSize = 15,
                     FontWeight = Windows.UI.Text.FontWeights.Bold,
                     Foreground = new SolidColorBrush(Colors.White),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -2007,7 +2350,7 @@ namespace ZaloWP81.Views
                 avatarGrid.Children.Add(avatarEllipse);
                 avatarGrid.Children.Add(avatarInitial);
 
-                if (!string.IsNullOrEmpty(msg.SenderAvatarUrl))
+                if (!string.IsNullOrEmpty(msg.SenderAvatarUrl) && msg.SenderAvatarUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -2016,8 +2359,8 @@ namespace ZaloWP81.Views
                         {
                             var imgEllipse = new Ellipse
                             {
-                                Width = 36,
-                                Height = 36,
+                                Width = 40,
+                                Height = 40,
                                 Fill = brush
                             };
                             avatarGrid.Children.Add(imgEllipse);

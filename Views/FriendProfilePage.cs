@@ -546,37 +546,26 @@ namespace ZaloWP81.Views
             statusText.Text = "Đang tìm nhóm chung...";
             try
             {
-                var groups = ZaloApp.Conversations.Where(c => c.IsGroup && !string.IsNullOrWhiteSpace(c.ThreadId)).ToList();
-                if (groups.Count == 0)
+                var ids = await ZaloMessaging.GetGroupIdsAsync(ZaloApp.Session, CancellationToken.None);
+                if (ids == null || ids.Count == 0)
                 {
                     statusText.Text = "Chưa có nhóm nào.";
-                    await new MessageDialog("Bạn và người này chưa có nhóm chung nào.", "Nhóm chung").ShowAsync();
+                    await new MessageDialog("Bạn chưa tham gia nhóm nào.", "Nhóm chung").ShowAsync();
                     return;
                 }
 
-                var ids = groups.Select(g => g.ThreadId).ToList();
                 var infoMap = await ZaloMessaging.GetGroupInfoMapAsync(ZaloApp.Session, ids, CancellationToken.None);
-                var mutual = new List<ZaloConversation>();
+                var mutual = new List<Tuple<string, string>>();
 
-                foreach (var g in groups)
+                foreach (var id in ids)
                 {
-                    if (infoMap != null && infoMap.TryGetValue(g.ThreadId, out JsonObject groupData))
+                    if (infoMap != null && infoMap.TryGetValue(id, out JsonObject groupData))
                     {
-                        IJsonValue memValue;
-                        if (groupData.TryGetValue("currentMems", out memValue) && memValue.ValueType == JsonValueType.Array)
+                        if (ZaloApp.GroupContainsMember(groupData, _friend.UserId))
                         {
-                            foreach (IJsonValue value in memValue.GetArray())
-                            {
-                                if (value.ValueType == JsonValueType.Object)
-                                {
-                                    string id = ZaloAuth.Str(value.GetObject(), "id");
-                                    if (id == _friend.UserId)
-                                    {
-                                        mutual.Add(g);
-                                        break;
-                                    }
-                                }
-                            }
+                            string gName = ZaloAuth.Str(groupData, "name");
+                            if (string.IsNullOrWhiteSpace(gName)) gName = "Nhóm " + id;
+                            mutual.Add(Tuple.Create(id, gName));
                         }
                     }
                 }
@@ -589,9 +578,21 @@ namespace ZaloWP81.Views
                     var stack = new StackPanel();
                     foreach (var mg in mutual)
                     {
-                        var row = new Border { Padding = new Thickness(0, 8, 0, 8), BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)), BorderThickness = new Thickness(0, 0, 0, 1) };
-                        var rowText = new TextBlock { Text = mg.Name ?? "Nhóm", FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark };
+                        var row = new Border
+                        {
+                            Padding = new Thickness(6, 10, 6, 10),
+                            BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
+                            BorderThickness = new Thickness(0, 0, 0, 1),
+                            Background = new SolidColorBrush(Colors.Transparent)
+                        };
+                        var rowText = new TextBlock { Text = mg.Item2, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
                         row.Child = rowText;
+                        string targetId = mg.Item1;
+                        row.Tapped += (s, e) =>
+                        {
+                            var conv = ZaloApp.GetOrCreate(targetId, true, true);
+                            NavigationManager.NavigateTo(new ChatPage(conv.Key));
+                        };
                         stack.Children.Add(row);
                     }
                     scroll.Content = stack;

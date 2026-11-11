@@ -822,7 +822,7 @@ namespace ZaloWP81.Views
                 foreach (KeyValuePair<string, JsonObject> pair in details)
                 {
                     JsonObject info = pair.Value;
-                    bool isMember = HasMember(info, _conversation.ThreadId);
+                    bool isMember = ZaloApp.GroupContainsMember(info, _conversation.ThreadId);
                     if (!isMember) continue;
                     string name = ZaloAuth.Str(info, "name");
                     if (name.Length == 0) name = "Nhóm " + pair.Key;
@@ -847,7 +847,7 @@ namespace ZaloWP81.Views
                         row.Child = new TextBlock { Text = g.Name, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
                         row.Tapped += (s, e) =>
                         {
-                            var conv = ZaloApp.GetOrCreate("g:" + g.ThreadId, true, false);
+                            var conv = ZaloApp.GetOrCreate(g.ThreadId, true, true);
                             NavigationManager.NavigateTo(new ChatPage(conv.Key));
                         };
                         stack.Children.Add(row);

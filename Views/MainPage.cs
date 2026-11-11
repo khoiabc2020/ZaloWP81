@@ -47,7 +47,6 @@ namespace ZaloWP81.Views
         private Border _subTabOtherIndicator;
         private StackPanel _conversationStack;
         private TextBox _searchBox;
-        private Border _syncBanner;
         private Border _strangerInboxBanner;
         private Border _strangerBadgeBorder;
         private TextBlock _strangerBadgeText;
@@ -226,9 +225,9 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Colors.White)
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(60) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(54) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(58) });
 
             // 1. TOP HEADER (Vibrant Zalo Blue Gradient #2878F0 -> #08A9E8)
             var headerGrid = CreateTopHeader();
@@ -285,20 +284,20 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Color.FromArgb(0x38, 0xFF, 0xFF, 0xFF)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(11),
-                Height = 36,
+                CornerRadius = new CornerRadius(12),
+                Height = 40,
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(0, 0, 6, 0)
             };
             var searchGrid = new Grid();
-            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
             searchGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var lensIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_search_white.png")),
-                Width = 20,
-                Height = 20,
+                Width = 22,
+                Height = 22,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center
             };
@@ -308,8 +307,8 @@ namespace ZaloWP81.Views
             _searchBox = new TextBox
             {
                 PlaceholderText = "Tìm kiếm",
-                Height = 36,
-                FontSize = 15,
+                Height = 40,
+                FontSize = 16,
                 Foreground = new SolidColorBrush(Colors.White),
                 Background = new SolidColorBrush(Colors.Transparent),
                 BorderThickness = new Thickness(0),
@@ -441,7 +440,7 @@ namespace ZaloWP81.Views
         private Grid CreateChatsTab()
         {
             var grid = new Grid { Background = new SolidColorBrush(Colors.White) };
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(36) });
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(42) });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
             // Subtabs: "Ưu tiên" & "Khác"
@@ -451,22 +450,22 @@ namespace ZaloWP81.Views
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xEE, 0xEE)),
                 BorderThickness = new Thickness(0, 0, 0, 1)
             };
-            var subtabsStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(14, 0, 14, 0) };
+            var subtabsStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(16, 0, 16, 0) };
 
             // Subtab 1: Ưu tiên
-            var priorityStack = new StackPanel { Margin = new Thickness(0, 0, 24, 0), Background = new SolidColorBrush(Colors.Transparent) };
+            var priorityStack = new StackPanel { Margin = new Thickness(0, 0, 26, 0), Background = new SolidColorBrush(Colors.Transparent) };
             _subTabPriorityText = new TextBlock
             {
                 Text = "Ưu tiên",
-                FontSize = 13.5,
+                FontSize = 15,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = ColorBrush(0xFF, 0x11, 0x18, 0x27),
-                Margin = new Thickness(0, 7, 0, 5)
+                Margin = new Thickness(0, 9, 0, 6)
             };
             _subTabPriorityIndicator = new Border
             {
-                Height = 2.5,
-                Width = 50,
+                Height = 3,
+                Width = 54,
                 Background = ColorBrush(0xFF, 0x11, 0x18, 0x27)
             };
             priorityStack.Children.Add(_subTabPriorityText);
@@ -479,15 +478,15 @@ namespace ZaloWP81.Views
             _subTabOtherText = new TextBlock
             {
                 Text = "Khác",
-                FontSize = 13.5,
+                FontSize = 15,
                 FontWeight = Windows.UI.Text.FontWeights.Normal,
                 Foreground = _inactiveGray,
-                Margin = new Thickness(0, 7, 0, 5)
+                Margin = new Thickness(0, 9, 0, 6)
             };
             _subTabOtherIndicator = new Border
             {
-                Height = 2.5,
-                Width = 38,
+                Height = 3,
+                Width = 42,
                 Background = new SolidColorBrush(Colors.Transparent)
             };
             otherStack.Children.Add(_subTabOtherText);
@@ -502,55 +501,6 @@ namespace ZaloWP81.Views
             // Conversation Scroll Area
             var scroll = new ScrollViewer { Background = new SolidColorBrush(Colors.White) };
             var listStack = new StackPanel();
-
-            // Phone Sync Banner (Top of Chats)
-            _syncBanner = new Border
-            {
-                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEA, 0xF4, 0xFD)),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xCC, 0xE4, 0xF7)),
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(14, 10, 14, 10)
-            };
-            var syncGrid = new Grid();
-            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
-            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            syncGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            var syncIcon = new Image
-            {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_cloud_blue.png")),
-                Width = 22,
-                Height = 22,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            Grid.SetColumn(syncIcon, 0);
-            syncGrid.Children.Add(syncIcon);
-
-            var syncTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 8, 0) };
-            syncTextStack.Children.Add(new TextBlock { Text = "Đồng bộ tin nhắn từ điện thoại", FontSize = 13, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue });
-            syncTextStack.Children.Add(new TextBlock { Text = "Nhấn để làm mới và nạp danh sách tin nhắn", FontSize = 11.5, Foreground = _textSub });
-            Grid.SetColumn(syncTextStack, 1);
-            syncGrid.Children.Add(syncTextStack);
-
-            var syncBtn = new Border
-            {
-                Background = _activeBlue,
-                CornerRadius = new CornerRadius(6),
-                Padding = new Thickness(10, 5, 10, 5),
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            syncBtn.Child = new TextBlock { Text = "Đồng bộ", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = new SolidColorBrush(Colors.White) };
-            syncBtn.Tapped += async (s, e) =>
-            {
-                var md = new MessageDialog("Đang đồng bộ dữ liệu cuộc trò chuyện từ máy chủ...", "Đồng bộ tin nhắn");
-                await md.ShowAsync();
-                RefreshConversations();
-            };
-            Grid.SetColumn(syncBtn, 2);
-            syncGrid.Children.Add(syncBtn);
-
-            _syncBanner.Child = syncGrid;
-            listStack.Children.Add(_syncBanner);
 
             // Stranger Messages Header Banner
             _strangerInboxBanner = new Border
@@ -1636,11 +1586,11 @@ namespace ZaloWP81.Views
                 var txt = new TextBlock
                 {
                     Text = titles[i],
-                    FontSize = 10.5,
+                    FontSize = 11.5,
                     FontWeight = i == 0 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                     Foreground = i == 0 ? _activeBlue : _inactiveGray,
                     HorizontalAlignment = HorizontalAlignment.Center,
-                    Margin = new Thickness(0, 2, 0, 0)
+                    Margin = new Thickness(0, 3, 0, 0)
                 };
                 _tabLabels[i] = txt;
                 stack.Children.Add(txt);
