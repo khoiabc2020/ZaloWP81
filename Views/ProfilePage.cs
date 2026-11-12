@@ -465,7 +465,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tải lên",
                 SecondaryButtonText = "Hủy"
             };
-
+            App.StyleContentDialog(dialog);
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
             string url = (input.Text ?? string.Empty).Trim();
@@ -576,7 +576,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Lưu",
                 SecondaryButtonText = "Hủy"
             };
-
+            App.StyleContentDialog(dialog);
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
             string name = (nameInput.Text ?? string.Empty).Trim();
@@ -638,6 +638,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Lưu",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
             try

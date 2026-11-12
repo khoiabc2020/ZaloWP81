@@ -597,7 +597,13 @@ namespace ZaloWP81.Views
             _photoButton.Tapped += (s, e) =>
             {
                 var sheet = new Common.ZaloActionSheet("Gửi hình ảnh");
-                sheet.AddAction("Chụp ảnh từ Máy ảnh", async () => await CapturePhotoFromCameraAsync());
+                sheet.AddAction("Chụp ảnh từ Máy ảnh", () =>
+                {
+                    if (_conversation != null)
+                    {
+                        NavigationManager.NavigateTo(new CameraCapturePage(_conversation.Key));
+                    }
+                });
                 sheet.AddAction("Chọn ảnh từ Thư viện", () => PickPhoto());
                 sheet.Show();
             };
@@ -964,6 +970,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Gửi",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(cd);
             var res = await cd.ShowAsync();
             if (res == ContentDialogResult.Primary && !string.IsNullOrWhiteSpace(input.Text))
             {
@@ -1041,6 +1048,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Đóng",
                 Content = scroll
             };
+            App.StyleContentDialog(cd);
 
             foreach (var fr in ZaloApp.Friends.Take(30))
             {

@@ -167,6 +167,7 @@
     <Compile Include="Views\CreateGroupPage.cs" />
     <Compile Include="Views\GroupInfoPage.cs" />
     <Compile Include="Views\CallPage.cs" />
+    <Compile Include="Views\CameraCapturePage.cs" />
     <Compile Include="Views\StrangerMessagesPage.cs" />
     <Compile Include="Views\SearchResultsPage.cs" />
   </ItemGroup>

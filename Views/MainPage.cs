@@ -573,50 +573,51 @@ namespace ZaloWP81.Views
             // Stranger Messages Header Banner
             _strangerInboxBanner = new Border
             {
+                Height = Math.Round(80 * scale),
                 Background = new SolidColorBrush(Colors.White),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF0, 0xF2)),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(Math.Round(16 * scale), Math.Round(12 * scale), Math.Round(16 * scale), Math.Round(12 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale), 0, Math.Round(14 * scale), 0),
                 Visibility = Visibility.Collapsed
             };
             var strangerGrid = new Grid();
-            strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(52 * scale)) });
+            strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(60 * scale)) });
             strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             strangerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var strangerIconBorder = new Border
             {
-                Width = Math.Round(48 * scale),
-                Height = Math.Round(48 * scale),
-                CornerRadius = new CornerRadius(Math.Round(24 * scale)),
+                Width = Math.Round(52 * scale),
+                Height = Math.Round(52 * scale),
+                CornerRadius = new CornerRadius(Math.Round(26 * scale)),
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF6, 0xFF)),
                 VerticalAlignment = VerticalAlignment.Center
             };
             strangerIconBorder.Child = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_user_clean_blue.png")),
-                Width = Math.Round(26 * scale),
-                Height = Math.Round(26 * scale),
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(strangerIconBorder, 0);
             strangerGrid.Children.Add(strangerIconBorder);
 
-            var strangerTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(10 * scale), 0, 0, 0) };
+            var strangerTextStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(12 * scale), 0, Math.Round(8 * scale), 0) };
             strangerTextStack.Children.Add(new TextBlock
             {
                 Text = "Tin nhắn từ người lạ",
-                FontSize = Math.Round(17.5 * scale, 1),
+                FontSize = Math.Round(18.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark
             });
             strangerTextStack.Children.Add(new TextBlock
             {
                 Text = "Xem tin nhắn từ người chưa kết bạn",
-                FontSize = Math.Round(14 * scale, 1),
+                FontSize = Math.Round(15 * scale, 1),
                 Foreground = _textSub,
-                Margin = new Thickness(0, Math.Round(3 * scale), 0, 0)
+                Margin = new Thickness(0, Math.Round(4 * scale), 0, 0)
             });
             Grid.SetColumn(strangerTextStack, 1);
             strangerGrid.Children.Add(strangerTextStack);
@@ -1313,7 +1314,7 @@ namespace ZaloWP81.Views
                 Height = avatarSize,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 0, Math.Round(12 * scale), 0)
+                Margin = new Thickness(0, 0, Math.Round(10 * scale), 0)
             };
             _profileAvatarColor = new Ellipse { Width = avatarSize, Height = avatarSize, Fill = _activeBlue };
             _profileInitial = new TextBlock
@@ -1345,7 +1346,7 @@ namespace ZaloWP81.Views
             _profileName = new TextBlock
             {
                 Text = "Người dùng Zalo",
-                FontSize = Math.Round(19.5 * scale, 1),
+                FontSize = Math.Round(20.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27)),
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -1354,7 +1355,7 @@ namespace ZaloWP81.Views
             var subText = new TextBlock
             {
                 Text = "Xem trang cá nhân ›",
-                FontSize = Math.Round(14 * scale, 1),
+                FontSize = Math.Round(14.5 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
                 Margin = new Thickness(0, Math.Round(3 * scale), 0, 0)
             };
@@ -1652,13 +1653,13 @@ namespace ZaloWP81.Views
             textStack.Children.Add(new TextBlock
             {
                 Text = title,
-                FontSize = Math.Round(16.5 * scale, 1),
+                FontSize = Math.Round(17.5 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x20, 0x21, 0x24))
             });
             textStack.Children.Add(new TextBlock
             {
                 Text = sub,
-                FontSize = Math.Round(13.5 * scale, 1),
+                FontSize = Math.Round(14.5 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x85, 0x8B, 0x91)),
                 Margin = new Thickness(0, Math.Round(3 * scale), 0, 0)
             });
@@ -1709,7 +1710,7 @@ namespace ZaloWP81.Views
             var textBlock = new TextBlock
             {
                 Text = title,
-                FontSize = Math.Round(16.5 * scale, 1),
+                FontSize = Math.Round(17.5 * scale, 1),
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x20, 0x21, 0x24)),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(Math.Round(12 * scale), 0, Math.Round(8 * scale), 0)
@@ -2114,7 +2115,7 @@ namespace ZaloWP81.Views
             var nameBlock = new TextBlock
             {
                 Text = conv.Name ?? "Trò chuyện",
-                FontSize = Math.Round(17 * scale, 1),
+                FontSize = Math.Round(18.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 TextTrimming = TextTrimming.CharacterEllipsis,
@@ -2138,10 +2139,10 @@ namespace ZaloWP81.Views
             var lastTextBlock = new TextBlock
             {
                 Text = conv.LastText ?? string.Empty,
-                FontSize = Math.Round(14 * scale, 1),
+                FontSize = Math.Round(15 * scale, 1),
                 Foreground = _textSub,
                 TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(0, 4, 0, 0)
+                Margin = new Thickness(0, Math.Round(4 * scale), 0, 0)
             };
             textStack.Children.Add(lastTextBlock);
             Grid.SetColumn(textStack, 1);
@@ -2152,7 +2153,7 @@ namespace ZaloWP81.Views
             var timeBlock = new TextBlock
             {
                 Text = conv.TimeText ?? string.Empty,
-                FontSize = Math.Round(12 * scale, 1),
+                FontSize = Math.Round(13 * scale, 1),
                 Foreground = _textMuted,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
@@ -2415,7 +2416,7 @@ namespace ZaloWP81.Views
             var nameBlock = new TextBlock
             {
                 Text = friend.Name ?? "Bạn bè",
-                FontSize = Math.Round(16 * scale, 1),
+                FontSize = Math.Round(18 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark,
                 VerticalAlignment = VerticalAlignment.Center,

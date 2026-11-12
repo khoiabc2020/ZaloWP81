@@ -935,6 +935,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tạo ghi chú",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             string txt = (noteText.Text ?? string.Empty).Trim();
@@ -975,6 +976,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Lưu",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
             string txt = (noteText.Text ?? string.Empty).Trim();
@@ -1039,6 +1041,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tạo",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
@@ -1151,6 +1154,7 @@ namespace ZaloWP81.Views
                     PrimaryButtonText = poll.Closed ? "Đóng" : "Bình chọn",
                     SecondaryButtonText = poll.Closed ? null : "Hủy"
                 };
+                App.StyleContentDialog(dialog);
 
                 if (await dialog.ShowAsync() != ContentDialogResult.Primary || poll.Closed) return;
 
@@ -1213,6 +1217,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tạo nhắc hẹn",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
@@ -1531,6 +1536,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Lưu",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
             string newName = (input.Text ?? string.Empty).Trim();
@@ -1584,6 +1590,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Thêm",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
 
             if (await dialog.ShowAsync() != ContentDialogResult.Primary || selectedIds.Count == 0) return;
 
@@ -1640,6 +1647,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Áp dụng",
                 SecondaryButtonText = "Dùng mặc định"
             };
+            App.StyleContentDialog(dialog);
 
             var res = await dialog.ShowAsync();
             string settingKey = ZaloApp.Session == null ? string.Empty : ZaloApp.Session.Uid;
@@ -1673,6 +1681,7 @@ namespace ZaloWP81.Views
                 Content = scroll,
                 PrimaryButtonText = "Đóng"
             };
+            App.StyleContentDialog(dialog);
 
             foreach (var m in mediaMsgs)
             {
@@ -1712,6 +1721,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tìm",
                 SecondaryButtonText = "Hủy"
             };
+            App.StyleContentDialog(dialog);
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 string kw = (input.Text ?? string.Empty).Trim();

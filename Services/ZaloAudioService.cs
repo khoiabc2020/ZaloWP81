@@ -19,7 +19,7 @@ namespace ZaloUWP.Services
 
         public void PlayIncomingRing()
         {
-            PlaySoundUri("ms-appx:///Assets/Sounds/zalo_ringtone.ogg");
+            PlaySoundUri("ms-appx:///Assets/Sounds/zalo_ringtone.mp3");
         }
 
         public void PlayCallWaiting()
@@ -29,7 +29,7 @@ namespace ZaloUWP.Services
 
         public void PlayHangUp()
         {
-            PlaySoundUri("ms-appx:///Assets/Sounds/zalo_new_hang_up.ogg");
+            PlaySoundUri("ms-appx:///Assets/Sounds/zalo_new_hang_up.mp3");
         }
 
         private void PlaySoundUri(string uriString)

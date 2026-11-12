@@ -641,6 +641,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Tìm",
                 SecondaryButtonText = "Đóng"
             };
+            App.StyleContentDialog(cd);
             if (await cd.ShowAsync() != ContentDialogResult.Primary) return;
 
             string query = (box.Text ?? string.Empty).Trim();
@@ -672,6 +673,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Lưu",
                 SecondaryButtonText = string.IsNullOrWhiteSpace(friend.Alias) ? "Hủy" : "Xóa tên"
             };
+            App.StyleContentDialog(dialog);
             ContentDialogResult result = await dialog.ShowAsync();
             try
             {
@@ -742,6 +744,7 @@ namespace ZaloWP81.Views
                 PrimaryButtonText = "Áp dụng",
                 SecondaryButtonText = "Dùng mặc định"
             };
+            App.StyleContentDialog(cd);
             var res = await cd.ShowAsync();
             string uid = ZaloApp.Session?.Uid ?? string.Empty;
             if (res == ContentDialogResult.Primary && selectedUri != null && _conversation != null)
@@ -805,6 +808,7 @@ namespace ZaloWP81.Views
                 Content = scroll,
                 PrimaryButtonText = "Đóng"
             };
+            App.StyleContentDialog(cd);
             await cd.ShowAsync();
         }
 

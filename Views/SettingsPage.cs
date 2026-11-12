@@ -29,15 +29,16 @@ namespace ZaloWP81.Views
 
         private void BuildUI()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var rootGrid = new Grid
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA))
             };
-            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(56) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(56 * scale)) });
             rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
             // 1. Header (Gradient)
-            var headerBorder = new Border { Padding = new Thickness(6, 0, 10, 0) };
+            var headerBorder = new Border { Padding = new Thickness(Math.Round(6 * scale), 0, Math.Round(10 * scale), 0) };
             var gradient = new LinearGradientBrush
             {
                 StartPoint = new Windows.Foundation.Point(0, 0),
@@ -48,15 +49,15 @@ namespace ZaloWP81.Views
             headerBorder.Background = gradient;
 
             var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            var backBtn = CreateTouchBorder(44, 44);
+            var backBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(44 * scale));
             backBtn.Child = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_back_clean_white.png")),
-                Width = 24,
-                Height = 24,
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -70,12 +71,12 @@ namespace ZaloWP81.Views
 
             var title = new TextBlock
             {
-                Text = "Cài đặt",
-                FontSize = 18,
+                Text = "Cài đặt & Giao diện Lumia",
+                FontSize = Math.Round(18.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(4, 0, 0, 0)
+                Margin = new Thickness(Math.Round(4 * scale), 0, 0, 0)
             };
             Grid.SetColumn(title, 1);
             header.Children.Add(title);
@@ -85,7 +86,7 @@ namespace ZaloWP81.Views
             rootGrid.Children.Add(headerBorder);
 
             // 2. Body
-            var scroll = new ScrollViewer { Padding = new Thickness(14, 16, 14, 20) };
+            var scroll = new ScrollViewer { Padding = new Thickness(Math.Round(14 * scale), Math.Round(16 * scale), Math.Round(14 * scale), Math.Round(20 * scale)) };
             var stack = new StackPanel();
 
             // Section 0: Thu phóng giao diện (UI Scale)
@@ -94,30 +95,30 @@ namespace ZaloWP81.Views
             var uiScaleGroup = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(14, 14, 14, 14),
-                Margin = new Thickness(0, 0, 0, 16)
+                CornerRadius = new CornerRadius(Math.Round(14 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(16 * scale))
             };
             var uiScaleStack = new StackPanel();
 
             uiScaleStack.Children.Add(new TextBlock
             {
                 Text = "Tỷ lệ kích thước toàn bộ ứng dụng:",
-                FontSize = 14,
+                FontSize = Math.Round(16.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textDark
             });
             uiScaleStack.Children.Add(new TextBlock
             {
                 Text = "Tùy chỉnh tỷ lệ (100%, 125%, 150%, 175%) phù hợp với màn hình lớn như Lumia 640 XL. Hiển thị phóng to rõ nét mượt mà 60 FPS, không méo hay giật lag.",
-                FontSize = 12,
+                FontSize = Math.Round(13.5 * scale, 1),
                 Foreground = _textSub,
-                Margin = new Thickness(0, 2, 0, 10),
+                Margin = new Thickness(0, Math.Round(2 * scale), 0, Math.Round(10 * scale)),
                 TextWrapping = TextWrapping.Wrap
             });
 
             // 4 UI Scale pills: 100%, 125%, 150%, 175%
-            var uiScaleGrid = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+            var uiScaleGrid = new Grid { Margin = new Thickness(0, 0, 0, Math.Round(10 * scale)) };
             for (int k = 0; k < 4; k++)
                 uiScaleGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -131,9 +132,9 @@ namespace ZaloWP81.Views
             var scaleStatusText = new TextBlock
             {
                 Text = $"Đang chọn: {(int)(currentUiScale * 100)}% · Áp dụng ngay lập tức cho các danh sách và trang trò chuyện.",
-                FontSize = 12,
+                FontSize = Math.Round(13.5 * scale, 1),
                 Foreground = _activeBlue,
-                Margin = new Thickness(2, 4, 0, 0),
+                Margin = new Thickness(2, Math.Round(4 * scale), 0, 0),
                 TextWrapping = TextWrapping.Wrap
             };
 
@@ -145,15 +146,15 @@ namespace ZaloWP81.Views
 
                 var pBorder = new Border
                 {
-                    Height = 36,
-                    CornerRadius = new CornerRadius(8),
+                    Height = Math.Round(38 * scale),
+                    CornerRadius = new CornerRadius(Math.Round(8 * scale)),
                     Margin = new Thickness(pillIdx == 0 ? 0 : 3, 0, pillIdx == 3 ? 0 : 3, 0),
                     Background = isSelected ? _activeBlue : new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9))
                 };
                 var pText = new TextBlock
                 {
                     Text = scaleLabels[k],
-                    FontSize = 13,
+                    FontSize = Math.Round(14 * scale, 1),
                     FontWeight = isSelected ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal,
                     Foreground = isSelected ? new SolidColorBrush(Colors.White) : _textDark,
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -166,7 +167,7 @@ namespace ZaloWP81.Views
                 pBorder.Tapped += (s, e) =>
                 {
                     ZaloSettingsService.Current.UiScaleFactor = factor;
-                    scaleStatusText.Text = $"Đang chọn: {(int)(factor * 100)}% · Đã lưu! Các trang tiếp theo sẽ áp dụng kích thước này.";
+                    scaleStatusText.Text = $"Đang chọn: {(int)(factor * 100)}% · Đã lưu! Trở về màn hình chính để áp dụng toàn diện.";
                     for (int m = 0; m < 4; m++)
                     {
                         bool sel = m == pillIdx;
@@ -436,13 +437,13 @@ namespace ZaloWP81.Views
             Grid.SetColumn(storageIcon, 0);
             clearGrid.Children.Add(storageIcon);
 
-            var storageText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
-            storageText.Children.Add(new TextBlock { Text = "Xóa dữ liệu bộ nhớ đệm", FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            storageText.Children.Add(new TextBlock { Text = "Giải phóng dung lượng tin nhắn và hình ảnh tạm", FontSize = 12, Foreground = _textSub });
+            var storageText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(8 * scale), 0, 0, 0) };
+            storageText.Children.Add(new TextBlock { Text = "Xóa dữ liệu bộ nhớ đệm", FontSize = Math.Round(16.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            storageText.Children.Add(new TextBlock { Text = "Giải phóng dung lượng tin nhắn và hình ảnh tạm", FontSize = Math.Round(13.5 * scale, 1), Foreground = _textSub });
             Grid.SetColumn(storageText, 1);
             clearGrid.Children.Add(storageText);
 
-            var clearBtn = new TextBlock { Text = "Dọn dẹp", FontSize = 13, Foreground = _activeBlue, VerticalAlignment = VerticalAlignment.Center };
+            var clearBtn = new TextBlock { Text = "Dọn dẹp", FontSize = Math.Round(14 * scale, 1), Foreground = _activeBlue, VerticalAlignment = VerticalAlignment.Center };
             Grid.SetColumn(clearBtn, 2);
             clearGrid.Children.Add(clearBtn);
 
@@ -464,29 +465,29 @@ namespace ZaloWP81.Views
             var accountGroup = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Margin = new Thickness(0, 0, 0, 16)
+                CornerRadius = new CornerRadius(Math.Round(14 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(16 * scale))
             };
             var accStack = new StackPanel();
 
-            var accRow = new Border { Padding = new Thickness(16, 14, 16, 14) };
+            var accRow = new Border { Padding = new Thickness(Math.Round(16 * scale), Math.Round(14 * scale), Math.Round(16 * scale), Math.Round(14 * scale)) };
             var accGrid = new Grid();
-            accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+            accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(36 * scale)) });
             accGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             var secIcon = new Image
             {
                 Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_security_blue.png")),
-                Width = 22,
-                Height = 22,
+                Width = Math.Round(22 * scale),
+                Height = Math.Round(22 * scale),
                 VerticalAlignment = VerticalAlignment.Center
             };
             Grid.SetColumn(secIcon, 0);
             accGrid.Children.Add(secIcon);
 
-            var accText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
-            accText.Children.Add(new TextBlock { Text = "Zalo ID: " + (ZaloApp.Session?.Uid ?? "Chưa có"), FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            accText.Children.Add(new TextBlock { Text = "Số điện thoại: " + (ZaloApp.Session?.PhoneNumber ?? "Chưa công khai"), FontSize = 12.5, Foreground = _textSub });
+            var accText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(8 * scale), 0, 0, 0) };
+            accText.Children.Add(new TextBlock { Text = "Zalo ID: " + (ZaloApp.Session?.Uid ?? "Chưa có"), FontSize = Math.Round(16.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            accText.Children.Add(new TextBlock { Text = "Số điện thoại: " + (ZaloApp.Session?.PhoneNumber ?? "Chưa công khai"), FontSize = Math.Round(13.5 * scale, 1), Foreground = _textSub });
             Grid.SetColumn(accText, 1);
             accGrid.Children.Add(accText);
 
@@ -499,26 +500,26 @@ namespace ZaloWP81.Views
             var aboutGroup = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(16, 16, 16, 16),
-                Margin = new Thickness(0, 0, 0, 16)
+                CornerRadius = new CornerRadius(Math.Round(14 * scale)),
+                Padding = new Thickness(Math.Round(16 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(16 * scale))
             };
             var aboutStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
             aboutStack.Children.Add(new TextBlock
             {
                 Text = "Zalo cho Windows Phone 8.1",
-                FontSize = 15,
+                FontSize = Math.Round(16.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = _textDark,
                 HorizontalAlignment = HorizontalAlignment.Center
             });
             aboutStack.Children.Add(new TextBlock
             {
-                Text = "Phiên bản 1.0.0.0 (ARM Release) • Native C# WinRT",
-                FontSize = 12,
+                Text = "Phiên bản 1.0.65.0 (ARM Release) • Native C# WinRT",
+                FontSize = Math.Round(13.5 * scale, 1),
                 Foreground = _textSub,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Margin = new Thickness(0, 3, 0, 0)
+                Margin = new Thickness(0, Math.Round(3 * scale), 0, 0)
             });
             aboutGroup.Child = aboutStack;
             stack.Children.Add(aboutGroup);
@@ -529,14 +530,14 @@ namespace ZaloWP81.Views
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xFE, 0xE2, 0xE2)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xFE, 0xCA, 0xCA)),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(16, 12, 16, 12),
-                Margin = new Thickness(0, 0, 0, 10)
+                CornerRadius = new CornerRadius(Math.Round(12 * scale)),
+                Padding = new Thickness(Math.Round(16 * scale), Math.Round(12 * scale), Math.Round(16 * scale), Math.Round(12 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(10 * scale))
             };
             var logoutText = new TextBlock
             {
                 Text = "Đăng xuất tài khoản",
-                FontSize = 15,
+                FontSize = Math.Round(16.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xDC, 0x26, 0x26)),
                 HorizontalAlignment = HorizontalAlignment.Center
@@ -565,21 +566,23 @@ namespace ZaloWP81.Views
 
         private TextBlock CreateSectionHeader(string text)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             return new TextBlock
             {
                 Text = text,
-                FontSize = 11.5,
+                FontSize = Math.Round(12.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _textSub,
-                Margin = new Thickness(6, 4, 0, 8)
+                Margin = new Thickness(Math.Round(6 * scale), Math.Round(4 * scale), 0, Math.Round(8 * scale))
             };
         }
 
         private Border CreateSettingRow(string title, string sub, string status, out TextBlock statusBlock)
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var border = new Border
             {
-                Padding = new Thickness(16, 14, 16, 14),
+                Padding = new Thickness(Math.Round(16 * scale), Math.Round(14 * scale), Math.Round(16 * scale), Math.Round(14 * scale)),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF0, 0xF0)),
                 BorderThickness = new Thickness(0, 0, 0, 1)
             };
@@ -588,15 +591,15 @@ namespace ZaloWP81.Views
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            stack.Children.Add(new TextBlock { Text = title, FontSize = 14.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
-            stack.Children.Add(new TextBlock { Text = sub, FontSize = 12, Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) });
+            stack.Children.Add(new TextBlock { Text = title, FontSize = Math.Round(16.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _textDark });
+            stack.Children.Add(new TextBlock { Text = sub, FontSize = Math.Round(13.5 * scale, 1), Foreground = _textSub, Margin = new Thickness(0, 2, 0, 0) });
             Grid.SetColumn(stack, 0);
             grid.Children.Add(stack);
 
             statusBlock = new TextBlock
             {
                 Text = status,
-                FontSize = 13,
+                FontSize = Math.Round(14 * scale, 1),
                 Foreground = _activeBlue,
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center

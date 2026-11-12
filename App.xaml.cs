@@ -151,6 +151,18 @@ namespace ZaloWP81
             tb.BorderThickness = new Thickness(0);
         }
 
+        public static void StyleContentDialog(ContentDialog dialog)
+        {
+            if (dialog == null) return;
+            try
+            {
+                dialog.RequestedTheme = ElementTheme.Light;
+                dialog.Background = new SolidColorBrush(Colors.White);
+                dialog.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x11, 0x18, 0x27));
+            }
+            catch { }
+        }
+
         public IXamlType GetXamlType(Type type) => null;
         public IXamlType GetXamlType(string fullName) => null;
         public XmlnsDefinition[] GetXmlnsDefinitions() => new XmlnsDefinition[0];

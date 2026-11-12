@@ -635,6 +635,7 @@ namespace ZaloWP81.Views
                     Content = scroll,
                     PrimaryButtonText = "Đóng"
                 };
+                App.StyleContentDialog(cd);
                 await cd.ShowAsync();
             }
             catch (Exception ex)

@@ -429,13 +429,15 @@ namespace ZaloWP81.Views
             Grid.SetRow(controlsDock, 2);
             rootGrid.Children.Add(controlsDock);
 
-            // Hidden Audio Player for Ringtone / Ringback Tone
+            // Audio Player for Ringtone / Ringback Tone (Must be visible with size > 0 for WP8.1 media pipeline)
             _audioPlayer = new MediaElement
             {
                 AutoPlay = false,
-                Width = 0,
-                Height = 0,
-                Visibility = Visibility.Collapsed
+                Width = 1,
+                Height = 1,
+                Opacity = 0.01,
+                Visibility = Visibility.Visible,
+                AudioCategory = AudioCategory.Communications
             };
             rootGrid.Children.Add(_audioPlayer);
 
@@ -509,6 +511,7 @@ namespace ZaloWP81.Views
         {
             try
             {
+                ZaloAudioService.Current.PlayCallWaiting();
                 if (_audioPlayer != null)
                 {
                     _audioPlayer.IsLooping = true;
@@ -523,10 +526,11 @@ namespace ZaloWP81.Views
         {
             try
             {
+                ZaloAudioService.Current.PlayIncomingRing();
                 if (_audioPlayer != null)
                 {
                     _audioPlayer.IsLooping = true;
-                    _audioPlayer.Source = new Uri("ms-appx:///Assets/Sounds/zalo_ringtone.ogg");
+                    _audioPlayer.Source = new Uri("ms-appx:///Assets/Sounds/zalo_ringtone.mp3");
                     _audioPlayer.Play();
                 }
             }
@@ -542,6 +546,7 @@ namespace ZaloWP81.Views
                     _audioPlayer.Stop();
                     _audioPlayer.IsLooping = false;
                 }
+                Windows.Media.Playback.BackgroundMediaPlayer.Current.Pause();
             }
             catch { }
         }
@@ -550,10 +555,11 @@ namespace ZaloWP81.Views
         {
             try
             {
+                ZaloAudioService.Current.PlayHangUp();
                 if (_audioPlayer != null)
                 {
                     _audioPlayer.IsLooping = false;
-                    _audioPlayer.Source = new Uri("ms-appx:///Assets/Sounds/zalo_new_hang_up.ogg");
+                    _audioPlayer.Source = new Uri("ms-appx:///Assets/Sounds/zalo_new_hang_up.mp3");
                     _audioPlayer.Play();
                 }
             }

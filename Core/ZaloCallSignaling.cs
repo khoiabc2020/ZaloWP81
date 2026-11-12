@@ -47,7 +47,7 @@ namespace ZaloWP81.Core
     {
         private static readonly Random _rng = new Random();
         private static DispatcherTimer _durationTimer;
-        private static DispatcherTimer _simulationTimer;
+        private static DispatcherTimer _timeoutTimer;
 
         public static ZaloCallSession CurrentSession { get; private set; }
 
@@ -75,7 +75,7 @@ namespace ZaloWP81.Core
                 PeerAvatar = peerAvatar,
                 CallType = isVideo ? ZaloCallType.Video : ZaloCallType.Voice,
                 IsOutgoing = true,
-                State = ZaloCallState.Calling,
+                State = ZaloCallState.Ringing,
                 DurationSeconds = 0,
                 IsMuted = false,
                 IsSpeakerOn = isVideo, // Default speaker for video calls
@@ -83,41 +83,33 @@ namespace ZaloWP81.Core
             };
 
             CurrentSession = session;
-            NotifyState(ZaloCallState.Calling);
+            NotifyState(ZaloCallState.Ringing);
 
-            // Send Signal 401 (requestCall)
+            // Send real ZRTC Signal 401 (requestCall) through WebSocket to server
             await SendSignal401Async(session);
 
-            // Start simulated connection transition (Calling -> Ringing -> Connected)
-            StartOutgoingCallSequence(session);
+            // Wait up to 60s for the other party to answer; if no answer, automatically cancel
+            StartTimeoutTimer(session);
 
             return session;
         }
 
-        private static void StartOutgoingCallSequence(ZaloCallSession session)
+        private static void StartTimeoutTimer(ZaloCallSession session)
         {
-            StopSimulationTimer();
-
-            _simulationTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2.5) };
-            _simulationTimer.Tick += (s, e) =>
+            StopTimeoutTimer();
+            _timeoutTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(60.0) };
+            _timeoutTimer.Tick += (s, e) =>
             {
-                if (CurrentSession != session) return;
-
-                if (session.State == ZaloCallState.Calling)
+                StopTimeoutTimer();
+                if (CurrentSession == session && session.State == ZaloCallState.Ringing)
                 {
-                    session.State = ZaloCallState.Ringing;
-                    NotifyState(ZaloCallState.Ringing);
-                    _simulationTimer.Interval = TimeSpan.FromSeconds(4.0);
-                }
-                else if (session.State == ZaloCallState.Ringing)
-                {
-                    session.State = ZaloCallState.Connected;
-                    NotifyState(ZaloCallState.Connected);
-                    StartDurationTimer();
-                    StopSimulationTimer();
+                    session.State = ZaloCallState.Ended;
+                    NotifyState(ZaloCallState.Ended);
+                    StopTimers();
+                    _ = SendSignal405Async(session);
                 }
             };
-            _simulationTimer.Start();
+            _timeoutTimer.Start();
         }
 
         public static async Task AnswerCallAsync()
@@ -207,19 +199,19 @@ namespace ZaloWP81.Core
             }
         }
 
-        private static void StopSimulationTimer()
+        private static void StopTimeoutTimer()
         {
-            if (_simulationTimer != null)
+            if (_timeoutTimer != null)
             {
-                _simulationTimer.Stop();
-                _simulationTimer = null;
+                _timeoutTimer.Stop();
+                _timeoutTimer = null;
             }
         }
 
         private static void StopTimers()
         {
             StopDurationTimer();
-            StopSimulationTimer();
+            StopTimeoutTimer();
         }
 
         private static void NotifyState(ZaloCallState state)
@@ -290,6 +282,7 @@ namespace ZaloWP81.Core
                             CurrentSession.State = ZaloCallState.Connected;
                             NotifyState(ZaloCallState.Connected);
                             StartDurationTimer();
+                            StopTimeoutTimer();
                         }
                         else if (status == 1 || status == 3)
                         {
@@ -321,8 +314,10 @@ namespace ZaloWP81.Core
         {
             try
             {
-                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"codec\":\"[]\\n\",\"type\":{2},\"req_id\":\"req_{3}\"}}",
-                    session.CallId, session.PeerId, (int)session.CallType, _rng.Next(1000, 9999));
+                string callerId = ZaloApp.Session?.Uid ?? string.Empty;
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"callerId\":\"{2}\",\"codec\":\"[]\\n\",\"type\":{3},\"time\":{4},\"req_id\":\"req_{5}\"}}",
+                    session.CallId, session.PeerId, callerId, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 401 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
