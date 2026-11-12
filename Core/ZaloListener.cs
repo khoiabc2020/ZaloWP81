@@ -497,13 +497,40 @@ namespace ZaloLite
 
         private static void DispatchCallAct(string act, string actType, JsonObject callData)
         {
+            if (callData == null) callData = new JsonObject();
             string combined = (act + " " + actType).ToLowerInvariant();
-            int cmd = 402;
-            if (combined.Contains("reject") || combined.Contains("cancel") || combined.Contains("end")
-                || combined.Contains("finish") || combined.Contains("miss") || combined.Contains("busy"))
+
+            int cmd = (int)ZaloCallSignaling.GetSafeNumber(callData, "cmd", ZaloCallSignaling.GetSafeNumber(callData, "command", 0));
+            if (cmd == 0)
             {
-                cmd = 405;
+                if (combined.Contains("reject") || combined.Contains("busy"))
+                {
+                    cmd = 405;
+                    callData["status"] = JsonValue.CreateNumberValue(3); // 3 = rejected / busy
+                }
+                else if (combined.Contains("miss"))
+                {
+                    cmd = 405;
+                    callData["status"] = JsonValue.CreateNumberValue(103); // 103 = missed call
+                }
+                else if (combined.Contains("cancel") || combined.Contains("end") || combined.Contains("finish"))
+                {
+                    cmd = 405;
+                    callData["status"] = JsonValue.CreateNumberValue(1); // 1 = ended / cancelled
+                }
+                else if (combined.Contains("answer") || combined.Contains("accept"))
+                {
+                    cmd = 402;
+                    callData["status"] = JsonValue.CreateNumberValue(0);
+                }
+                else
+                {
+                    // Incoming call event (call_start, call_request, call, incoming, etc.)
+                    cmd = 401;
+                }
             }
+
+            ZaloLog.Add(string.Format("ZRTC DispatchCallAct: act={0}, actType={1} -> cmd={2}", act, actType, cmd));
             ZaloCallSignaling.ProcessIncomingSignal(cmd, callData);
         }
 

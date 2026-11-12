@@ -33,6 +33,13 @@ namespace ZaloWP81.Views
         private Grid _activeControlsGrid;
         private MediaElement _audioPlayer;
 
+        private Grid _callResultOverlay;
+        private TextBlock _overlayTitle;
+        private TextBlock _overlaySubtitle;
+        private TextBlock _overlayIcon;
+        private Border _overlayIconCircle;
+        private DispatcherTimer _overlayDismissTimer;
+
         private object _target;
         private bool _isVideo;
         private bool _isIncoming;
@@ -461,7 +468,196 @@ namespace ZaloWP81.Views
             };
             rootGrid.Children.Add(_audioPlayer);
 
+            BuildCallResultOverlay(rootGrid, scale);
+
             this.Content = rootGrid;
+        }
+
+        private void BuildCallResultOverlay(Grid rootGrid, double scale)
+        {
+            _callResultOverlay = new Grid
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xEE, 0x0A, 0x11, 0x28)),
+                Visibility = Visibility.Collapsed
+            };
+            Grid.SetRowSpan(_callResultOverlay, 3);
+
+            var cardBorder = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x1E, 0x29, 0x3B)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x41, 0x55)),
+                BorderThickness = new Thickness(Math.Round(1.5 * scale)),
+                CornerRadius = new CornerRadius(Math.Round(20 * scale)),
+                Padding = new Thickness(Math.Round(24 * scale)),
+                MaxWidth = Math.Round(320 * scale),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            var stack = new StackPanel
+            {
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+
+            // Icon Circle
+            _overlayIconCircle = new Border
+            {
+                Width = Math.Round(68 * scale),
+                Height = Math.Round(68 * scale),
+                CornerRadius = new CornerRadius(Math.Round(34 * scale)),
+                Background = new SolidColorBrush(Color.FromArgb(0x22, 0xEF, 0x44, 0x44)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, Math.Round(16 * scale))
+            };
+            _overlayIcon = new TextBlock
+            {
+                Text = "\uE13A",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = Math.Round(30 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            _overlayIconCircle.Child = _overlayIcon;
+            stack.Children.Add(_overlayIconCircle);
+
+            // Title
+            _overlayTitle = new TextBlock
+            {
+                Text = "Cuộc gọi bị từ chối",
+                FontSize = Math.Round(19 * scale),
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                Margin = new Thickness(0, 0, 0, Math.Round(6 * scale))
+            };
+            stack.Children.Add(_overlayTitle);
+
+            // Subtitle
+            _overlaySubtitle = new TextBlock
+            {
+                Text = "Đối phương hiện đang bận hoặc đã từ chối cuộc gọi.",
+                FontSize = Math.Round(13.5 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x94, 0xA3, 0xB8)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, Math.Round(22 * scale))
+            };
+            stack.Children.Add(_overlaySubtitle);
+
+            // Actions Row (Gọi lại | Đóng)
+            var actionGrid = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            actionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            actionGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Button "Gọi lại"
+            var redialBtn = new Border
+            {
+                Background = _activeBlue,
+                CornerRadius = new CornerRadius(Math.Round(12 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(10 * scale), Math.Round(14 * scale), Math.Round(10 * scale)),
+                Margin = new Thickness(0, 0, Math.Round(6 * scale), 0)
+            };
+            var redialStack = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            var redialIcon = new TextBlock
+            {
+                Text = "\uE13A",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = Math.Round(16 * scale),
+                Foreground = new SolidColorBrush(Colors.White),
+                Margin = new Thickness(0, 0, Math.Round(6 * scale), 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var redialLabel = new TextBlock
+            {
+                Text = "Gọi lại",
+                FontSize = Math.Round(13.5 * scale),
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            redialStack.Children.Add(redialIcon);
+            redialStack.Children.Add(redialLabel);
+            redialBtn.Child = redialStack;
+
+            redialBtn.PointerPressed += (s, e) => redialBtn.Opacity = 0.6;
+            redialBtn.PointerReleased += (s, e) => redialBtn.Opacity = 1.0;
+            redialBtn.PointerCanceled += (s, e) => redialBtn.Opacity = 1.0;
+            redialBtn.Tapped += (s, e) =>
+            {
+                DismissOverlay();
+                _sessionInitialized = false;
+                InitCallSession();
+            };
+            Grid.SetColumn(redialBtn, 0);
+            actionGrid.Children.Add(redialBtn);
+
+            // Button "Đóng"
+            var closeBtn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x33, 0x41, 0x55)),
+                CornerRadius = new CornerRadius(Math.Round(12 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(10 * scale), Math.Round(14 * scale), Math.Round(10 * scale)),
+                Margin = new Thickness(Math.Round(6 * scale), 0, 0, 0)
+            };
+            var closeLabel = new TextBlock
+            {
+                Text = "Đóng",
+                FontSize = Math.Round(13.5 * scale),
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            closeBtn.Child = closeLabel;
+
+            closeBtn.PointerPressed += (s, e) => closeBtn.Opacity = 0.6;
+            closeBtn.PointerReleased += (s, e) => closeBtn.Opacity = 1.0;
+            closeBtn.PointerCanceled += (s, e) => closeBtn.Opacity = 1.0;
+            closeBtn.Tapped += (s, e) =>
+            {
+                DismissOverlay();
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
+            };
+            Grid.SetColumn(closeBtn, 1);
+            actionGrid.Children.Add(closeBtn);
+
+            stack.Children.Add(actionGrid);
+            cardBorder.Child = stack;
+            _callResultOverlay.Children.Add(cardBorder);
+            rootGrid.Children.Add(_callResultOverlay);
+        }
+
+        private void DismissOverlay()
+        {
+            DismissOverlayTimer();
+            if (_callResultOverlay != null)
+            {
+                _callResultOverlay.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void DismissOverlayTimer()
+        {
+            try
+            {
+                if (_overlayDismissTimer != null)
+                {
+                    _overlayDismissTimer.Stop();
+                    _overlayDismissTimer = null;
+                }
+            }
+            catch { }
         }
 
         private static Border CreateRoundControlBorder(double size, Color bgColor)
@@ -637,18 +833,56 @@ namespace ZaloWP81.Views
                     case ZaloCallState.Rejected:
                         StopAudioPlayback();
                         PlayHangupTone();
-                        _callStatusText.Text = state == ZaloCallState.Rejected ? "Người dùng bận" : "Cuộc gọi đã kết thúc";
-                        _callStatusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
 
-                        // Auto-return after 1.5 seconds
-                        var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
-                        timer.Tick += (s, e) =>
+                        bool isRej = state == ZaloCallState.Rejected;
+                        int duration = session?.DurationSeconds ?? 0;
+
+                        if (isRej)
                         {
-                            timer.Stop();
+                            _callStatusText.Text = "Người dùng bận";
+                            _callStatusText.Foreground = _endCallRed;
+
+                            if (_overlayIconCircle != null) _overlayIconCircle.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xEF, 0x44, 0x44));
+                            if (_overlayIcon != null) _overlayIcon.Foreground = _endCallRed;
+                            if (_overlayTitle != null) _overlayTitle.Text = "Cuộc gọi bị từ chối";
+                            if (_overlaySubtitle != null) _overlaySubtitle.Text = "Người nhận hiện đang bận hoặc đã từ chối cuộc gọi.";
+                        }
+                        else if (duration > 0)
+                        {
+                            _callStatusText.Text = "Cuộc gọi đã kết thúc";
+                            _callStatusText.Foreground = new SolidColorBrush(Colors.White);
+
+                            if (_overlayIconCircle != null) _overlayIconCircle.Background = new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x88, 0xFF));
+                            if (_overlayIcon != null) _overlayIcon.Foreground = _activeBlue;
+                            if (_overlayTitle != null) _overlayTitle.Text = "Cuộc gọi đã kết thúc";
+                            if (_overlaySubtitle != null) _overlaySubtitle.Text = string.Format("Thời gian đàm thoại: {0}", ZaloCallSignaling.FormatDuration(duration));
+                        }
+                        else
+                        {
+                            _callStatusText.Text = "Không có trả lời";
+                            _callStatusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B));
+
+                            if (_overlayIconCircle != null) _overlayIconCircle.Background = new SolidColorBrush(Color.FromArgb(0x22, 0xF5, 0x9E, 0x0B));
+                            if (_overlayIcon != null) _overlayIcon.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B));
+                            if (_overlayTitle != null) _overlayTitle.Text = "Không có trả lời";
+                            if (_overlaySubtitle != null) _overlaySubtitle.Text = "Người nhận hiện không thể nhận cuộc gọi của bạn.";
+                        }
+
+                        if (_callResultOverlay != null)
+                        {
+                            _callResultOverlay.Visibility = Visibility.Visible;
+                        }
+
+                        // Auto-return after 10 seconds if user doesn't tap "Gọi lại" or "Đóng"
+                        DismissOverlayTimer();
+                        _overlayDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10.0) };
+                        _overlayDismissTimer.Tick += (s, e) =>
+                        {
+                            DismissOverlay();
                             if (NavigationManager.CanGoBack) NavigationManager.GoBack();
                             else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                         };
-                        timer.Start();
+                        _overlayDismissTimer.Start();
                         break;
                 }
             });
@@ -676,6 +910,7 @@ namespace ZaloWP81.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            DismissOverlay();
             ZaloCallSignaling.StateChanged -= OnCallStateChanged;
             ZaloCallSignaling.DurationTick -= OnDurationTick;
             ZaloCallSignaling.DiagnosticUpdated -= OnDiagnosticUpdated;

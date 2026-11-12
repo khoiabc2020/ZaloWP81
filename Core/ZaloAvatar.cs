@@ -134,6 +134,12 @@ namespace ZaloLite
                     if (uri.Scheme == "https" || uri.Scheme == "http")
                     {
                         _ = CacheAvatarToDiskAsync(url, fileName);
+                        bmp = new BitmapImage(uri) { CreateOptions = BitmapCreateOptions.None, DecodePixelWidth = decodeWidth };
+                        lock (_cacheLock)
+                        {
+                            if (_bitmapCache.Count > 500) _bitmapCache.Clear();
+                            _bitmapCache[url] = bmp;
+                        }
                     }
                     else if (uri.Scheme == "ms-appx" || uri.Scheme == "ms-appdata")
                     {
@@ -202,7 +208,7 @@ namespace ZaloLite
                     if (Windows.ApplicationModel.Core.CoreApplication.MainView?.CoreWindow?.Dispatcher != null)
                     {
                         var _ = Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
-                            Windows.UI.Core.CoreDispatcherPriority.Low, () =>
+                            Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                         {
                             try
                             {

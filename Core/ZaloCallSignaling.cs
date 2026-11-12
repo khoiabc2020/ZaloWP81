@@ -140,6 +140,7 @@ namespace ZaloWP81.Core
             try
             {
                 string codecStr = "[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n";
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                 var req401 = new JsonObject();
                 req401["calleeId"] = JsonValue.CreateStringValue(peerId);
@@ -147,6 +148,16 @@ namespace ZaloWP81.Core
                 req401["codec"] = JsonValue.CreateStringValue(codecStr);
                 req401["session"] = JsonValue.CreateStringValue(callSessionToken);
                 req401["typeRequest"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
+                req401["callType"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
+                req401["protocol"] = JsonValue.CreateNumberValue(3);
+                req401["proto"] = JsonValue.CreateNumberValue(3);
+                req401["zrtp"] = JsonValue.CreateNumberValue(1);
+                req401["mProtocol"] = JsonValue.CreateStringValue("ZRTP");
+                req401["ts"] = JsonValue.CreateNumberValue(nowMs);
+                req401["time"] = JsonValue.CreateNumberValue(nowMs);
+                req401["checkExpire"] = JsonValue.CreateNumberValue(0);
+                req401["Dname"] = JsonValue.CreateStringValue(ZaloApp.Session?.DisplayName ?? "Zalo");
+                req401["avatar"] = JsonValue.CreateStringValue(ZaloApp.Session?.AvatarUrl ?? "");
                 req401["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
 
                 var resp401 = await SendVoiceCallApiAsync("/api/voicecall/requestcall", req401, CancellationToken.None);
@@ -195,11 +206,22 @@ namespace ZaloWP81.Core
 
                     // Step 2: Send media invite via /api/voicecall/request (Signal 416)
                     // subCommand = 3 is strictly required by Zalo official protocol when extendData is present!
+                    // protocol = 3 (ZRTP) & ts = nowMs are strictly validated by Android callee to prevent instant reject/expiry drop!
                     var req416 = new JsonObject();
                     req416["callId"] = JsonValue.CreateNumberValue(realCallId);
                     req416["calleeId"] = JsonValue.CreateStringValue(peerId);
                     req416["codec"] = JsonValue.CreateStringValue(codecStr);
                     req416["extendData"] = JsonValue.CreateStringValue(extendDataStr);
+                    req416["protocol"] = JsonValue.CreateNumberValue(3);
+                    req416["proto"] = JsonValue.CreateNumberValue(3);
+                    req416["zrtp"] = JsonValue.CreateNumberValue(1);
+                    req416["mProtocol"] = JsonValue.CreateStringValue("ZRTP");
+                    req416["ts"] = JsonValue.CreateNumberValue(nowMs);
+                    req416["time"] = JsonValue.CreateNumberValue(nowMs);
+                    req416["checkExpire"] = JsonValue.CreateNumberValue(0);
+                    req416["callType"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
+                    req416["Dname"] = JsonValue.CreateStringValue(ZaloApp.Session?.DisplayName ?? "Zalo");
+                    req416["avatar"] = JsonValue.CreateStringValue(ZaloApp.Session?.AvatarUrl ?? "");
                     if (!string.IsNullOrEmpty(rtcpIp)) req416["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
                     if (!string.IsNullOrEmpty(rtpIp)) req416["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
                     req416["session"] = JsonValue.CreateStringValue(session.SessionId);
@@ -582,12 +604,37 @@ namespace ZaloWP81.Core
                 // Case 1: Lumia is currently IDLE (handle incoming call invitation)
                 if (CurrentSession == null || CurrentSession.State == ZaloCallState.Ended || CurrentSession.State == ZaloCallState.Rejected)
                 {
-                    if (cmd == 401 || cmd == 402 || cmd == 416 || cmd == 400 || cmd == 426 || cmd == 428)
+                    if (cmd == 401 || cmd == 402 || cmd == 416 || cmd == 400 || cmd == 426 || cmd == 428 || cmd == 405)
                     {
                         int status = (int)GetSafeNumber(parsed, "status", 0);
-                        if (status == 1 || status == 3 || status == 50 || status == 103)
+                        if (status == 1 || status == 3 || status == 50 || status == 103 || cmd == 405)
                         {
-                            // Status indicates call already ended/cancelled/rejected
+                            // Status indicates call already ended/cancelled/rejected/missed while Lumia was idle
+                            if (TryExtractCallerInfo(parsed, out string missedCallerId, out long missedCallId, out bool isVid))
+                            {
+                                var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == missedCallerId);
+                                string callerName = fr?.Name;
+                                string callerAvatar = fr?.Avatar;
+                                if (string.IsNullOrEmpty(callerName))
+                                {
+                                    var conv = ZaloApp.Conversations.FirstOrDefault(c => c.ThreadId == missedCallerId || c.Key == "u:" + missedCallerId);
+                                    callerName = conv?.Name ?? GetSafeString(parsed, "displayName", GetSafeString(parsed, "dName", "Cuộc gọi Zalo"));
+                                    callerAvatar = conv?.AvatarUrl;
+                                }
+
+                                var dummySession = new ZaloCallSession
+                                {
+                                    CallId = missedCallId != 0 ? missedCallId : GenerateCallId(),
+                                    PeerId = missedCallerId,
+                                    PeerName = callerName ?? "Người dùng Zalo",
+                                    PeerAvatar = callerAvatar,
+                                    CallType = isVid ? ZaloCallType.Video : ZaloCallType.Voice,
+                                    IsOutgoing = false,
+                                    State = ZaloCallState.Ended
+                                };
+                                RecordCallHistory(dummySession, false, isMissed: true);
+                                Common.ZaloToast.ShowMissedCall(callerName, missedCallerId, callerAvatar, isVid);
+                            }
                             return;
                         }
 
@@ -921,6 +968,11 @@ namespace ZaloWP81.Core
             ext["supportCallBusy"] = JsonValue.CreateNumberValue(1);
             ext["supportHevcDecode"] = JsonValue.CreateNumberValue(0);
             ext["tpType"] = JsonValue.CreateNumberValue(0);
+            long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            ext["ts"] = JsonValue.CreateNumberValue(nowMs);
+            ext["time"] = JsonValue.CreateNumberValue(nowMs);
+            ext["callTime"] = JsonValue.CreateNumberValue(nowMs);
+            ext["checkExpire"] = JsonValue.CreateNumberValue(0);
             ext["mProtocol"] = JsonValue.CreateStringValue("ZRTP");
             ext["protocol"] = JsonValue.CreateNumberValue(3);
             ext["proto"] = JsonValue.CreateNumberValue(3);
@@ -1058,6 +1110,14 @@ namespace ZaloWP81.Core
                 s401["ssrc"] = JsonValue.CreateNumberValue(localSsrc);
                 s401["type"] = JsonValue.CreateNumberValue((int)session.CallType);
                 s401["time"] = JsonValue.CreateNumberValue(nowMs);
+                s401["ts"] = JsonValue.CreateNumberValue(nowMs);
+                s401["checkExpire"] = JsonValue.CreateNumberValue(0);
+                s401["protocol"] = JsonValue.CreateNumberValue(3);
+                s401["proto"] = JsonValue.CreateNumberValue(3);
+                s401["zrtp"] = JsonValue.CreateNumberValue(1);
+                s401["mProtocol"] = JsonValue.CreateStringValue("ZRTP");
+                s401["Dname"] = JsonValue.CreateStringValue(ZaloApp.Session?.DisplayName ?? "Zalo");
+                s401["avatar"] = JsonValue.CreateStringValue(ZaloApp.Session?.AvatarUrl ?? "");
                 s401["req_id"] = JsonValue.CreateStringValue("req_" + _rng.Next(1000, 9999));
                 string json = s401.Stringify();
                 ZaloLog.Add("ZRTC Signal 401 payload: " + json);

@@ -160,10 +160,13 @@ namespace ZaloWP81.Views
                 }
             }
 
+            bool isFriendshipCard = (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("artboard") || msg.MediaUrl.Contains("74009")))
+                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.Contains("artboard") || msg.Text.Contains("74009") || msg.Text.Contains("trở thành bạn bè") || msg.Text.Contains("thành bạn bè")));
+
             var container = new Grid
             {
                 Margin = new Thickness(0, isNextSameSender ? 1 : 2, 0, isNextSameSender ? 1 : 6),
-                HorizontalAlignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left
+                HorizontalAlignment = isFriendshipCard ? HorizontalAlignment.Center : (isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left)
             };
 
             var stack = new StackPanel();
@@ -222,9 +225,6 @@ namespace ZaloWP81.Views
                 quoteBorder.Child = quoteStack;
                 stack.Children.Add(quoteBorder);
             }
-
-            bool isFriendshipCard = (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("artboard") || msg.MediaUrl.Contains("74009")))
-                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.Contains("artboard") || msg.Text.Contains("74009") || msg.Text.Contains("trở thành bạn bè") || msg.Text.Contains("thành bạn bè")));
 
             bool isSticker = !isFriendshipCard && (msg.IsSticker || msg.MsgType == "chat.sticker" || msg.MsgType == "5"
                 || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("sticker_"))));
@@ -844,7 +844,7 @@ namespace ZaloWP81.Views
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 Margin = new Thickness(0, 2, 0, 0),
-                Visibility = isNextSameSender ? Visibility.Collapsed : Visibility.Visible
+                Visibility = (isFriendshipCard || isNextSameSender) ? Visibility.Collapsed : Visibility.Visible
             };
 
             timeStack.Children.Add(new TextBlock
