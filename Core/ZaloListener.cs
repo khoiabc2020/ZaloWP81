@@ -23,6 +23,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Media.Imaging;
 using Windows.Web.Http;
 using ZaloUWP.Services;
+using ZaloWP81.Core;
 
 namespace ZaloLite
 {
@@ -411,6 +412,10 @@ namespace ZaloLite
             else if (cmd == 502) EmitReceipts(parsed, false);
             else if (cmd == 522) EmitReceipts(parsed, true);
             else if (version == 1 && cmd == 612 && sub == 0) EmitReactions(parsed);
+            else if (cmd == 401 || cmd == 402 || cmd == 405 || cmd == 406 || cmd == 409)
+            {
+                ZaloCallSignaling.ProcessIncomingSignal(cmd, parsed);
+            }
             else if (version == 1 && cmd == 3000 && sub == 0)
             {
                 _stopped = true;
@@ -668,6 +673,11 @@ namespace ZaloLite
             {
                 _sendLock.Release();
             }
+        }
+
+        public async Task SendCallSignalAsync(int command, string json)
+        {
+            await SendFrameAsync(command, 0, json);
         }
     }
 

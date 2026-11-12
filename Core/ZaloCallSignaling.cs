@@ -1,5 +1,8 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Windows.Data.Json;
+using Windows.UI.Core;
 using Windows.UI.Xaml;
 using ZaloLite;
 
@@ -235,74 +238,173 @@ namespace ZaloWP81.Core
             return string.Format("{0:D2}:{1:D2}", m, s);
         }
 
+        public static void ProcessIncomingSignal(int cmd, JsonObject parsed)
+        {
+            if (parsed == null) return;
+            try
+            {
+                long callId = parsed.ContainsKey("callId") ? (long)parsed.GetNamedNumber("callId") : 0;
+                ZaloLog.Add(string.Format("ZRTC received signal {0}: callId={1}", cmd, callId));
+
+                if (cmd == 401)
+                {
+                    if (CurrentSession != null && CurrentSession.IsOutgoing && CurrentSession.CallId == callId)
+                    {
+                        CurrentSession.State = ZaloCallState.Ringing;
+                        NotifyState(ZaloCallState.Ringing);
+                    }
+                    else if (CurrentSession == null || CurrentSession.State == ZaloCallState.Ended || CurrentSession.State == ZaloCallState.Rejected)
+                    {
+                        string callerId = parsed.ContainsKey("callerId") ? parsed.GetNamedString("callerId") : string.Empty;
+                        int type = parsed.ContainsKey("type") ? (int)parsed.GetNamedNumber("type") : 0;
+                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == callerId);
+                        string callerName = fr?.Name ?? "Cuộc gọi Zalo";
+                        string callerAvatar = fr?.Avatar;
+
+                        var session = new ZaloCallSession
+                        {
+                            CallId = callId,
+                            PeerId = callerId,
+                            PeerName = callerName,
+                            PeerAvatar = callerAvatar,
+                            CallType = type == 1 ? ZaloCallType.Video : ZaloCallType.Voice,
+                            IsOutgoing = false,
+                            State = ZaloCallState.Calling
+                        };
+                        CurrentSession = session;
+                        NotifyState(ZaloCallState.Calling);
+
+                        var ignored = Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            NavigationManager.NavigateTo(new Views.CallPage(session, type == 1));
+                        });
+                    }
+                }
+                else if (cmd == 402)
+                {
+                    int status = parsed.ContainsKey("status") ? (int)parsed.GetNamedNumber("status") : -1;
+                    if (CurrentSession != null)
+                    {
+                        if (status == 0)
+                        {
+                            CurrentSession.State = ZaloCallState.Connected;
+                            NotifyState(ZaloCallState.Connected);
+                            StartDurationTimer();
+                        }
+                        else if (status == 1 || status == 3)
+                        {
+                            CurrentSession.State = ZaloCallState.Rejected;
+                            NotifyState(ZaloCallState.Rejected);
+                            StopTimers();
+                        }
+                    }
+                }
+                else if (cmd == 405 || cmd == 409)
+                {
+                    if (CurrentSession != null)
+                    {
+                        CurrentSession.State = ZaloCallState.Ended;
+                        NotifyState(ZaloCallState.Ended);
+                        StopTimers();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ProcessIncomingSignal error: " + ex.Message);
+            }
+        }
+
         // --- ZRTC Signaling Protocol Frames ---
 
         private static async Task SendSignal401Async(ZaloCallSession session)
         {
             try
             {
-                ZaloLog.Add(string.Format("ZRTC Signal 401 requestCall: callId={0}, callee={1}, type={2}",
-                    session.CallId, session.PeerId, session.CallType));
-                // Dispatched through WebSocket or HTTP when socket is active
+                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"codec\":\"[]\\n\",\"type\":{2},\"req_id\":\"req_{3}\"}}",
+                    session.CallId, session.PeerId, (int)session.CallType, _rng.Next(1000, 9999));
+                ZaloLog.Add("ZRTC Signal 401 payload: " + json);
+                if (ZaloApp.Listener != null)
+                {
+                    await ZaloApp.Listener.SendCallSignalAsync(401, json);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal401 error: " + ex.Message);
             }
-            await Task.Yield();
         }
 
         private static async Task SendSignal402Async(ZaloCallSession session, int status)
         {
             try
             {
-                ZaloLog.Add(string.Format("ZRTC Signal 402 answer/reject: callId={0}, status={1}", session.CallId, status));
+                string json = string.Format("{{\"callId\":{0},\"status\":{1},\"callerId\":\"{2}\",\"req_id\":\"req_{3}\"}}",
+                    session.CallId, status, session.PeerId, _rng.Next(1000, 9999));
+                ZaloLog.Add("ZRTC Signal 402 payload: " + json);
+                if (ZaloApp.Listener != null)
+                {
+                    await ZaloApp.Listener.SendCallSignalAsync(402, json);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal402 error: " + ex.Message);
             }
-            await Task.Yield();
         }
 
         private static async Task SendSignal405Async(ZaloCallSession session)
         {
             try
             {
-                ZaloLog.Add(string.Format("ZRTC Signal 405 cancelCall: callId={0}", session.CallId));
+                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"status\":103,\"req_id\":\"req_{2}\"}}",
+                    session.CallId, session.PeerId, _rng.Next(1000, 9999));
+                ZaloLog.Add("ZRTC Signal 405 payload: " + json);
+                if (ZaloApp.Listener != null)
+                {
+                    await ZaloApp.Listener.SendCallSignalAsync(405, json);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal405 error: " + ex.Message);
             }
-            await Task.Yield();
         }
 
         private static async Task SendSignal409Async(ZaloCallSession session)
         {
             try
             {
-                ZaloLog.Add(string.Format("ZRTC Signal 409 hangup: callId={0}, duration={1}s", session.CallId, session.DurationSeconds));
+                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"status\":50,\"duration\":{2},\"req_id\":\"req_{3}\"}}",
+                    session.CallId, session.PeerId, session.DurationSeconds, _rng.Next(1000, 9999));
+                ZaloLog.Add("ZRTC Signal 409 payload: " + json);
+                if (ZaloApp.Listener != null)
+                {
+                    await ZaloApp.Listener.SendCallSignalAsync(409, json);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal409 error: " + ex.Message);
             }
-            await Task.Yield();
         }
 
         private static async Task SendSignal406Async(ZaloCallSession session, int statusCode)
         {
             try
             {
-                ZaloLog.Add(string.Format("ZRTC Signal 406 stats: callId={0}, status={1}, duration={2}s",
-                    session.CallId, statusCode, session.DurationSeconds));
+                string json = string.Format("{{\"callId\":{0},\"status\":{1},\"duration\":{2},\"req_id\":\"req_{3}\"}}",
+                    session.CallId, statusCode, session.DurationSeconds, _rng.Next(1000, 9999));
+                ZaloLog.Add("ZRTC Signal 406 payload: " + json);
+                if (ZaloApp.Listener != null)
+                {
+                    await ZaloApp.Listener.SendCallSignalAsync(406, json);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal406 error: " + ex.Message);
             }
-            await Task.Yield();
         }
     }
 }

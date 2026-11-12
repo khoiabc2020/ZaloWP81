@@ -18,6 +18,7 @@ namespace ZaloWP81.Views
     {
         private readonly SolidColorBrush _activeBlue = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF));
         private readonly SolidColorBrush _endCallRed = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
+        private readonly SolidColorBrush _answerGreen = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
 
         private Ellipse _avatarEllipse;
         private TextBlock _avatarInitial;
@@ -27,10 +28,13 @@ namespace ZaloWP81.Views
         private Border _micButtonBorder;
         private Border _speakerButtonBorder;
         private Border _videoButtonBorder;
+        private Grid _incomingControlsGrid;
+        private Grid _activeControlsGrid;
         private MediaElement _audioPlayer;
 
         private object _target;
         private bool _isVideo;
+        private bool _isIncoming;
         private string _peerId;
         private string _peerName;
         private string _peerAvatar;
@@ -211,17 +215,21 @@ namespace ZaloWP81.Views
             Grid.SetRow(centerStack, 1);
             rootGrid.Children.Add(centerStack);
 
-            // 3. Bottom Controls Dock (Mute, Speaker, Video, End Call)
+            // 3. Bottom Controls Dock (Active controls + Incoming call controls)
             var controlsDock = new Border
             {
                 Padding = new Thickness(Math.Round(20 * scale), Math.Round(20 * scale), Math.Round(20 * scale), Math.Round(36 * scale)),
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
-            var controlsGrid = new Grid();
-            controlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            controlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            controlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            controlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            var controlsContainer = new Grid();
+
+            // Active Controls Grid (Mute, Speaker, Video, End Call)
+            _activeControlsGrid = new Grid();
+            _activeControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _activeControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _activeControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _activeControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             // Button 1: Mute
             var muteStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
@@ -251,7 +259,7 @@ namespace ZaloWP81.Views
             muteStack.Children.Add(_micButtonBorder);
             muteStack.Children.Add(micLabel);
             Grid.SetColumn(muteStack, 0);
-            controlsGrid.Children.Add(muteStack);
+            _activeControlsGrid.Children.Add(muteStack);
 
             // Button 2: Speaker
             var speakerStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
@@ -282,7 +290,7 @@ namespace ZaloWP81.Views
             speakerStack.Children.Add(_speakerButtonBorder);
             speakerStack.Children.Add(speakerLabel);
             Grid.SetColumn(speakerStack, 1);
-            controlsGrid.Children.Add(speakerStack);
+            _activeControlsGrid.Children.Add(speakerStack);
 
             // Button 3: Video Camera
             var videoStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
@@ -312,7 +320,7 @@ namespace ZaloWP81.Views
             videoStack.Children.Add(_videoButtonBorder);
             videoStack.Children.Add(videoLabel);
             Grid.SetColumn(videoStack, 2);
-            controlsGrid.Children.Add(videoStack);
+            _activeControlsGrid.Children.Add(videoStack);
 
             // Button 4: End Call
             var endStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
@@ -343,9 +351,81 @@ namespace ZaloWP81.Views
             endStack.Children.Add(endButtonBorder);
             endStack.Children.Add(endLabel);
             Grid.SetColumn(endStack, 3);
-            controlsGrid.Children.Add(endStack);
+            _activeControlsGrid.Children.Add(endStack);
 
-            controlsDock.Child = controlsGrid;
+            // Incoming Controls Grid (Từ chối / Trả lời)
+            _incomingControlsGrid = new Grid { Visibility = Visibility.Collapsed };
+            _incomingControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _incomingControlsGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+            // Reject Button (Red)
+            var rejectStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var rejectBtn = CreateRoundControlBorder(Math.Round(64 * scale), Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
+            var rejectIcon = new TextBlock
+            {
+                Text = "\uE13A",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = Math.Round(26 * scale),
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            rejectBtn.Child = rejectIcon;
+            rejectBtn.Tapped += async (s, e) =>
+            {
+                StopAudioPlayback();
+                await ZaloCallSignaling.RejectCallAsync();
+            };
+            var rejectLabel = new TextBlock
+            {
+                Text = "Từ chối",
+                FontSize = Math.Round(13 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44)),
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, Math.Round(8 * scale), 0, 0)
+            };
+            rejectStack.Children.Add(rejectBtn);
+            rejectStack.Children.Add(rejectLabel);
+            Grid.SetColumn(rejectStack, 0);
+            _incomingControlsGrid.Children.Add(rejectStack);
+
+            // Answer Button (Green)
+            var answerStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+            var answerBtn = CreateRoundControlBorder(Math.Round(64 * scale), Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
+            var answerIcon = new Image
+            {
+                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_call_clean_white.png")),
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            answerBtn.Child = answerIcon;
+            answerBtn.Tapped += async (s, e) =>
+            {
+                StopAudioPlayback();
+                await ZaloCallSignaling.AnswerCallAsync();
+                _incomingControlsGrid.Visibility = Visibility.Collapsed;
+                _activeControlsGrid.Visibility = Visibility.Visible;
+            };
+            var answerLabel = new TextBlock
+            {
+                Text = "Trả lời",
+                FontSize = Math.Round(13 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E)),
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, Math.Round(8 * scale), 0, 0)
+            };
+            answerStack.Children.Add(answerBtn);
+            answerStack.Children.Add(answerLabel);
+            Grid.SetColumn(answerStack, 1);
+            _incomingControlsGrid.Children.Add(answerStack);
+
+            controlsContainer.Children.Add(_activeControlsGrid);
+            controlsContainer.Children.Add(_incomingControlsGrid);
+            controlsDock.Child = controlsContainer;
             Grid.SetRow(controlsDock, 2);
             rootGrid.Children.Add(controlsDock);
 
@@ -382,8 +462,20 @@ namespace ZaloWP81.Views
             ZaloCallSignaling.StateChanged += OnCallStateChanged;
             ZaloCallSignaling.DurationTick += OnDurationTick;
 
-            _ = ZaloCallSignaling.StartCallAsync(_peerId, _peerName, _peerAvatar, _isVideo);
-            PlayRingbackTone();
+            if (_isIncoming)
+            {
+                _callStatusText.Text = "Cuộc gọi đến...";
+                PlayIncomingRingtone();
+                _incomingControlsGrid.Visibility = Visibility.Visible;
+                _activeControlsGrid.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                _incomingControlsGrid.Visibility = Visibility.Collapsed;
+                _activeControlsGrid.Visibility = Visibility.Visible;
+                _ = ZaloCallSignaling.StartCallAsync(_peerId, _peerName, _peerAvatar, _isVideo);
+                PlayRingbackTone();
+            }
         }
 
         private void UpdateControlStates()
@@ -427,6 +519,20 @@ namespace ZaloWP81.Views
             catch { }
         }
 
+        private void PlayIncomingRingtone()
+        {
+            try
+            {
+                if (_audioPlayer != null)
+                {
+                    _audioPlayer.IsLooping = true;
+                    _audioPlayer.Source = new Uri("ms-appx:///Assets/Sounds/zalo_ringtone.ogg");
+                    _audioPlayer.Play();
+                }
+            }
+            catch { }
+        }
+
         private void StopAudioPlayback()
         {
             try
@@ -461,15 +567,17 @@ namespace ZaloWP81.Views
                 switch (state)
                 {
                     case ZaloCallState.Calling:
-                        _callStatusText.Text = "Đang gọi...";
+                        _callStatusText.Text = _isIncoming ? "Cuộc gọi đến..." : "Đang gọi...";
                         break;
 
                     case ZaloCallState.Ringing:
-                        _callStatusText.Text = "Đang đổ chuông...";
+                        _callStatusText.Text = _isIncoming ? "Cuộc gọi đến..." : "Đang đổ chuông...";
                         break;
 
                     case ZaloCallState.Connected:
                         StopAudioPlayback();
+                        _incomingControlsGrid.Visibility = Visibility.Collapsed;
+                        _activeControlsGrid.Visibility = Visibility.Visible;
                         _callStatusText.Text = "00:00";
                         _callStatusText.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
                         _callStatusText.FontSize = 20;
@@ -525,7 +633,32 @@ namespace ZaloWP81.Views
 
         private void PopulateTarget(object target)
         {
-            if (target is ZaloFriend friend)
+            if (target is ZaloCallSession session)
+            {
+                _peerId = session.PeerId;
+                _peerName = session.PeerName ?? "Cuộc gọi Zalo";
+                _peerAvatar = session.PeerAvatar;
+                _isIncoming = !session.IsOutgoing;
+                _isVideo = session.CallType == ZaloCallType.Video;
+
+                _calleeNameText.Text = _peerName;
+                _avatarInitial.Text = ZaloAvatar.InitialOf(_peerName);
+                _avatarEllipse.Fill = _activeBlue;
+                if (!string.IsNullOrEmpty(_peerAvatar))
+                {
+                    try
+                    {
+                        var brush = ZaloAvatar.ImageFor(_peerAvatar);
+                        if (brush != null)
+                        {
+                            _avatarEllipse.Fill = brush;
+                            _avatarInitial.Text = string.Empty;
+                        }
+                    }
+                    catch { }
+                }
+            }
+            else if (target is ZaloFriend friend)
             {
                 _peerId = friend.UserId;
                 _peerName = friend.Name ?? "Bạn bè Zalo";
