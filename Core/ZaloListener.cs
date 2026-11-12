@@ -414,7 +414,34 @@ namespace ZaloLite
             else if (version == 1 && cmd == 612 && sub == 0) EmitReactions(parsed);
             else if (cmd >= 400 && cmd <= 420)
             {
-                ZaloCallSignaling.ProcessIncomingSignal(cmd, parsed);
+                JsonObject effective = parsed;
+                if (parsed.ContainsKey("data"))
+                {
+                    IJsonValue dataVal = parsed.GetNamedValue("data");
+                    if (dataVal.ValueType == JsonValueType.Object)
+                    {
+                        effective = dataVal.GetObject();
+                    }
+                    else if (dataVal.ValueType == JsonValueType.String && !string.IsNullOrEmpty(_cipherKey))
+                    {
+                        try
+                        {
+                            JsonObject decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
+                            if (decoded != null)
+                            {
+                                effective = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
+                                    ? decoded.GetNamedObject("data")
+                                    : decoded;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ZaloLog.Add("Call signal decode error: " + ex.Message);
+                        }
+                    }
+                }
+                ZaloLog.Add(string.Format("ZRTC Dispatching Signal {0} (sub={1}): {2}", cmd, sub, effective.Stringify()));
+                ZaloCallSignaling.ProcessIncomingSignal(cmd, effective);
             }
             else if (version == 1 && cmd == 3000 && sub == 0)
             {
@@ -677,7 +704,7 @@ namespace ZaloLite
 
         public async Task SendCallSignalAsync(int command, string json)
         {
-            await SendFrameAsync(command, 0, json);
+            await SendFrameAsync(command, 1, json);
         }
     }
 

@@ -707,7 +707,7 @@ namespace ZaloWP81.Views
             }
             else if (target is ZaloConversation conv)
             {
-                _peerId = conv.Key ?? conv.ThreadId;
+                _peerId = !string.IsNullOrEmpty(conv.ThreadId) ? conv.ThreadId : conv.Key;
                 _peerName = conv.Name ?? "Trò chuyện";
                 _peerAvatar = conv.AvatarUrl;
 
@@ -719,6 +719,15 @@ namespace ZaloWP81.Views
                 {
                     _avatarEllipse.Fill = brush;
                     _avatarInitial.Text = string.Empty;
+                }
+            }
+
+            // Ensure peerId is a clean numeric UID without "u:" or "g:" prefixes
+            if (!string.IsNullOrEmpty(_peerId))
+            {
+                if (_peerId.StartsWith("u:") || _peerId.StartsWith("g:"))
+                {
+                    _peerId = _peerId.Substring(2);
                 }
             }
         }

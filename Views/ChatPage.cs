@@ -2431,6 +2431,93 @@ namespace ZaloWP81.Views
                 };
                 stack.Children.Add(fileCard);
             }
+            else if (msg.MsgType == "chat.call" || msg.MsgType == "chat.call.notify" || msg.MsgType == "100" || msg.MsgType == "chat.call_history")
+            {
+                double scale = ZaloSettingsService.Current.UiScaleFactor;
+                var callCard = new Border
+                {
+                    Background = isMe ? _bubbleMeBg : _bubblePartnerBg,
+                    BorderBrush = isMe ? new SolidColorBrush(Color.FromArgb(0xFF, 0xBA, 0xE6, 0xFD)) : _bubblePartnerBorder,
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(16),
+                    Padding = new Thickness(12, 10, 14, 10),
+                    MaxWidth = Math.Round(290 * scale)
+                };
+
+                var callGrid = new Grid();
+                callGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                callGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                bool isMissed = msg.Text != null && (msg.Text.Contains("nhỡ") || msg.Text.Contains("từ chối") || msg.Text.Contains("không trả lời"));
+                bool isVideoCall = msg.Text != null && msg.Text.ToLower().Contains("video");
+
+                var iconCircle = new Border
+                {
+                    Width = Math.Round(38 * scale),
+                    Height = Math.Round(38 * scale),
+                    CornerRadius = new CornerRadius(Math.Round(19 * scale)),
+                    Background = isMissed
+                        ? new SolidColorBrush(Color.FromArgb(0x22, 0xEF, 0x44, 0x44))
+                        : new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x88, 0xFF)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, Math.Round(10 * scale), 0)
+                };
+
+                var callIcon = new TextBlock
+                {
+                    Text = isVideoCall ? "\uE116" : "\uE13A",
+                    FontFamily = new FontFamily("Segoe UI Symbol"),
+                    FontSize = Math.Round(18 * scale),
+                    Foreground = isMissed
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44))
+                        : new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x88, 0xFF)),
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                iconCircle.Child = callIcon;
+                Grid.SetColumn(iconCircle, 0);
+                callGrid.Children.Add(iconCircle);
+
+                var textStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                var titleText = new TextBlock
+                {
+                    Text = msg.Text ?? "Cuộc gọi",
+                    FontSize = Math.Round(14 * scale),
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    Foreground = isMissed
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44))
+                        : _textDark,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                var subtitleText = new TextBlock
+                {
+                    Text = "Gọi lại",
+                    FontSize = Math.Round(12 * scale),
+                    Foreground = _activeBlue,
+                    FontWeight = Windows.UI.Text.FontWeights.Normal,
+                    Margin = new Thickness(0, 2, 0, 0)
+                };
+                textStack.Children.Add(titleText);
+                textStack.Children.Add(subtitleText);
+                Grid.SetColumn(textStack, 1);
+                callGrid.Children.Add(textStack);
+
+                callCard.Child = callGrid;
+
+                // Tapping on call history bubble immediately calls back
+                callCard.PointerPressed += (s, ev) => callCard.Opacity = 0.7;
+                callCard.PointerReleased += (s, ev) => callCard.Opacity = 1.0;
+                callCard.PointerCanceled += (s, ev) => callCard.Opacity = 1.0;
+                callCard.Tapped += (s, ev) =>
+                {
+                    if (_conversation != null)
+                    {
+                        NavigationManager.NavigateTo(new CallPage(_conversation, isVideoCall));
+                    }
+                };
+
+                stack.Children.Add(callCard);
+            }
             else
             {
                 // Regular Text Bubble

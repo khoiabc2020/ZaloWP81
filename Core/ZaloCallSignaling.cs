@@ -75,6 +75,12 @@ namespace ZaloWP81.Core
                 await EndCallAsync();
             }
 
+            if (!string.IsNullOrEmpty(peerId))
+            {
+                if (peerId.StartsWith("u:") || peerId.StartsWith("g:"))
+                    peerId = peerId.Substring(2);
+            }
+
             var session = new ZaloCallSession
             {
                 CallId = GenerateCallId(),
@@ -87,7 +93,8 @@ namespace ZaloWP81.Core
                 DurationSeconds = 0,
                 IsMuted = false,
                 IsSpeakerOn = isVideo, // Default speaker for video calls
-                IsVideoEnabled = isVideo
+                IsVideoEnabled = isVideo,
+                LocalSsrc = (uint)_rng.Next(1000000, 9999999)
             };
 
             CurrentSession = session;
@@ -115,6 +122,7 @@ namespace ZaloWP81.Core
                     NotifyState(ZaloCallState.Ended);
                     StopTimers();
                     _ = SendSignal405Async(session);
+                    RecordCallHistory(session, false, isMissed: true);
                 }
             };
             _timeoutTimer.Start();
@@ -141,13 +149,15 @@ namespace ZaloWP81.Core
         public static async Task RejectCallAsync()
         {
             if (CurrentSession == null) return;
-            CurrentSession.State = ZaloCallState.Rejected;
+            var session = CurrentSession;
+            session.State = ZaloCallState.Rejected;
             NotifyState(ZaloCallState.Rejected);
             StopTimers();
             ZaloUdpRelayEngine.Current.StopSession();
 
             // Send Signal 402 status 3 (rejected)
-            await SendSignal402Async(CurrentSession, 3);
+            await SendSignal402Async(session, 3);
+            RecordCallHistory(session, false, isRejected: true);
         }
 
         public static async Task EndCallAsync()
@@ -171,6 +181,8 @@ namespace ZaloWP81.Core
                 await SendSignal405Async(session);
                 await SendSignal406Async(session, 103); // status 103 = caller cancelled
             }
+
+            RecordCallHistory(session, wasConnected);
         }
 
         public static void ToggleMute()
@@ -247,12 +259,43 @@ namespace ZaloWP81.Core
             return string.Format("{0:D2}:{1:D2}", m, s);
         }
 
+        public static long GetSafeNumber(JsonObject obj, string key, long fallback = 0)
+        {
+            if (obj == null || !obj.ContainsKey(key)) return fallback;
+            try
+            {
+                var val = obj.GetNamedValue(key);
+                if (val.ValueType == JsonValueType.Number) return (long)val.GetNumber();
+                if (val.ValueType == JsonValueType.String)
+                {
+                    long n;
+                    if (long.TryParse(val.GetString(), out n)) return n;
+                }
+            }
+            catch { }
+            return fallback;
+        }
+
+        public static string GetSafeString(JsonObject obj, string key, string fallback = "")
+        {
+            if (obj == null || !obj.ContainsKey(key)) return fallback;
+            try
+            {
+                var val = obj.GetNamedValue(key);
+                if (val.ValueType == JsonValueType.String) return val.GetString();
+                if (val.ValueType == JsonValueType.Number) return val.GetNumber().ToString();
+                if (val.ValueType == JsonValueType.Boolean) return val.GetBoolean().ToString();
+            }
+            catch { }
+            return fallback;
+        }
+
         public static void ProcessIncomingSignal(int cmd, JsonObject parsed)
         {
             if (parsed == null) return;
             try
             {
-                long callId = parsed.ContainsKey("callId") ? (long)parsed.GetNamedNumber("callId") : 0;
+                long callId = GetSafeNumber(parsed, "callId", 0);
                 ZaloLog.Add(string.Format("ZRTC received signal {0}: callId={1}", cmd, callId));
 
                 if (cmd == 401)
@@ -264,8 +307,10 @@ namespace ZaloWP81.Core
                     }
                     else if (CurrentSession == null || CurrentSession.State == ZaloCallState.Ended || CurrentSession.State == ZaloCallState.Rejected)
                     {
-                        string callerId = parsed.ContainsKey("callerId") ? parsed.GetNamedString("callerId") : string.Empty;
-                        int type = parsed.ContainsKey("type") ? (int)parsed.GetNamedNumber("type") : 0;
+                        string callerId = GetSafeString(parsed, "callerId", string.Empty);
+                        if (callerId.StartsWith("u:") || callerId.StartsWith("g:")) callerId = callerId.Substring(2);
+
+                        int type = (int)GetSafeNumber(parsed, "type", 0);
                         var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == callerId);
                         string callerName = fr?.Name ?? "Cuộc gọi Zalo";
                         string callerAvatar = fr?.Avatar;
@@ -322,7 +367,7 @@ namespace ZaloWP81.Core
                 }
                 else if (cmd == 402)
                 {
-                    int status = parsed.ContainsKey("status") ? (int)parsed.GetNamedNumber("status") : -1;
+                    int status = (int)GetSafeNumber(parsed, "status", -1);
                     if (CurrentSession != null)
                     {
                         if (status == 0)
@@ -335,10 +380,12 @@ namespace ZaloWP81.Core
                         }
                         else if (status == 1 || status == 3)
                         {
-                            CurrentSession.State = ZaloCallState.Rejected;
+                            var session = CurrentSession;
+                            session.State = ZaloCallState.Rejected;
                             NotifyState(ZaloCallState.Rejected);
                             StopTimers();
                             ZaloUdpRelayEngine.Current.StopSession();
+                            RecordCallHistory(session, false, isRejected: true);
                         }
                     }
                 }
@@ -346,10 +393,13 @@ namespace ZaloWP81.Core
                 {
                     if (CurrentSession != null)
                     {
-                        CurrentSession.State = ZaloCallState.Ended;
+                        var session = CurrentSession;
+                        bool wasConnected = session.State == ZaloCallState.Connected;
+                        session.State = ZaloCallState.Ended;
                         NotifyState(ZaloCallState.Ended);
                         StopTimers();
                         ZaloUdpRelayEngine.Current.StopSession();
+                        RecordCallHistory(session, wasConnected);
                     }
                 }
             }
@@ -363,26 +413,13 @@ namespace ZaloWP81.Core
         {
             try
             {
-                if (parsed.ContainsKey("token"))
-                {
-                    var tokenVal = parsed.GetNamedValue("token");
-                    if (tokenVal.ValueType == JsonValueType.String) session.RelayToken = tokenVal.GetString();
-                    else if (tokenVal.ValueType == JsonValueType.Number) session.RelayToken = tokenVal.GetNumber().ToString();
-                }
+                session.RelayToken = GetSafeString(parsed, "token", session.RelayToken ?? string.Empty);
 
-                if (parsed.ContainsKey("ssrc"))
-                {
-                    session.LocalSsrc = (uint)parsed.GetNamedNumber("ssrc");
-                }
-                else if (parsed.ContainsKey("local_ssrc"))
-                {
-                    session.LocalSsrc = (uint)parsed.GetNamedNumber("local_ssrc");
-                }
+                uint ssrc = (uint)GetSafeNumber(parsed, "ssrc", (long)GetSafeNumber(parsed, "local_ssrc", session.LocalSsrc));
+                if (ssrc != 0) session.LocalSsrc = ssrc;
 
-                if (parsed.ContainsKey("remote_ssrc"))
-                {
-                    session.RemoteSsrc = (uint)parsed.GetNamedNumber("remote_ssrc");
-                }
+                uint rSsrc = (uint)GetSafeNumber(parsed, "remote_ssrc", session.RemoteSsrc);
+                if (rSsrc != 0) session.RemoteSsrc = rSsrc;
 
                 string host = null;
                 int port = 0;
@@ -398,10 +435,8 @@ namespace ZaloWP81.Core
                             if (item.ValueType == JsonValueType.Object)
                             {
                                 var obj = item.GetObject();
-                                if (obj.ContainsKey("ip")) host = obj.GetNamedString("ip");
-                                else if (obj.ContainsKey("host")) host = obj.GetNamedString("host");
-
-                                if (obj.ContainsKey("port")) port = (int)obj.GetNamedNumber("port");
+                                host = GetSafeString(obj, "ip", GetSafeString(obj, "host"));
+                                port = (int)GetSafeNumber(obj, "port", 0);
                                 if (!string.IsNullOrEmpty(host) && port > 0) break;
                             }
                             else if (item.ValueType == JsonValueType.String)
@@ -420,11 +455,8 @@ namespace ZaloWP81.Core
 
                 if (string.IsNullOrEmpty(host))
                 {
-                    if (parsed.ContainsKey("ip")) host = parsed.GetNamedString("ip");
-                    else if (parsed.ContainsKey("host")) host = parsed.GetNamedString("host");
-                    else if (parsed.ContainsKey("server")) host = parsed.GetNamedString("server");
-
-                    if (parsed.ContainsKey("port")) port = (int)parsed.GetNamedNumber("port");
+                    host = GetSafeString(parsed, "ip", GetSafeString(parsed, "host", GetSafeString(parsed, "server")));
+                    port = (int)GetSafeNumber(parsed, "port", 0);
                 }
 
                 if (!string.IsNullOrEmpty(host) && port > 0)
@@ -452,15 +484,25 @@ namespace ZaloWP81.Core
             try
             {
                 string callerId = ZaloApp.Session?.Uid ?? string.Empty;
+                if (callerId.StartsWith("u:") || callerId.StartsWith("g:")) callerId = callerId.Substring(2);
+
+                string calleeId = session.PeerId ?? string.Empty;
+                if (calleeId.StartsWith("u:") || calleeId.StartsWith("g:")) calleeId = calleeId.Substring(2);
+
                 long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                 uint localSsrc = session.LocalSsrc != 0 ? session.LocalSsrc : (uint)_rng.Next(1000000, 9999999);
                 session.LocalSsrc = localSsrc;
+
                 string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"callerId\":\"{2}\",\"codec\":\"[\\\"opus/48000/2\\\"]\\n\",\"sP2P\":0,\"ssrc\":{3},\"type\":{4},\"time\":{5},\"req_id\":\"req_{6}\"}}",
-                    session.CallId, session.PeerId, callerId, localSsrc, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
+                    session.CallId, calleeId, callerId, localSsrc, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 401 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
                     await ZaloApp.Listener.SendCallSignalAsync(401, json);
+                }
+                else
+                {
+                    ZaloLog.Add("ZRTC SendSignal401 warning: ZaloApp.Listener is null!");
                 }
             }
             catch (Exception ex)
@@ -473,10 +515,14 @@ namespace ZaloWP81.Core
         {
             try
             {
+                string callerId = session.PeerId ?? string.Empty;
+                if (callerId.StartsWith("u:") || callerId.StartsWith("g:")) callerId = callerId.Substring(2);
+
                 uint localSsrc = session.LocalSsrc != 0 ? session.LocalSsrc : (uint)_rng.Next(1000000, 9999999);
                 session.LocalSsrc = localSsrc;
+
                 string json = string.Format("{{\"callId\":{0},\"status\":{1},\"callerId\":\"{2}\",\"ssrc\":{3},\"sP2P\":0,\"req_id\":\"req_{4}\"}}",
-                    session.CallId, status, session.PeerId, localSsrc, _rng.Next(1000, 9999));
+                    session.CallId, status, callerId, localSsrc, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 402 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
@@ -493,8 +539,11 @@ namespace ZaloWP81.Core
         {
             try
             {
+                string calleeId = session.PeerId ?? string.Empty;
+                if (calleeId.StartsWith("u:") || calleeId.StartsWith("g:")) calleeId = calleeId.Substring(2);
+
                 string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"status\":103,\"req_id\":\"req_{2}\"}}",
-                    session.CallId, session.PeerId, _rng.Next(1000, 9999));
+                    session.CallId, calleeId, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 405 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
@@ -511,8 +560,11 @@ namespace ZaloWP81.Core
         {
             try
             {
+                string calleeId = session.PeerId ?? string.Empty;
+                if (calleeId.StartsWith("u:") || calleeId.StartsWith("g:")) calleeId = calleeId.Substring(2);
+
                 string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"status\":50,\"duration\":{2},\"req_id\":\"req_{3}\"}}",
-                    session.CallId, session.PeerId, session.DurationSeconds, _rng.Next(1000, 9999));
+                    session.CallId, calleeId, session.DurationSeconds, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 409 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
@@ -540,6 +592,109 @@ namespace ZaloWP81.Core
             catch (Exception ex)
             {
                 ZaloLog.Add("SendSignal406 error: " + ex.Message);
+            }
+        }
+
+        public static void RecordCallHistory(ZaloCallSession session, bool wasConnected, bool isRejected = false, bool isMissed = false)
+        {
+            if (session == null || string.IsNullOrEmpty(session.PeerId)) return;
+
+            try
+            {
+                string peerId = session.PeerId;
+                if (peerId.StartsWith("u:") || peerId.StartsWith("g:")) peerId = peerId.Substring(2);
+
+                string convKey = "u:" + peerId;
+                var conv = ZaloApp.Conversations.FirstOrDefault(c => c.Key == convKey || c.ThreadId == peerId);
+                if (conv == null)
+                {
+                    conv = new ZaloConversation
+                    {
+                        Key = convKey,
+                        ThreadId = peerId,
+                        Name = session.PeerName ?? "Người dùng Zalo",
+                        AvatarUrl = session.PeerAvatar,
+                        IsGroup = false
+                    };
+                    ZaloApp.Conversations.Insert(0, conv);
+                }
+
+                bool isVideo = session.CallType == ZaloCallType.Video;
+                string callPrefix = isVideo ? "Cuộc gọi video" : "Cuộc gọi thoại";
+                string callText;
+
+                if (session.IsOutgoing)
+                {
+                    if (wasConnected && session.DurationSeconds > 0)
+                    {
+                        callText = string.Format("{0} đi ({1})", callPrefix, FormatDuration(session.DurationSeconds));
+                    }
+                    else if (isRejected)
+                    {
+                        callText = string.Format("{0} đi bị từ chối", callPrefix);
+                    }
+                    else
+                    {
+                        callText = string.Format("{0} đi không trả lời", callPrefix);
+                    }
+                }
+                else
+                {
+                    if (wasConnected && session.DurationSeconds > 0)
+                    {
+                        callText = string.Format("{0} đến ({1})", callPrefix, FormatDuration(session.DurationSeconds));
+                    }
+                    else if (isRejected)
+                    {
+                        callText = string.Format("{0} đến đã từ chối", callPrefix);
+                    }
+                    else
+                    {
+                        callText = string.Format("{0} nhỡ", callPrefix);
+                    }
+                }
+
+                long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                var chatMsg = new ZaloChatMessage
+                {
+                    Id = "call_" + session.CallId + "_" + nowMs,
+                    GlobalMessageId = session.CallId.ToString(),
+                    ClientMessageId = nowMs.ToString(),
+                    SenderUid = session.IsOutgoing ? (ZaloApp.Session?.Uid ?? "") : peerId,
+                    RecipientUid = session.IsOutgoing ? peerId : (ZaloApp.Session?.Uid ?? ""),
+                    Sender = session.IsOutgoing ? "Tôi" : (session.PeerName ?? "Người dùng Zalo"),
+                    Text = callText,
+                    MsgType = "chat.call",
+                    Ts = nowMs,
+                    FromMe = session.IsOutgoing,
+                    Status = wasConnected ? 1 : 0
+                };
+
+                var dispatcher = Windows.ApplicationModel.Core.CoreApplication.MainView?.CoreWindow?.Dispatcher;
+                if (dispatcher != null)
+                {
+                    var ignored = dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                    {
+                        if (!conv.Messages.Any(m => m.GlobalMessageId == session.CallId.ToString() && m.MsgType == "chat.call"))
+                        {
+                            conv.Messages.Add(chatMsg);
+                            conv.LastText = callText;
+                            conv.LastTs = nowMs;
+
+                            int idx = ZaloApp.Conversations.IndexOf(conv);
+                            if (idx > 0)
+                            {
+                                ZaloApp.Conversations.Move(idx, 0);
+                            }
+                            _ = ZaloApp.SaveCachedConversationsAsync();
+                            ZaloLog.Add(string.Format("ZRTC Call history recorded for {0}: {1}", peerId, callText));
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("RecordCallHistory error: " + ex.Message);
             }
         }
     }
