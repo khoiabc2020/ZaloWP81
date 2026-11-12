@@ -78,6 +78,10 @@ namespace ZaloWP81.Views
         private TextBlock _activeVoiceStatusText;
 
         private Border _strangerBanner;
+        private Border _audioCallBtn;
+        private Border _videoCallBtn;
+        private ColumnDefinition _audioCallCol;
+        private ColumnDefinition _videoCallCol;
 
         public ChatPage(string conversationKey = null)
         {
@@ -107,7 +111,7 @@ namespace ZaloWP81.Views
             {
                 Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xE4, 0xEB, 0xF3))
             };
-            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(72 * scale)) });
+            _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(76 * scale)) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             _rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -189,7 +193,7 @@ namespace ZaloWP81.Views
             double scale = ZaloSettingsService.Current.UiScaleFactor;
             var headerBorder = new Border
             {
-                Padding = new Thickness(Math.Round(4 * scale), Math.Round(22 * scale), Math.Round(6 * scale), Math.Round(6 * scale))
+                Padding = new Thickness(Math.Round(4 * scale), Math.Round(24 * scale), Math.Round(4 * scale), Math.Round(6 * scale))
             };
             var gradient = new LinearGradientBrush
             {
@@ -201,20 +205,22 @@ namespace ZaloWP81.Views
             headerBorder.Background = gradient;
 
             var header = new Grid();
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(40 * scale)) }); // 0: Back
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(46 * scale)) }); // 1: Avatar
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(42 * scale)) }); // 0: Back
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 1: Avatar
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });     // 2: Title
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 3: Audio Call
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 4: Video Call
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(38 * scale)) }); // 5: More Options
+            _audioCallCol = new ColumnDefinition { Width = new GridLength(Math.Round(42 * scale)) };
+            _videoCallCol = new ColumnDefinition { Width = new GridLength(Math.Round(42 * scale)) };
+            header.ColumnDefinitions.Add(_audioCallCol); // 3: Audio Call
+            header.ColumnDefinitions.Add(_videoCallCol); // 4: Video Call
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(40 * scale)) }); // 5: More Options
 
             // Back Button (Pure Touch Border with clean white vector back icon)
-            var backBtn = CreateTouchBorder(Math.Round(40 * scale), Math.Round(44 * scale));
+            var backBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(46 * scale));
             var backIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_back_clean_white.png"),
-                Width = Math.Round(24 * scale),
-                Height = Math.Round(24 * scale),
+                Width = Math.Round(26 * scale),
+                Height = Math.Round(26 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -272,50 +278,50 @@ namespace ZaloWP81.Views
             Grid.SetColumn(titleStack, 2);
             header.Children.Add(titleStack);
 
-            // Audio Call Button
-            var audioCallBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
+            // Audio Call Button (Clean 64x64 white icon, 28px rendered)
+            _audioCallBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(46 * scale));
             var audioIcon = new Image
             {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_voicecall_white.png"),
-                Width = Math.Round(22 * scale),
-                Height = Math.Round(22 * scale),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_call_clean_white.png"),
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            audioCallBtn.Child = audioIcon;
-            audioCallBtn.Tapped += (s, e) =>
+            _audioCallBtn.Child = audioIcon;
+            _audioCallBtn.Tapped += (s, e) =>
             {
                 if (_conversation != null)
                 {
                     NavigationManager.NavigateTo(new CallPage(_conversation, false));
                 }
             };
-            Grid.SetColumn(audioCallBtn, 3);
-            header.Children.Add(audioCallBtn);
+            Grid.SetColumn(_audioCallBtn, 3);
+            header.Children.Add(_audioCallBtn);
 
-            // Video Call Button
-            var videoCallBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
+            // Video Call Button (Clean 64x64 white icon, 28px rendered)
+            _videoCallBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(46 * scale));
             var videoIcon = new Image
             {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/btn_videocall_white.png"),
-                Width = Math.Round(22 * scale),
-                Height = Math.Round(22 * scale),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_video_clean_white.png"),
+                Width = Math.Round(28 * scale),
+                Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            videoCallBtn.Child = videoIcon;
-            videoCallBtn.Tapped += (s, e) =>
+            _videoCallBtn.Child = videoIcon;
+            _videoCallBtn.Tapped += (s, e) =>
             {
                 if (_conversation != null)
                 {
                     NavigationManager.NavigateTo(new CallPage(_conversation, true));
                 }
             };
-            Grid.SetColumn(videoCallBtn, 4);
-            header.Children.Add(videoCallBtn);
+            Grid.SetColumn(_videoCallBtn, 4);
+            header.Children.Add(_videoCallBtn);
 
             // More Options Button (Three vertical dots ⋮ - Opens ConversationOptionsPage or GroupInfoPage)
-            var moreBtn = CreateTouchBorder(Math.Round(38 * scale), Math.Round(44 * scale));
+            var moreBtn = CreateTouchBorder(Math.Round(40 * scale), Math.Round(46 * scale));
             var moreIcon = new Image
             {
                 Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icn_header_menu_more_white.png"),
@@ -475,11 +481,11 @@ namespace ZaloWP81.Views
             _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 3. Mic
             _inputBarGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(44 * scale)) }); // 4. Photo/Send
 
-            // Emoji Button
+            // Emoji Button (Crisp grey smiley icon, perfectly visible on white bar)
             var emojiBtn = CreateTouchBorder(Math.Round(44 * scale), Math.Round(46 * scale));
             emojiBtn.Child = new Image
             {
-                Source = SafeAppxImage("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_emoticon.png"),
+                Source = SafeAppxImage("ms-appx:///Assets/Icons/ic_emoji_gray.png"),
                 Width = Math.Round(28 * scale),
                 Height = Math.Round(28 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -588,7 +594,13 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _photoButton.Child = photoImg;
-            _photoButton.Tapped += (s, e) => PickPhoto();
+            _photoButton.Tapped += (s, e) =>
+            {
+                var sheet = new Common.ZaloActionSheet("Gửi hình ảnh");
+                sheet.AddAction("Chụp ảnh từ Máy ảnh", async () => await CapturePhotoFromCameraAsync());
+                sheet.AddAction("Chọn ảnh từ Thư viện", () => PickPhoto());
+                sheet.Show();
+            };
             Grid.SetColumn(_photoButton, 4);
             _inputBarGrid.Children.Add(_photoButton);
 
@@ -869,7 +881,40 @@ namespace ZaloWP81.Views
             }
             if (_conversation == null) return;
 
-            var file = args.Files[0];
+            await SendStorageFilePhotoAsync(args.Files[0]);
+        }
+
+        private async System.Threading.Tasks.Task CapturePhotoFromCameraAsync()
+        {
+            if (_conversation == null) return;
+            try
+            {
+                var capture = new Windows.Media.Capture.MediaCapture();
+                var initSettings = new Windows.Media.Capture.MediaCaptureInitializationSettings
+                {
+                    StreamingCaptureMode = Windows.Media.Capture.StreamingCaptureMode.Video,
+                    PhotoCaptureSource = Windows.Media.Capture.PhotoCaptureSource.Photo
+                };
+                await capture.InitializeAsync(initSettings);
+
+                var tempFolder = Windows.Storage.ApplicationData.Current.TemporaryFolder;
+                var file = await tempFolder.CreateFileAsync("zalo_cam_" + DateTime.Now.Ticks + ".jpg", CreationCollisionOption.GenerateUniqueName);
+                var encProps = Windows.Media.MediaProperties.ImageEncodingProperties.CreateJpeg();
+                await capture.CapturePhotoToStorageFileAsync(encProps, file);
+                capture.Dispose();
+
+                await SendStorageFilePhotoAsync(file);
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Không thể truy cập máy ảnh: " + ex.Message, "Lỗi máy ảnh");
+                await md.ShowAsync();
+            }
+        }
+
+        private async System.Threading.Tasks.Task SendStorageFilePhotoAsync(StorageFile file)
+        {
+            if (file == null || _conversation == null) return;
             try
             {
                 var props = await file.GetBasicPropertiesAsync();
@@ -894,7 +939,7 @@ namespace ZaloWP81.Views
                     await ZaloApp.SendImageAsync(_conversation, file.Name, imageStream, (long)props.Size, width, height, caption);
                 }
                 RenderMessages();
-                ScrollToBottom();
+                ScrollToBottom(instant: true);
             }
             catch (Exception ex)
             {
@@ -1237,7 +1282,28 @@ namespace ZaloWP81.Views
                 }
 
                 UpdateGroupPostingState();
-                RequestRenderMessages();
+                
+                // Cloud của tôi detection
+                bool isCloud = !string.IsNullOrEmpty(conversationKey) && conversationKey == ZaloApp.Session?.Uid;
+                if (isCloud)
+                {
+                    _titleBlock.Text = "Cloud của tôi";
+                    _recipientInitial.Text = string.Empty;
+                    _recipientAvatar.Fill = new ImageBrush { ImageSource = SafeAppxImage("ms-appx:///Assets/Icons/ic_cloud_blue.png") };
+                    if (_subtitleBlock != null)
+                    {
+                        _subtitleBlock.Text = "Lưu trữ cá nhân";
+                        _subtitleBlock.Visibility = Visibility.Visible;
+                    }
+                    if (_audioCallBtn != null) _audioCallBtn.Visibility = Visibility.Collapsed;
+                    if (_videoCallBtn != null) _videoCallBtn.Visibility = Visibility.Collapsed;
+                    if (_audioCallCol != null) _audioCallCol.Width = new GridLength(0);
+                    if (_videoCallCol != null) _videoCallCol.Width = new GridLength(0);
+                }
+
+                // Render cached messages immediately on load and jump straight to the latest chat
+                RenderMessages();
+                ScrollToBottom(instant: true);
                 if (_conversation.IsGroup)
                 {
                     _ = EnsureGroupMembersLoadedAsync();
@@ -1782,18 +1848,22 @@ namespace ZaloWP81.Views
             }
         }
 
-        private void ScrollToBottom()
+        private void ScrollToBottom(bool instant = false)
         {
             if (_messageScroll == null) return;
+            try
+            {
+                _messageScroll.UpdateLayout();
+                _messageScroll.ChangeView(null, 9999999, null, disableAnimation: instant);
+            }
+            catch { }
+
             var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
             {
                 try
                 {
-                    double offset = _messageScroll.ScrollableHeight;
-                    if (!double.IsNaN(offset) && !double.IsInfinity(offset) && offset > 0)
-                    {
-                        _messageScroll.ChangeView(null, offset, null, true);
-                    }
+                    _messageScroll.UpdateLayout();
+                    _messageScroll.ChangeView(null, 9999999, null, disableAnimation: instant);
                 }
                 catch { }
             });
@@ -1811,9 +1881,26 @@ namespace ZaloWP81.Views
 
             bool isGroupOther = !isMe && _conversation != null && _conversation.IsGroup;
 
+            bool isNextSameSender = false;
+            if (_conversation != null && _conversation.Messages != null)
+            {
+                int idx = _conversation.Messages.IndexOf(msg);
+                if (idx >= 0 && idx < _conversation.Messages.Count - 1)
+                {
+                    var nextMsg = _conversation.Messages[idx + 1];
+                    if (nextMsg != null && nextMsg.FromMe == msg.FromMe && (!isGroupOther || nextMsg.SenderUid == msg.SenderUid))
+                    {
+                        if (string.Equals(nextMsg.TimeText, msg.TimeText, StringComparison.Ordinal))
+                        {
+                            isNextSameSender = true;
+                        }
+                    }
+                }
+            }
+
             var container = new Grid
             {
-                Margin = new Thickness(0, 4, 0, 4),
+                Margin = new Thickness(0, isNextSameSender ? 1 : 2, 0, isNextSameSender ? 1 : 6),
                 HorizontalAlignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left
             };
 
@@ -2397,7 +2484,8 @@ namespace ZaloWP81.Views
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = isMe ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-                Margin = new Thickness(0, 4, 0, 0)
+                Margin = new Thickness(0, 2, 0, 0),
+                Visibility = isNextSameSender ? Visibility.Collapsed : Visibility.Visible
             };
 
             timeStack.Children.Add(new TextBlock

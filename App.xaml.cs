@@ -104,36 +104,51 @@ namespace ZaloWP81
             }
         }
 
-        public static void MakeTextBoxTransparent(TextBox tb)
+        public static void MakeTextBoxTransparent(TextBox tb, bool isSearch = false)
         {
             if (tb == null) return;
             try
             {
-                string tpl = @"<ControlTemplate TargetType=""TextBox"" xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
-                    <Grid Background=""Transparent"">
-                        <ScrollViewer x:Name=""ContentElement""
-                                      HorizontalScrollBarVisibility=""Hidden""
-                                      VerticalScrollBarVisibility=""Hidden""
-                                      VerticalAlignment=""Center""
-                                      Margin=""0"" />
-                    </Grid>
-                </ControlTemplate>";
-                tb.Template = (ControlTemplate)XamlReader.Load(tpl);
+                string styleKey = isSearch ? "SearchTextBoxStyle" : "ChatInputTextBoxStyle";
+                if (Application.Current != null && Application.Current.Resources != null && Application.Current.Resources.ContainsKey(styleKey))
+                {
+                    tb.Style = (Style)Application.Current.Resources[styleKey];
+                    return;
+                }
+            }
+            catch { }
+
+            try
+            {
+                string xaml = @"<ResourceDictionary xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation"" xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml"">
+                    <Style TargetType=""TextBox"">
+                        <Setter Property=""Background"" Value=""Transparent"" />
+                        <Setter Property=""BorderBrush"" Value=""Transparent"" />
+                        <Setter Property=""BorderThickness"" Value=""0"" />
+                        <Setter Property=""Template"">
+                            <Setter.Value>
+                                <ControlTemplate TargetType=""TextBox"">
+                                    <Grid Background=""Transparent"">
+                                        <ScrollViewer x:Name=""ContentElement""
+                                                      HorizontalScrollBarVisibility=""Hidden""
+                                                      VerticalScrollBarVisibility=""Hidden""
+                                                      VerticalAlignment=""Center"" />
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ResourceDictionary>";
+                var dict = (ResourceDictionary)XamlReader.Load(xaml);
+                foreach (var v in dict.Values)
+                {
+                    if (v is Style st) { tb.Style = st; break; }
+                }
             }
             catch { }
 
             tb.Background = new SolidColorBrush(Colors.Transparent);
             tb.BorderThickness = new Thickness(0);
-            tb.GotFocus += (s, e) =>
-            {
-                tb.Background = new SolidColorBrush(Colors.Transparent);
-                tb.BorderThickness = new Thickness(0);
-            };
-            tb.LostFocus += (s, e) =>
-            {
-                tb.Background = new SolidColorBrush(Colors.Transparent);
-                tb.BorderThickness = new Thickness(0);
-            };
         }
 
         public IXamlType GetXamlType(Type type) => null;

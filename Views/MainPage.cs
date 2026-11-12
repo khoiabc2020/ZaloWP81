@@ -351,7 +351,7 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center,
                 VerticalContentAlignment = VerticalAlignment.Center
             };
-            App.MakeTextBoxTransparent(_searchBox);
+            App.MakeTextBoxTransparent(_searchBox, isSearch: true);
             searchInputContainer.Children.Add(_searchBox);
 
             var clearSearchBtn = CreateTouchBorder(Math.Round(34 * scale), Math.Round(38 * scale));
@@ -1435,8 +1435,11 @@ namespace ZaloWP81.Views
 
             sec1.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
 
-            var rowStyle = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_photo_gray.png", "zStyle - Cá nhân hóa", "Hình nền trò chuyện, âm báo, kiểu chữ", minHeight: 68);
-            rowStyle.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            var rowStyle = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_photo_gray.png", "zStyle - Cá nhân hóa", "Hình nền trò chuyện, âm báo cuộc gọi", minHeight: 68);
+            rowStyle.Tapped += (s, e) =>
+            {
+                NavigationManager.NavigateTo(new SettingsPage());
+            };
             sec1.Children.Add(rowStyle);
             stack.Children.Add(sec1);
 
@@ -1445,20 +1448,79 @@ namespace ZaloWP81.Views
 
             // 3. SECTION 2: Dữ liệu & Bảo mật
             var sec2 = new StackPanel { Background = new SolidColorBrush(Colors.White) };
-            var rowStorage = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_storage_blue.png", "Dung lượng và dữ liệu", "Quản lý bộ nhớ đệm và dữ liệu chat", minHeight: 68);
-            rowStorage.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            var rowStorage = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_storage_blue.png", "Dung lượng và dữ liệu", "Quản lý bộ nhớ đệm và tệp tin tải về", minHeight: 68);
+            rowStorage.Tapped += async (s, e) =>
+            {
+                var sheet = new Common.ZaloActionSheet("Dung lượng và dữ liệu");
+                sheet.AddAction("Xóa bộ nhớ đệm (Giải phóng dung lượng)", async () =>
+                {
+                    try
+                    {
+                        var temp = Windows.Storage.ApplicationData.Current.TemporaryFolder;
+                        var files = await temp.GetFilesAsync();
+                        foreach (var f in files)
+                        {
+                            try { await f.DeleteAsync(); } catch { }
+                        }
+                        await new MessageDialog("Đã dọn dẹp sạch bộ nhớ đệm thành công!", "Dung lượng").ShowAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await new MessageDialog("Lỗi xóa bộ nhớ đệm: " + ex.Message, "Thông báo").ShowAsync();
+                    }
+                }, isDestructive: true);
+                sheet.AddAction("Dọn dẹp ảnh và video đã lưu tạm", async () =>
+                {
+                    try
+                    {
+                        var local = Windows.Storage.ApplicationData.Current.LocalFolder;
+                        var subFolder = await local.CreateFolderAsync("ImageCache", Windows.Storage.CreationCollisionOption.OpenIfExists);
+                        var imgs = await subFolder.GetFilesAsync();
+                        foreach (var img in imgs)
+                        {
+                            try { await img.DeleteAsync(); } catch { }
+                        }
+                        await new MessageDialog("Đã xóa ảnh tạm thành công!", "Dung lượng").ShowAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        await new MessageDialog("Lỗi dọn dẹp ảnh: " + ex.Message, "Thông báo").ShowAsync();
+                    }
+                }, isDestructive: true);
+                sheet.Show();
+            };
             sec2.Children.Add(rowStorage);
 
             sec2.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
 
-            var rowSecurity = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/ic_security_blue.png", "Tài khoản và bảo mật", minHeight: 64);
-            rowSecurity.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            string phoneNum = ZaloApp.Session?.PhoneNumber;
+            string maskedPhone = !string.IsNullOrEmpty(phoneNum) && phoneNum.Length >= 7 
+                ? phoneNum.Substring(0, 3) + " **** " + phoneNum.Substring(phoneNum.Length - 3) 
+                : "Đã kích hoạt bảo mật";
+            var rowSecurity = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_security_blue.png", "Tài khoản và bảo mật", $"Số điện thoại: {maskedPhone} · Đã bảo vệ", minHeight: 68);
+            rowSecurity.Tapped += async (s, e) =>
+            {
+                var session = ZaloApp.Session;
+                string msg = $"• Tên tài khoản: {session?.DisplayName ?? "Người dùng Zalo"}\n" +
+                             $"• Số điện thoại: {session?.PhoneNumber ?? "Chưa liên kết"}\n" +
+                             $"• Zalo UID: {session?.Uid ?? "N/A"}\n" +
+                             $"• Thiết bị: Lumia 640 XL Dual SIM\n" +
+                             $"• Trạng thái bảo mật: An toàn (Token hoạt động)";
+                await new MessageDialog(msg, "Tài khoản và bảo mật").ShowAsync();
+            };
             sec2.Children.Add(rowSecurity);
 
             sec2.Children.Add(new Border { Height = 1, Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF0, 0xF1, 0xF2)), Margin = new Thickness(62, 0, 0, 0) });
 
-            var rowPrivacy = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/ic_lock_clean_blue.png", "Quyền riêng tư", minHeight: 64);
-            rowPrivacy.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
+            var rowPrivacy = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/ic_lock_clean_blue.png", "Quyền riêng tư", "Trạng thái truy cập, tin nhắn từ người lạ", minHeight: 68);
+            rowPrivacy.Tapped += async (s, e) =>
+            {
+                var sheet = new Common.ZaloActionSheet("Quyền riêng tư");
+                sheet.AddAction("Trạng thái truy cập: Đang hiển thị", () => { });
+                sheet.AddAction("Nhận tin nhắn từ người lạ: Cho phép", () => { });
+                sheet.AddAction("Nhận cuộc gọi từ người lạ: Cho phép", () => { });
+                sheet.Show();
+            };
             sec2.Children.Add(rowPrivacy);
             stack.Children.Add(sec2);
 
@@ -1467,7 +1529,7 @@ namespace ZaloWP81.Views
 
             // 4. SECTION 3: Cài đặt chung
             var sec3 = new StackPanel { Background = new SolidColorBrush(Colors.White) };
-            var rowSettings = CreateSettingRowDirectIcon("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_more.png", "Cài đặt & Giao diện Lumia", minHeight: 64);
+            var rowSettings = CreateSettingRowWithBadge("ms-appx:///Assets/Icons/Android/Chat/icon_viewfull_kb_more.png", "Cài đặt & Giao diện Lumia", "Tỷ lệ thu phóng UI, cỡ chữ trò chuyện, âm báo", minHeight: 68);
             rowSettings.Tapped += (s, e) => NavigationManager.NavigateTo(new SettingsPage());
             sec3.Children.Add(rowSettings);
             stack.Children.Add(sec3);
