@@ -252,6 +252,11 @@ namespace ZaloWP81.Core
                     {
                         ParseRelayConfig(resp416, session);
                     }
+
+                    // CRITICAL FIX: Always dispatch WebSocket Signal 401 (VOICE_REQUEST_CALL) as well!
+                    // HTTP /api/voicecall/request sends the wake-up push notification to Android callee,
+                    // but the active WebSocket connection also needs Signal 401 frame to establish the real-time call session!
+                    await SendSignal401Async(session);
                 }
                 else
                 {

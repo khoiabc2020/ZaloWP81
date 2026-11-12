@@ -1468,14 +1468,24 @@ namespace ZaloLite
             string avatar = Str(user, "avatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_url");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatarUrl");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_120");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_240");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_standard");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumb_avatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumbAvatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumb_120");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "global_avatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "globalAvatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avt");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "fullAvt");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "userAvatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "picture");
+
+            if (!string.IsNullOrEmpty(avatar))
+            {
+                avatar = avatar.Trim();
+                if (avatar.StartsWith("//", StringComparison.Ordinal)) avatar = "https:" + avatar;
+            }
 
             return new ZaloFriend { UserId = userId, Name = name, Avatar = avatar };
         }

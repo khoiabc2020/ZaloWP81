@@ -93,6 +93,10 @@ namespace ZaloLite
         {
             if (string.IsNullOrEmpty(url)) return null;
 
+            url = url.Trim();
+            if (url.StartsWith("//", StringComparison.Ordinal)) url = "https:" + url;
+            else if (url.StartsWith("http://", StringComparison.OrdinalIgnoreCase)) url = "https://" + url.Substring(7);
+
             lock (_cacheLock)
             {
                 BitmapImage cached;

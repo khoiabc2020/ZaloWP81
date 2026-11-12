@@ -59,13 +59,16 @@ namespace ZaloWP81.Views
 
         // Contacts Elements
         private StackPanel _friendStack;
-        private int _contactSubTab = 0; // 0 = All, 1 = Friends, 2 = OA, 3 = Groups
+        private int _contactSubTab = 0; // 0 = Friends, 1 = Groups, 2 = OA
         private Border _chipAll;
         private Border _chipFriends;
         private Border _chipOA;
         private TextBlock _chipAllText;
         private TextBlock _chipFriendsText;
         private TextBlock _chipOAText;
+        private Border _tabIndicator0;
+        private Border _tabIndicator1;
+        private Border _tabIndicator2;
         private ScrollViewer _contactsScrollViewer;
         private ScrollViewer _groupsScrollViewer;
         private StackPanel _groupsStack;
@@ -669,28 +672,78 @@ namespace ZaloWP81.Views
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(Math.Round(48 * scale)) });
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-            // Row 0: Rounded filter chips matching WP10 ("Tất cả", "Bạn bè", "OA")
+            // Row 0: Segmented sub-tabs matching Zalo Android ("Bạn bè", "Nhóm", "OA")
             var filterBorder = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xEE, 0xEE)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xEE, 0xF2, 0xF6)),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(Math.Round(14 * scale), Math.Round(6 * scale), Math.Round(14 * scale), Math.Round(6 * scale))
+                Height = Math.Round(46 * scale)
             };
-            var filterStack = new StackPanel { Orientation = Orientation.Horizontal };
+            var filterGrid = new Grid();
+            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            filterGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-            _chipAll = CreateChip("Tất cả", true, out _chipAllText);
-            _chipFriends = CreateChip("Bạn bè", false, out _chipFriendsText);
-            _chipOA = CreateChip("OA", false, out _chipOAText);
+            _chipAll = new Border { Background = new SolidColorBrush(Colors.Transparent), IsTapEnabled = true };
+            var stack0 = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            _chipAllText = new TextBlock
+            {
+                Text = "Bạn bè",
+                FontSize = Math.Round(14.5 * scale, 1),
+                FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                Foreground = _activeBlue,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            _tabIndicator0 = new Border { Height = 2.5, Background = _activeBlue, HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Visible };
+            stack0.Children.Add(_chipAllText);
+            stack0.Children.Add(_tabIndicator0);
+            _chipAll.Child = stack0;
+
+            _chipFriends = new Border { Background = new SolidColorBrush(Colors.Transparent), IsTapEnabled = true };
+            var stack1 = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            _chipFriendsText = new TextBlock
+            {
+                Text = "Nhóm",
+                FontSize = Math.Round(14.5 * scale, 1),
+                FontWeight = Windows.UI.Text.FontWeights.Normal,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            _tabIndicator1 = new Border { Height = 2.5, Background = _activeBlue, HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
+            stack1.Children.Add(_chipFriendsText);
+            stack1.Children.Add(_tabIndicator1);
+            _chipFriends.Child = stack1;
+
+            _chipOA = new Border { Background = new SolidColorBrush(Colors.Transparent), IsTapEnabled = true };
+            var stack2 = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+            _chipOAText = new TextBlock
+            {
+                Text = "OA",
+                FontSize = Math.Round(14.5 * scale, 1),
+                FontWeight = Windows.UI.Text.FontWeights.Normal,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            _tabIndicator2 = new Border { Height = 2.5, Background = _activeBlue, HorizontalAlignment = HorizontalAlignment.Stretch, Visibility = Visibility.Collapsed };
+            stack2.Children.Add(_chipOAText);
+            stack2.Children.Add(_tabIndicator2);
+            _chipOA.Child = stack2;
 
             _chipAll.Tapped += (s, e) => SwitchContactSubTab(0);
             _chipFriends.Tapped += (s, e) => SwitchContactSubTab(1);
             _chipOA.Tapped += (s, e) => SwitchContactSubTab(2);
 
-            filterStack.Children.Add(_chipAll);
-            filterStack.Children.Add(_chipFriends);
-            filterStack.Children.Add(_chipOA);
-            filterBorder.Child = filterStack;
+            Grid.SetColumn(_chipAll, 0);
+            Grid.SetColumn(_chipFriends, 1);
+            Grid.SetColumn(_chipOA, 2);
+            filterGrid.Children.Add(_chipAll);
+            filterGrid.Children.Add(_chipFriends);
+            filterGrid.Children.Add(_chipOA);
+            filterBorder.Child = filterGrid;
             Grid.SetRow(filterBorder, 0);
             grid.Children.Add(filterBorder);
 
@@ -814,36 +867,53 @@ namespace ZaloWP81.Views
         {
             _contactSubTab = subTab;
 
-            // Reset Groups view if visible
-            if (_groupsScrollViewer != null) _groupsScrollViewer.Visibility = Visibility.Collapsed;
+            var activeColor = _activeBlue;
+            var inactiveColor = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B));
 
-            // Update chip styles
-            _chipAll.Background = subTab == 0 ? ColorBrush(0xFF, 0xE5, 0xE7, 0xEB) : new SolidColorBrush(Colors.White);
-            _chipAll.BorderThickness = new Thickness(subTab == 0 ? 0 : 1);
-            _chipAllText.Foreground = subTab == 0 ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : _inactiveGray;
-            _chipAllText.FontWeight = subTab == 0 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
-
-            _chipFriends.Background = subTab == 1 ? ColorBrush(0xFF, 0xE5, 0xE7, 0xEB) : new SolidColorBrush(Colors.White);
-            _chipFriends.BorderThickness = new Thickness(subTab == 1 ? 0 : 1);
-            _chipFriendsText.Foreground = subTab == 1 ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : _inactiveGray;
-            _chipFriendsText.FontWeight = subTab == 1 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
-
-            _chipOA.Background = subTab == 2 ? ColorBrush(0xFF, 0xE5, 0xE7, 0xEB) : new SolidColorBrush(Colors.White);
-            _chipOA.BorderThickness = new Thickness(subTab == 2 ? 0 : 1);
-            _chipOAText.Foreground = subTab == 2 ? ColorBrush(0xFF, 0x11, 0x18, 0x27) : _inactiveGray;
-            _chipOAText.FontWeight = subTab == 2 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
-
-            if (subTab == 2)
+            if (_chipAllText != null)
             {
-                if (_contactsScrollViewer != null) _contactsScrollViewer.Visibility = Visibility.Collapsed;
-                if (_oaView != null) _oaView.Visibility = Visibility.Visible;
+                _chipAllText.Foreground = subTab == 0 ? activeColor : inactiveColor;
+                _chipAllText.FontWeight = subTab == 0 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
             }
-            else
+            if (_tabIndicator0 != null) _tabIndicator0.Visibility = subTab == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_chipFriendsText != null)
+            {
+                _chipFriendsText.Foreground = subTab == 1 ? activeColor : inactiveColor;
+                _chipFriendsText.FontWeight = subTab == 1 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+            }
+            if (_tabIndicator1 != null) _tabIndicator1.Visibility = subTab == 1 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (_chipOAText != null)
+            {
+                _chipOAText.Foreground = subTab == 2 ? activeColor : inactiveColor;
+                _chipOAText.FontWeight = subTab == 2 ? Windows.UI.Text.FontWeights.SemiBold : Windows.UI.Text.FontWeights.Normal;
+            }
+            if (_tabIndicator2 != null) _tabIndicator2.Visibility = subTab == 2 ? Visibility.Visible : Visibility.Collapsed;
+
+            if (subTab == 0) // Bạn bè
             {
                 if (_oaView != null) _oaView.Visibility = Visibility.Collapsed;
+                if (_groupsScrollViewer != null) _groupsScrollViewer.Visibility = Visibility.Collapsed;
                 if (_contactsScrollViewer != null) _contactsScrollViewer.Visibility = Visibility.Visible;
                 _friendsDirty = true;
                 RefreshFriends();
+            }
+            else if (subTab == 1) // Nhóm
+            {
+                if (_oaView != null) _oaView.Visibility = Visibility.Collapsed;
+                if (_contactsScrollViewer != null) _contactsScrollViewer.Visibility = Visibility.Collapsed;
+                if (_groupsScrollViewer != null)
+                {
+                    _groupsScrollViewer.Visibility = Visibility.Visible;
+                    UpdateGroupList();
+                }
+            }
+            else if (subTab == 2) // OA
+            {
+                if (_contactsScrollViewer != null) _contactsScrollViewer.Visibility = Visibility.Collapsed;
+                if (_groupsScrollViewer != null) _groupsScrollViewer.Visibility = Visibility.Collapsed;
+                if (_oaView != null) _oaView.Visibility = Visibility.Visible;
             }
         }
 
@@ -2266,6 +2336,31 @@ namespace ZaloWP81.Views
             };
         }
 
+        private static string GetSortLetter(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "#";
+            string trimmed = name.Trim();
+            if (trimmed.Length == 0) return "#";
+            char c = trimmed[0];
+            if (c == 'Đ' || c == 'đ') return "Đ";
+
+            string norm = ZaloFormat.NormalizeSearch(c.ToString());
+            if (norm.Length > 0 && norm[0] >= 'A' && norm[0] <= 'Z')
+            {
+                return norm.Substring(0, 1);
+            }
+            return "#";
+        }
+
+        private static int GetAlphabetRank(string letter)
+        {
+            if (string.IsNullOrEmpty(letter) || letter == "#") return 999;
+            char c = letter[0];
+            if (c == 'Đ') return 45; // Đ right after D
+            if (c >= 'A' && c <= 'Z') return (c - 'A') * 10;
+            return 999;
+        }
+
         private void RefreshFriends()
         {
             _friendStack.Children.Clear();
@@ -2278,62 +2373,9 @@ namespace ZaloWP81.Views
                 friends = friends.Where(f => ZaloFormat.SearchContains(f.Name, norm));
             }
 
-            int count = 0;
-            int renderLimit = string.IsNullOrEmpty(query) ? 45 : 300;
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var friendList = friends.ToList();
-            for (int i = 0; i < friendList.Count; i++)
-            {
-                if (count >= renderLimit)
-                {
-                    int remaining = friendList.Count - count;
-                    var loadMoreBorder = new Border
-                    {
-                        Height = 44,
-                        Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF5, 0xF7, 0xFA)),
-                        Margin = new Thickness(16, 8, 16, 12),
-                        CornerRadius = new CornerRadius(8)
-                    };
-                    var loadMoreText = new TextBlock
-                    {
-                        Text = $"Hiển thị thêm {remaining} bạn bè...",
-                        FontSize = 13.5,
-                        FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                        Foreground = _activeBlue,
-                        HorizontalAlignment = HorizontalAlignment.Center,
-                        VerticalAlignment = VerticalAlignment.Center
-                    };
-                    loadMoreBorder.Child = loadMoreText;
-                    loadMoreBorder.Tapped += (s, e) =>
-                    {
-                        _friendStack.Children.Remove(loadMoreBorder);
-                        for (int j = count; j < friendList.Count; j++)
-                        {
-                            var f = friendList[j];
-                            string k = f.UserId ?? f.PhoneNumber ?? f.Name ?? j.ToString();
-                            if (!_friendItemCache.TryGetValue(k, out var itm))
-                            {
-                                itm = CreateFriendItem(f);
-                                _friendItemCache[k] = itm;
-                            }
-                            _friendStack.Children.Add(itm);
-                        }
-                    };
-                    _friendStack.Children.Add(loadMoreBorder);
-                    break;
-                }
-
-                var friend = friendList[i];
-                string fKey = friend.UserId ?? friend.PhoneNumber ?? friend.Name ?? count.ToString();
-                if (!_friendItemCache.TryGetValue(fKey, out var item))
-                {
-                    item = CreateFriendItem(friend);
-                    _friendItemCache[fKey] = item;
-                }
-                _friendStack.Children.Add(item);
-                count++;
-            }
-
-            if (count == 0)
+            if (friendList.Count == 0)
             {
                 var emptyCard = new Border
                 {
@@ -2362,6 +2404,50 @@ namespace ZaloWP81.Views
                 });
                 emptyCard.Child = emptyStack;
                 _friendStack.Children.Add(emptyCard);
+                _friendsRendered = true;
+                _friendsDirty = false;
+                return;
+            }
+
+            // Group by letter A-Z with Vietnamese collation
+            var letterGroups = friendList
+                .GroupBy(f => GetSortLetter(f.Name))
+                .OrderBy(g => GetAlphabetRank(g.Key))
+                .ToList();
+
+            foreach (var group in letterGroups)
+            {
+                // Section Header banner
+                var headerBorder = new Border
+                {
+                    Height = Math.Round(28 * scale),
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF8, 0xFA, 0xFC)),
+                    BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
+                    BorderThickness = new Thickness(0, 0, 0, 1),
+                    Padding = new Thickness(Math.Round(16 * scale), 0, 0, 0)
+                };
+                headerBorder.Child = new TextBlock
+                {
+                    Text = group.Key,
+                    FontSize = Math.Round(13.5 * scale, 1),
+                    FontWeight = Windows.UI.Text.FontWeights.Bold,
+                    Foreground = _activeBlue,
+                    VerticalAlignment = VerticalAlignment.Center
+                };
+                _friendStack.Children.Add(headerBorder);
+
+                // Sort contacts in this group
+                var sortedFriends = group.OrderBy(f => ZaloFormat.NormalizeSearch(f.Name ?? "")).ThenBy(f => f.Name ?? "");
+                foreach (var friend in sortedFriends)
+                {
+                    string fKey = friend.UserId ?? friend.PhoneNumber ?? friend.Name ?? "";
+                    if (!_friendItemCache.TryGetValue(fKey, out var item))
+                    {
+                        item = CreateFriendItem(friend);
+                        _friendItemCache[fKey] = item;
+                    }
+                    _friendStack.Children.Add(item);
+                }
             }
 
             _friendsRendered = true;
@@ -2373,12 +2459,13 @@ namespace ZaloWP81.Views
             double scale = ZaloSettingsService.Current.UiScaleFactor;
             double rowHeight = Math.Round(64 * scale);
             double avatarSize = Math.Round(44 * scale);
-            double col0Width = Math.Round(50 * scale);
+            double col0Width = Math.Round(52 * scale);
+            double btnSize = Math.Round(38 * scale);
 
             var itemBorder = new Border
             {
                 Height = rowHeight,
-                Padding = new Thickness(16, 0, 16, 0),
+                Padding = new Thickness(Math.Round(14 * scale), 0, Math.Round(10 * scale), 0),
                 Background = new SolidColorBrush(Colors.White),
                 IsTapEnabled = true,
                 IsHoldingEnabled = true
@@ -2386,7 +2473,10 @@ namespace ZaloWP81.Views
             var itemGrid = new Grid();
             itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(col0Width) });
             itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(btnSize + 4) });
+            itemGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(btnSize + 4) });
 
+            // Col 0: Avatar
             var avatarGrid = new Grid { Width = avatarSize, Height = avatarSize, VerticalAlignment = VerticalAlignment.Center };
             var ellipse = new Ellipse { Width = avatarSize, Height = avatarSize, Fill = friend.AvatarColor ?? _activeBlue };
             var initial = new TextBlock
@@ -2413,27 +2503,91 @@ namespace ZaloWP81.Views
             Grid.SetColumn(avatarGrid, 0);
             itemGrid.Children.Add(avatarGrid);
 
+            // Col 1: Friend Name
             var nameBlock = new TextBlock
             {
                 Text = friend.Name ?? "Bạn bè",
-                FontSize = Math.Round(18 * scale, 1),
+                FontSize = Math.Round(15.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
-                Foreground = _textDark,
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x0F, 0x17, 0x2A)),
                 VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(10, 0, 0, 0),
+                Margin = new Thickness(Math.Round(8 * scale), 0, Math.Round(4 * scale), 0),
                 TextTrimming = TextTrimming.CharacterEllipsis
             };
             Grid.SetColumn(nameBlock, 1);
             itemGrid.Children.Add(nameBlock);
 
+            // Col 2: Voice Call quick button
+            var voiceCallBtn = new Border
+            {
+                Width = btnSize,
+                Height = btnSize,
+                CornerRadius = new CornerRadius(btnSize / 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                IsTapEnabled = true
+            };
+            voiceCallBtn.Child = new TextBlock
+            {
+                Text = "\uE13A",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = Math.Round(16.5 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            voiceCallBtn.PointerPressed += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Color.FromArgb(0x1F, 0x00, 0x88, 0xFF));
+            voiceCallBtn.PointerReleased += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Colors.Transparent);
+            voiceCallBtn.PointerCanceled += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Colors.Transparent);
+            voiceCallBtn.Tapped += (s, e) =>
+            {
+                e.Handled = true;
+                NavigationManager.NavigateTo(new CallPage(friend, false));
+            };
+            Grid.SetColumn(voiceCallBtn, 2);
+            itemGrid.Children.Add(voiceCallBtn);
+
+            // Col 3: Video Call quick button
+            var videoCallBtn = new Border
+            {
+                Width = btnSize,
+                Height = btnSize,
+                CornerRadius = new CornerRadius(btnSize / 2),
+                Background = new SolidColorBrush(Colors.Transparent),
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                IsTapEnabled = true
+            };
+            videoCallBtn.Child = new TextBlock
+            {
+                Text = "\uE116",
+                FontFamily = new FontFamily("Segoe UI Symbol"),
+                FontSize = Math.Round(16.5 * scale),
+                Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x64, 0x74, 0x8B)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            videoCallBtn.PointerPressed += (s, e) => videoCallBtn.Background = new SolidColorBrush(Color.FromArgb(0x1F, 0x00, 0x88, 0xFF));
+            videoCallBtn.PointerReleased += (s, e) => videoCallBtn.Background = new SolidColorBrush(Colors.Transparent);
+            videoCallBtn.PointerCanceled += (s, e) => videoCallBtn.Background = new SolidColorBrush(Colors.Transparent);
+            videoCallBtn.Tapped += (s, e) =>
+            {
+                e.Handled = true;
+                NavigationManager.NavigateTo(new CallPage(friend, true));
+            };
+            Grid.SetColumn(videoCallBtn, 3);
+            itemGrid.Children.Add(videoCallBtn);
+
+            // Row bottom divider
             var divider = new Border
             {
-                BorderBrush = ColorBrush(0xFF, 0xEA, 0xEC, 0xEF),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
                 BorderThickness = new Thickness(0, 0, 0, 1),
-                Margin = new Thickness(60, 0, 0, 0),
+                Margin = new Thickness(Math.Round(58 * scale), 0, 0, 0),
                 VerticalAlignment = VerticalAlignment.Bottom
             };
-            Grid.SetColumnSpan(divider, 2);
+            Grid.SetColumnSpan(divider, 4);
             itemGrid.Children.Add(divider);
 
             itemBorder.Child = itemGrid;
@@ -2460,10 +2614,33 @@ namespace ZaloWP81.Views
                     var conv = ZaloApp.OpenFriend(friend);
                     if (conv != null) NavigationManager.NavigateTo(new ChatPage(conv.Key));
                 });
-                sheet.AddAction("Xem trang cá nhân", () =>
+                sheet.AddAction("Gọi thoại", () => NavigationManager.NavigateTo(new CallPage(friend, false)));
+                sheet.AddAction("Gọi video", () => NavigationManager.NavigateTo(new CallPage(friend, true)));
+                sheet.AddAction("Xem trang cá nhân", () => NavigationManager.NavigateTo(new FriendProfilePage(friend)));
+                sheet.AddAction("Xóa bạn bè", async () =>
                 {
-                    NavigationManager.NavigateTo(new FriendProfilePage(friend));
-                });
+                    var confirm = new Windows.UI.Popups.MessageDialog($"Bạn có chắc chắn muốn xóa {friend.Name} khỏi danh bạ?", "Xác nhận");
+                    confirm.Commands.Add(new Windows.UI.Popups.UICommand("Xóa", async (c) =>
+                    {
+                        try
+                        {
+                            if (ZaloApp.Session != null)
+                            {
+                                await ZaloAuth.RemoveFriendAsync(ZaloApp.Session, friend.UserId, System.Threading.CancellationToken.None);
+                            }
+                            var found = ZaloApp.Friends.FirstOrDefault(f => f.UserId == friend.UserId);
+                            if (found != null) ZaloApp.Friends.Remove(found);
+                            _friendsDirty = true;
+                            RefreshFriends();
+                        }
+                        catch (Exception ex)
+                        {
+                            await new Windows.UI.Popups.MessageDialog("Không thể xóa bạn bè: " + ex.Message).ShowAsync();
+                        }
+                    }));
+                    confirm.Commands.Add(new Windows.UI.Popups.UICommand("Hủy"));
+                    await confirm.ShowAsync();
+                }, isDestructive: true);
                 sheet.Show();
             };
 

@@ -545,6 +545,10 @@ namespace ZaloWP81.Views
                         _conversation.AvatarUrl = fr.Avatar;
                     }
                 }
+                else if (string.IsNullOrEmpty(_conversation.AvatarUrl) && ZaloApp.Session != null)
+                {
+                    _ = LoadMissingPartnerProfileAsync(_conversation.ThreadId);
+                }
             }
 
             _titleBlock.Text = _conversation.Name ?? "Trò chuyện";
@@ -557,6 +561,55 @@ namespace ZaloWP81.Views
                 _recipientAvatar.Fill = brush;
                 _recipientInitial.Text = string.Empty;
             }
+        }
+
+        private async System.Threading.Tasks.Task LoadMissingPartnerProfileAsync(string userId)
+        {
+            if (string.IsNullOrEmpty(userId) || ZaloApp.Session == null) return;
+            try
+            {
+                var profile = await ZaloAuth.GetFriendProfileAsync(ZaloApp.Session, userId, System.Threading.CancellationToken.None);
+                if (profile != null)
+                {
+                    string name = ZaloAuth.Str(profile, "display_name");
+                    if (string.IsNullOrEmpty(name)) name = ZaloAuth.Str(profile, "displayName");
+                    if (string.IsNullOrEmpty(name)) name = ZaloAuth.Str(profile, "zalo_name");
+
+                    string avatar = ZaloAuth.Str(profile, "avatar");
+                    if (string.IsNullOrEmpty(avatar)) avatar = ZaloAuth.Str(profile, "avatar_120");
+                    if (string.IsNullOrEmpty(avatar)) avatar = ZaloAuth.Str(profile, "avatar_240");
+                    if (string.IsNullOrEmpty(avatar)) avatar = ZaloAuth.Str(profile, "avatar_standard");
+                    if (string.IsNullOrEmpty(avatar)) avatar = ZaloAuth.Str(profile, "thumb_avatar");
+                    if (string.IsNullOrEmpty(avatar)) avatar = ZaloAuth.Str(profile, "global_avatar");
+
+                    if (!string.IsNullOrEmpty(avatar))
+                    {
+                        avatar = avatar.Trim();
+                        if (avatar.StartsWith("//", StringComparison.Ordinal)) avatar = "https:" + avatar;
+                    }
+
+                    bool changed = false;
+                    if (!string.IsNullOrEmpty(name) && (_conversation.Name == _conversation.ThreadId || string.IsNullOrEmpty(_conversation.Name)))
+                    {
+                        _conversation.Name = name;
+                        changed = true;
+                    }
+                    if (!string.IsNullOrEmpty(avatar) && string.IsNullOrEmpty(_conversation.AvatarUrl))
+                    {
+                        _conversation.AvatarUrl = avatar;
+                        changed = true;
+                    }
+
+                    if (changed)
+                    {
+                        var _ = Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        {
+                            UpdateHeaderAvatar();
+                        });
+                    }
+                }
+            }
+            catch { }
         }
 
         private async System.Threading.Tasks.Task RefreshFriendSubtitleAsync(string userId)

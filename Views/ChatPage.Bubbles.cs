@@ -89,6 +89,12 @@ namespace ZaloWP81.Views
                     _messageStack.Children.Add(loadMoreBtn);
                 }
 
+                if (!_conversation.IsGroup && !_conversation.HasMoreHistory)
+                {
+                    var welcomeHeader = CreateConversationWelcomeHeader();
+                    if (welcomeHeader != null) _messageStack.Children.Add(welcomeHeader);
+                }
+
                 var msgList = _conversation.Messages.ToList();
                 foreach (var m in msgList)
                 {
@@ -1127,26 +1133,45 @@ namespace ZaloWP81.Views
                 HorizontalAlignment = HorizontalAlignment.Center
             };
 
-            string[] greetings = { "👋 Chào bạn", "🐱 Xin chào", "🐰 HI!", "🍻 Chúc mừng" };
-            foreach (var g in greetings)
+            var stickerDefs = new[]
             {
-                string textToSend = g;
+                new { Icon = "👋", Label = "Vẫy tay", Msg = "👋 Chào bạn!" },
+                new { Icon = "🐱", Label = "Xin chào", Msg = "Xin chào! Rất vui được kết bạn." },
+                new { Icon = "🐰", Label = "HI!", Msg = "HI! Chúc bạn ngày mới vui vẻ!" }
+            };
+
+            foreach (var sDef in stickerDefs)
+            {
+                string textToSend = sDef.Msg;
                 var btn = new Border
                 {
-                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF1, 0xF5, 0xF9)),
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xF8, 0xFA, 0xFC)),
                     BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xCB, 0xD5, 0xE1)),
                     BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(14),
-                    Padding = new Thickness(8, 5, 8, 5),
-                    Margin = new Thickness(3, 0, 3, 0)
+                    CornerRadius = new CornerRadius(12),
+                    Padding = new Thickness(12, 8, 12, 8),
+                    Margin = new Thickness(4, 0, 4, 0),
+                    Width = 84,
+                    IsTapEnabled = true
                 };
-                btn.Child = new TextBlock
+                var btnStack = new StackPanel { HorizontalAlignment = HorizontalAlignment.Center };
+                btnStack.Children.Add(new TextBlock
                 {
-                    Text = textToSend,
-                    FontSize = 12,
+                    Text = sDef.Icon,
+                    FontSize = 26,
+                    HorizontalAlignment = HorizontalAlignment.Center
+                });
+                btnStack.Children.Add(new TextBlock
+                {
+                    Text = sDef.Label,
+                    FontSize = 11.5,
                     Foreground = _textDark,
-                    FontWeight = Windows.UI.Text.FontWeights.SemiBold
-                };
+                    FontWeight = Windows.UI.Text.FontWeights.SemiBold,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    Margin = new Thickness(0, 3, 0, 0)
+                });
+                btn.Child = btnStack;
+
                 btn.PointerPressed += (s, e) => btn.Opacity = 0.6;
                 btn.PointerReleased += (s, e) => btn.Opacity = 1.0;
                 btn.PointerCanceled += (s, e) => btn.Opacity = 1.0;
@@ -1157,6 +1182,104 @@ namespace ZaloWP81.Views
                 quickRow.Children.Add(btn);
             }
             stack.Children.Add(quickRow);
+
+            card.Child = stack;
+            return card;
+        }
+
+        private FrameworkElement CreateConversationWelcomeHeader()
+        {
+            if (_conversation == null || _conversation.IsGroup) return null;
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
+
+            var card = new Border
+            {
+                Background = new SolidColorBrush(Colors.White),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0xE2, 0xE8, 0xF0)),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(Math.Round(14 * scale)),
+                MaxWidth = Math.Round(320 * scale),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, Math.Round(8 * scale), 0, Math.Round(14 * scale))
+            };
+
+            var stack = new StackPanel();
+
+            // Cover banner
+            var coverGrid = new Grid
+            {
+                Height = Math.Round(68 * scale)
+            };
+            var gradient = new LinearGradientBrush { StartPoint = new Windows.Foundation.Point(0, 0), EndPoint = new Windows.Foundation.Point(1, 1) };
+            gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x00, 0x88, 0xFF), Offset = 0 });
+            gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0xFF, 0x38, 0xBD, 0xF8), Offset = 1 });
+            coverGrid.Background = gradient;
+            stack.Children.Add(coverGrid);
+
+            // Avatar overlapping cover
+            double avaSize = Math.Round(58 * scale);
+            var avatarGrid = new Grid
+            {
+                Width = avaSize,
+                Height = avaSize,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, -Math.Round(avaSize / 2), 0, Math.Round(6 * scale))
+            };
+            var avaEllipse = new Ellipse
+            {
+                Width = avaSize,
+                Height = avaSize,
+                Fill = _conversation.AvatarColor ?? _activeBlue,
+                Stroke = new SolidColorBrush(Colors.White),
+                StrokeThickness = 3
+            };
+            var avaInitial = new TextBlock
+            {
+                Text = _conversation.Initial ?? "Z",
+                FontSize = Math.Round(20 * scale, 1),
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            avatarGrid.Children.Add(avaEllipse);
+            avatarGrid.Children.Add(avaInitial);
+
+            if (!string.IsNullOrEmpty(_conversation.AvatarUrl))
+            {
+                var brush = _conversation.AvatarImageBrush ?? ZaloAvatar.ImageFor(_conversation.AvatarUrl);
+                if (brush != null)
+                {
+                    avatarGrid.Children.Add(new Ellipse { Width = avaSize, Height = avaSize, Fill = brush, Stroke = new SolidColorBrush(Colors.White), StrokeThickness = 3 });
+                    avaInitial.Text = string.Empty;
+                }
+            }
+            stack.Children.Add(avatarGrid);
+
+            // Name
+            var nameBlock = new TextBlock
+            {
+                Text = _conversation.Name ?? "Bạn bè",
+                FontSize = Math.Round(16 * scale, 1),
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = _textDark,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(Math.Round(12 * scale), 0, Math.Round(12 * scale), Math.Round(3 * scale))
+            };
+            stack.Children.Add(nameBlock);
+
+            // Subtitle
+            var subBlock = new TextBlock
+            {
+                Text = "Bắt đầu chia sẻ những câu chuyện thú vị cùng nhau",
+                FontSize = Math.Round(12.5 * scale, 1),
+                Foreground = _textSub,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(Math.Round(16 * scale), 0, Math.Round(16 * scale), Math.Round(14 * scale))
+            };
+            stack.Children.Add(subBlock);
 
             card.Child = stack;
             return card;
