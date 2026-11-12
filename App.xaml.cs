@@ -186,7 +186,7 @@ namespace ZaloWP81
             catch { }
         }
 
-        protected override void OnLaunched(LaunchActivatedEventArgs e)
+        protected override async void OnLaunched(LaunchActivatedEventArgs e)
         {
             try
             {
@@ -204,6 +204,23 @@ namespace ZaloWP81
                 catch { }
 
                 NavigationManager.Initialize();
+                ZaloApp.SetDispatcher(Window.Current.Dispatcher);
+
+                // Instantly preload offline cache from local storage BEFORE creating MainPage
+                // This eliminates the 3-second blank / empty screen flash completely!
+                try
+                {
+                    if (await ZaloStore.HasSessionAsync())
+                    {
+                        string cachedUid = await ZaloStore.GetCachedUserIdAsync();
+                        if (!string.IsNullOrWhiteSpace(cachedUid))
+                        {
+                            await ZaloApp.PreloadOfflineCacheAsync(cachedUid);
+                        }
+                    }
+                }
+                catch { }
+
                 NavigationManager.NavigateTo(new MainPage(), clearStack: true);
                 Window.Current.Activate();
             }

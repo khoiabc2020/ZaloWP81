@@ -2015,7 +2015,7 @@ namespace ZaloWP81.Views
             var list = ZaloApp.Conversations.Where(c =>
             {
                 if (c == null) return false;
-                bool isOther = ZaloApp.IsArchived(c) || otherKeys.Contains(c.Key) || (!c.IsGroup && !ZaloApp.IsFriend(c.ThreadId));
+                bool isOther = ZaloApp.IsArchived(c) || otherKeys.Contains(c.Key);
                 if (isOther != _isOtherSubTab) return false;
                 return true;
             });
