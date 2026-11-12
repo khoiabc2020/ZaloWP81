@@ -38,6 +38,7 @@ namespace ZaloWP81.Views
         private string _peerId;
         private string _peerName;
         private string _peerAvatar;
+        private bool _sessionInitialized;
 
         public CallPage()
         {
@@ -466,6 +467,11 @@ namespace ZaloWP81.Views
 
         private void InitCallSession()
         {
+            if (_sessionInitialized) return;
+            _sessionInitialized = true;
+
+            ZaloCallSignaling.StateChanged -= OnCallStateChanged;
+            ZaloCallSignaling.DurationTick -= OnDurationTick;
             ZaloCallSignaling.StateChanged += OnCallStateChanged;
             ZaloCallSignaling.DurationTick += OnDurationTick;
 
@@ -653,6 +659,7 @@ namespace ZaloWP81.Views
             ZaloCallSignaling.StateChanged -= OnCallStateChanged;
             ZaloCallSignaling.DurationTick -= OnDurationTick;
             StopAudioPlayback();
+            _sessionInitialized = false;
         }
 
         private void PopulateTarget(object target)

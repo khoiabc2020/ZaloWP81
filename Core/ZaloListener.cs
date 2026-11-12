@@ -372,9 +372,17 @@ namespace ZaloLite
             JsonObject parsed = ZaloJson.ParseObject(text);
             if (parsed == null) return;
 
-            // Hook for Phone Sync events (act=user_confirm, syncmsg_info, transfer_error)
+            // Hook for Phone Sync events (act=user_confirm, syncmsg_info, transfer_error) & Call events
             if (parsed.ContainsKey("act"))
             {
+                string act = ZaloAuth.Str(parsed, "act");
+                string actType = ZaloAuth.Str(parsed, "act_type");
+                if (act.Contains("call") || actType.Contains("call"))
+                {
+                    JsonObject callData = parsed.ContainsKey("data") && parsed.GetNamedValue("data").ValueType == JsonValueType.Object
+                        ? parsed.GetNamedObject("data") : parsed;
+                    ZaloCallSignaling.ProcessIncomingSignal(402, callData);
+                }
                 ZaloPhoneSync.ProcessEvent(parsed);
                 ProcessUploadEvents(parsed);
             }
@@ -385,6 +393,17 @@ namespace ZaloLite
                     JsonObject decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
                     if (decoded != null)
                     {
+                        if (decoded.ContainsKey("act"))
+                        {
+                            string act = ZaloAuth.Str(decoded, "act");
+                            string actType = ZaloAuth.Str(decoded, "act_type");
+                            if (act.Contains("call") || actType.Contains("call"))
+                            {
+                                JsonObject callData = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
+                                    ? decoded.GetNamedObject("data") : decoded;
+                                ZaloCallSignaling.ProcessIncomingSignal(402, callData);
+                            }
+                        }
                         ZaloPhoneSync.ProcessEvent(decoded);
                         ProcessUploadEvents(decoded);
                     }
@@ -412,7 +431,7 @@ namespace ZaloLite
             else if (cmd == 502) EmitReceipts(parsed, false);
             else if (cmd == 522) EmitReceipts(parsed, true);
             else if (version == 1 && cmd == 612 && sub == 0) EmitReactions(parsed);
-            else if (cmd >= 400 && cmd <= 420)
+            else if (cmd >= 400 && cmd <= 440)
             {
                 JsonObject effective = parsed;
                 if (parsed.ContainsKey("data"))

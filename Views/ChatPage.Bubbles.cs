@@ -223,7 +223,7 @@ namespace ZaloWP81.Views
             }
 
             bool isFriendshipCard = (!string.IsNullOrEmpty(msg.MediaUrl) && msg.MediaUrl.Contains("artboard"))
-                || (!string.IsNullOrEmpty(msg.Text) && msg.Text.Contains("artboard"));
+                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.Contains("artboard") || msg.Text.Contains("trở thành bạn bè")));
 
             bool isSticker = !isFriendshipCard && (msg.IsSticker || msg.MsgType == "chat.sticker" || msg.MsgType == "5"
                 || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("sticker_"))));

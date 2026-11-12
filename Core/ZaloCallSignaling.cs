@@ -189,20 +189,28 @@ namespace ZaloWP81.Core
                     var resp416 = await SendVoiceCallApiAsync("/api/voicecall/request", req416, CancellationToken.None);
                     ZaloLog.Add("VoiceCall /api/voicecall/request completed, recipient is now ringing!");
 
+                    if (resp416 != null)
+                    {
+                        ParseRelayConfig(resp416, session);
+                    }
+
                     // If relay server was obtained, initialize UDP session immediately
                     if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
                     {
                         _ = ZaloUdpRelayEngine.Current.StartSessionAsync(session);
                     }
                 }
+                else
+                {
+                    // HTTP initiation failed, fall back to WebSocket Signal 401
+                    await SendSignal401Async(session);
+                }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("StartCallAsync HTTP initiation error: " + ex.Message);
+                await SendSignal401Async(session);
             }
-
-            // Step 3: Also send dual ZRTC Signal 401 over WebSocket
-            await SendSignal401Async(session);
 
             // Wait up to 60s for the other party to answer; if no answer, automatically cancel
             StartTimeoutTimer(session);
@@ -249,7 +257,11 @@ namespace ZaloWP81.Core
                 reqAnswer["status"] = JsonValue.CreateNumberValue(0);
                 reqAnswer["codec"] = JsonValue.CreateStringValue("[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n");
                 reqAnswer["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
-                _ = SendVoiceCallApiAsync("/api/voicecall/answer", reqAnswer, CancellationToken.None);
+                var respAnswer = await SendVoiceCallApiAsync("/api/voicecall/answer", reqAnswer, CancellationToken.None);
+                if (respAnswer != null)
+                {
+                    ParseRelayConfig(respAnswer, CurrentSession);
+                }
             }
             catch (Exception ex)
             {
@@ -456,116 +468,238 @@ namespace ZaloWP81.Core
             return fallback;
         }
 
+        public static bool TryExtractCallerInfo(JsonObject parsed, out string callerId, out long callId, out bool isVideo)
+        {
+            callerId = string.Empty;
+            callId = 0;
+            isVideo = false;
+            if (parsed == null) return false;
+
+            callId = GetSafeNumber(parsed, "callId", 0);
+            if (callId == 0) callId = GetSafeNumber(parsed, "id", 0);
+            if (callId == 0) callId = GetSafeNumber(parsed, "call_id", 0);
+            if (callId == 0) callId = GetSafeNumber(parsed, "zaloCallId", 0);
+
+            string[] callerKeys = { "callerId", "caller_id", "peerZaloId", "senderID", "senderId", "senderUid", "fromUid", "uidFrom", "partnerId", "caller", "uid", "userId" };
+            string myUid = ZaloApp.Session?.Uid ?? string.Empty;
+            if (myUid.StartsWith("u:") || myUid.StartsWith("g:")) myUid = myUid.Substring(2);
+
+            foreach (var key in callerKeys)
+            {
+                string val = GetSafeString(parsed, key, string.Empty);
+                if (!string.IsNullOrEmpty(val))
+                {
+                    if (val.StartsWith("u:") || val.StartsWith("g:")) val = val.Substring(2);
+                    if (!string.IsNullOrEmpty(myUid) && val == myUid) continue;
+                    callerId = val;
+                    break;
+                }
+            }
+
+            int type = (int)GetSafeNumber(parsed, "type", 0);
+            if (type == 0) type = (int)GetSafeNumber(parsed, "typeCall", 0);
+            if (type == 0) type = (int)GetSafeNumber(parsed, "typeRequest", 0);
+            bool isVid = type == 1 || type == 3;
+            if (!isVid)
+            {
+                string vidStr = GetSafeString(parsed, "videocall", GetSafeString(parsed, "call_video_call", ""));
+                isVid = vidStr.Equals("true", StringComparison.OrdinalIgnoreCase) || vidStr == "1";
+            }
+            isVideo = isVid;
+
+            return !string.IsNullOrEmpty(callerId);
+        }
+
+        private static void SendIncomingRingingAck(ZaloCallSession session)
+        {
+            if (session == null || string.IsNullOrEmpty(session.PeerId)) return;
+            try
+            {
+                string myUid = ZaloApp.Session?.Uid ?? string.Empty;
+                if (myUid.StartsWith("u:") || myUid.StartsWith("g:")) myUid = myUid.Substring(2);
+
+                // 1. WebSocket Signal 416 ringing ACK
+                var ringingAck = new JsonObject();
+                ringingAck["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                ringingAck["calleeId"] = JsonValue.CreateStringValue(myUid);
+                ringingAck["callerId"] = JsonValue.CreateStringValue(session.PeerId);
+                ringingAck["receiverID"] = JsonValue.CreateStringValue(session.PeerId);
+                ringingAck["senderID"] = JsonValue.CreateStringValue(myUid);
+                ringingAck["status"] = JsonValue.CreateNumberValue(0);
+                ringingAck["time"] = JsonValue.CreateNumberValue(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+                ringingAck["req_id"] = JsonValue.CreateStringValue("req_" + _rng.Next(1000, 9999));
+                _ = ZaloApp.Listener?.SendCallSignalAsync(416, ringingAck.Stringify());
+
+                // 2. HTTP /api/voicecall/ringing
+                var reqRinging = new JsonObject();
+                reqRinging["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                reqRinging["callerId"] = JsonValue.CreateStringValue(session.PeerId);
+                reqRinging["status"] = JsonValue.CreateNumberValue(0);
+                reqRinging["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+                _ = SendVoiceCallApiAsync("/api/voicecall/ringing", reqRinging, CancellationToken.None);
+
+                ZaloLog.Add("ZRTC Sent incoming ringing ACK for call " + session.CallId);
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("SendIncomingRingingAck error: " + ex.Message);
+            }
+        }
+
         public static void ProcessIncomingSignal(int cmd, JsonObject parsed)
         {
             if (parsed == null) return;
             try
             {
                 long callId = GetSafeNumber(parsed, "callId", 0);
-                ZaloLog.Add(string.Format("ZRTC received signal {0}: callId={1}", cmd, callId));
+                if (callId == 0) callId = GetSafeNumber(parsed, "id", 0);
+                if (callId == 0) callId = GetSafeNumber(parsed, "call_id", 0);
+                if (callId == 0) callId = GetSafeNumber(parsed, "zaloCallId", 0);
 
-                if (cmd == 401)
+                ZaloLog.Add(string.Format("ZRTC received signal {0}: callId={1}, payload={2}", cmd, callId, parsed.Stringify()));
+
+                // Case 1: Lumia is currently IDLE (handle incoming call invitation)
+                if (CurrentSession == null || CurrentSession.State == ZaloCallState.Ended || CurrentSession.State == ZaloCallState.Rejected)
                 {
-                    if (CurrentSession != null && CurrentSession.IsOutgoing && CurrentSession.CallId == callId)
+                    if (cmd == 401 || cmd == 402 || cmd == 416 || cmd == 400 || cmd == 426 || cmd == 428)
                     {
-                        CurrentSession.State = ZaloCallState.Ringing;
-                        NotifyState(ZaloCallState.Ringing);
-                    }
-                    else if (CurrentSession == null || CurrentSession.State == ZaloCallState.Ended || CurrentSession.State == ZaloCallState.Rejected)
-                    {
-                        string callerId = GetSafeString(parsed, "callerId", string.Empty);
-                        if (callerId.StartsWith("u:") || callerId.StartsWith("g:")) callerId = callerId.Substring(2);
-
-                        int type = (int)GetSafeNumber(parsed, "type", 0);
-                        var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == callerId);
-                        string callerName = fr?.Name ?? "Cuộc gọi Zalo";
-                        string callerAvatar = fr?.Avatar;
-
-                        var session = new ZaloCallSession
+                        int status = (int)GetSafeNumber(parsed, "status", 0);
+                        if (status == 1 || status == 3 || status == 50 || status == 103)
                         {
-                            CallId = callId,
-                            PeerId = callerId,
-                            PeerName = callerName,
-                            PeerAvatar = callerAvatar,
-                            CallType = type == 1 ? ZaloCallType.Video : ZaloCallType.Voice,
-                            IsOutgoing = false,
-                            State = ZaloCallState.Calling,
-                            LocalSsrc = (uint)_rng.Next(1000000, 9999999)
-                        };
-                        CurrentSession = session;
-                        NotifyState(ZaloCallState.Calling);
+                            // Status indicates call already ended/cancelled/rejected
+                            return;
+                        }
 
-                        var ignored = Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                        if (TryExtractCallerInfo(parsed, out string callerId, out long extractedCallId, out bool isVideo))
                         {
-                            NavigationManager.NavigateTo(new Views.CallPage(session, type == 1));
-                        });
+                            if (extractedCallId != 0) callId = extractedCallId;
+                            if (callId == 0) callId = GenerateCallId();
+
+                            var fr = ZaloApp.Friends.FirstOrDefault(f => f.UserId == callerId);
+                            string callerName = fr?.Name;
+                            string callerAvatar = fr?.Avatar;
+                            if (string.IsNullOrEmpty(callerName))
+                            {
+                                var conv = ZaloApp.Conversations.FirstOrDefault(c => c.ThreadId == callerId || c.Key == "u:" + callerId);
+                                callerName = conv?.Name ?? GetSafeString(parsed, "displayName", GetSafeString(parsed, "dName", "Cuộc gọi Zalo"));
+                                callerAvatar = conv?.AvatarUrl;
+                            }
+
+                            var session = new ZaloCallSession
+                            {
+                                CallId = callId,
+                                PeerId = callerId,
+                                PeerName = callerName ?? "Người dùng Zalo",
+                                PeerAvatar = callerAvatar,
+                                CallType = isVideo ? ZaloCallType.Video : ZaloCallType.Voice,
+                                IsOutgoing = false,
+                                State = ZaloCallState.Calling,
+                                DurationSeconds = 0,
+                                LocalSsrc = (uint)_rng.Next(1000000, 9999999)
+                            };
+
+                            ParseRelayConfig(parsed, session);
+                            CurrentSession = session;
+                            NotifyState(ZaloCallState.Calling);
+
+                            // Send ringing ACK back to caller
+                            SendIncomingRingingAck(session);
+
+                            // Start timeout timer (60s)
+                            StartTimeoutTimer(session);
+
+                            // Dispatch navigation to CallPage on UI thread
+                            var dispatcher = Windows.ApplicationModel.Core.CoreApplication.MainView?.CoreWindow?.Dispatcher;
+                            if (dispatcher != null)
+                            {
+                                var ignored = dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
+                                {
+                                    NavigationManager.NavigateTo(new Views.CallPage(session, isVideo));
+                                });
+                            }
+                            return;
+                        }
                     }
                 }
-                else if (cmd == 416)
+
+                // Case 2: Lumia is currently in an active / ongoing session
+                if (CurrentSession != null)
                 {
-                    // Server ACK for call request
-                    if (CurrentSession != null && CurrentSession.IsOutgoing)
+                    if (cmd == 401 || cmd == 416)
                     {
-                        CurrentSession.State = ZaloCallState.Ringing;
-                        NotifyState(ZaloCallState.Ringing);
+                        if (CurrentSession.IsOutgoing)
+                        {
+                            CurrentSession.State = ZaloCallState.Ringing;
+                            NotifyState(ZaloCallState.Ringing);
+                            ParseRelayConfig(parsed, CurrentSession);
+                        }
                     }
-                }
-                else if (cmd == 407)
-                {
-                    // Server assigns media relay server
-                    if (CurrentSession != null)
+                    else if (cmd == 402)
                     {
+                        int status = (int)GetSafeNumber(parsed, "status", -1);
+                        if (CurrentSession.IsOutgoing)
+                        {
+                            if (status == 0 || (status == -1 && !parsed.ContainsKey("status") && !parsed.ContainsKey("reason")))
+                            {
+                                CurrentSession.State = ZaloCallState.Connected;
+                                NotifyState(ZaloCallState.Connected);
+                                StartDurationTimer();
+                                StopTimeoutTimer();
+                                ParseRelayConfig(parsed, CurrentSession);
+                                _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
+                                ZaloUdpRelayEngine.Current.StartStreaming();
+                            }
+                            else if (status == 1 || status == 3 || status == 103 || parsed.ContainsKey("reason"))
+                            {
+                                var session = CurrentSession;
+                                session.State = ZaloCallState.Rejected;
+                                NotifyState(ZaloCallState.Rejected);
+                                StopTimers();
+                                ZaloUdpRelayEngine.Current.StopSession();
+                                RecordCallHistory(session, false, isRejected: true);
+                            }
+                        }
+                        else
+                        {
+                            // In incoming call: if caller cancels
+                            if (status == 103 || status == 1 || status == 3)
+                            {
+                                var session = CurrentSession;
+                                session.State = ZaloCallState.Ended;
+                                NotifyState(ZaloCallState.Ended);
+                                StopTimers();
+                                ZaloUdpRelayEngine.Current.StopSession();
+                                RecordCallHistory(session, false, isMissed: true);
+                            }
+                        }
+                    }
+                    else if (cmd == 407)
+                    {
+                        // Server media relay config
                         ParseRelayConfig(parsed, CurrentSession);
                         _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
                     }
-                }
-                else if (cmd == 408)
-                {
-                    // Call bridged / connected
-                    if (CurrentSession != null)
+                    else if (cmd == 408)
                     {
+                        // Call bridged / connected
                         CurrentSession.State = ZaloCallState.Connected;
                         NotifyState(ZaloCallState.Connected);
                         StartDurationTimer();
                         StopTimeoutTimer();
+                        ParseRelayConfig(parsed, CurrentSession);
+                        _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
                         ZaloUdpRelayEngine.Current.StartStreaming();
                     }
-                }
-                else if (cmd == 402)
-                {
-                    int status = (int)GetSafeNumber(parsed, "status", -1);
-                    if (CurrentSession != null)
-                    {
-                        if (status == 0)
-                        {
-                            CurrentSession.State = ZaloCallState.Connected;
-                            NotifyState(ZaloCallState.Connected);
-                            StartDurationTimer();
-                            StopTimeoutTimer();
-                            ZaloUdpRelayEngine.Current.StartStreaming();
-                        }
-                        else if (status == 1 || status == 3)
-                        {
-                            var session = CurrentSession;
-                            session.State = ZaloCallState.Rejected;
-                            NotifyState(ZaloCallState.Rejected);
-                            StopTimers();
-                            ZaloUdpRelayEngine.Current.StopSession();
-                            RecordCallHistory(session, false, isRejected: true);
-                        }
-                    }
-                }
-                else if (cmd == 405 || cmd == 409)
-                {
-                    if (CurrentSession != null)
+                    else if (cmd == 405 || cmd == 409 || cmd == 406)
                     {
                         var session = CurrentSession;
                         bool wasConnected = session.State == ZaloCallState.Connected;
+                        int status = (int)GetSafeNumber(parsed, "status", 0);
                         session.State = ZaloCallState.Ended;
                         NotifyState(ZaloCallState.Ended);
                         StopTimers();
                         ZaloUdpRelayEngine.Current.StopSession();
-                        RecordCallHistory(session, wasConnected);
+                        RecordCallHistory(session, wasConnected, isRejected: status == 3 || status == 1);
                     }
                 }
             }
