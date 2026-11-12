@@ -1454,7 +1454,15 @@ namespace ZaloLite
             if (name.Length == 0) name = Str(user, "zalo_name");
             if (name.Length == 0) name = Str(user, "zaloName");
 
-            return new ZaloFriend { UserId = userId, Name = name, Avatar = Str(user, "avatar") };
+            string avatar = Str(user, "avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_url");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatarUrl");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumb_avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumbAvatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "global_avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "globalAvatar");
+
+            return new ZaloFriend { UserId = userId, Name = name, Avatar = avatar };
         }
 
         public static async Task<ZaloFriend> FindFriendByUsernameAsync(ZaloSession session, string username, CancellationToken ct)
@@ -1485,7 +1493,15 @@ namespace ZaloLite
             if (name.Length == 0) name = Str(user, "zalo_name");
             if (name.Length == 0) name = Str(user, "zaloName");
             if (name.Length == 0) name = username.Trim().TrimStart('@');
-            return new ZaloFriend { UserId = userId, Name = name, Avatar = Str(user, "avatar"), Subtitle = "Kết quả tìm kiếm trực tuyến" };
+            string avatar = Str(user, "avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_url");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatarUrl");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumb_avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumbAvatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "global_avatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "globalAvatar");
+
+            return new ZaloFriend { UserId = userId, Name = name, Avatar = avatar, Subtitle = "Kết quả tìm kiếm trực tuyến" };
         }
 
         public static async Task SendFriendRequestAsync(ZaloSession session, string userId, string message, CancellationToken ct)

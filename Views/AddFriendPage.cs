@@ -30,6 +30,8 @@ namespace ZaloWP81.Views
         public AddFriendPage()
         {
             BuildUI();
+            Loaded += (s, e) => ZaloAvatar.AvatarUpdated += OnAvatarUpdated;
+            Unloaded += (s, e) => ZaloAvatar.AvatarUpdated -= OnAvatarUpdated;
         }
 
         private void BuildUI()
@@ -308,10 +310,37 @@ namespace ZaloWP81.Views
 
             _foundName.Text = _foundFriend.Name;
             _foundPhone.Text = phone;
-            _foundInitial.Text = ZaloAvatar.InitialOf(_foundFriend.Name);
+            UpdateFoundAvatar();
             _statusText.Text = "Đã tìm thấy tài khoản Zalo.";
             _statusText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x10, 0xB9, 0x81));
             _resultCard.Visibility = Visibility.Visible;
+        }
+
+        private void UpdateFoundAvatar()
+        {
+            if (_foundFriend == null) return;
+            _foundInitial.Text = ZaloAvatar.InitialOf(_foundFriend.Name);
+            var brush = _foundFriend.AvatarImageBrush ?? ZaloAvatar.ImageFor(_foundFriend.Avatar, 128);
+            if (brush != null)
+            {
+                _foundAvatar.Fill = brush;
+                _foundInitial.Text = string.Empty;
+            }
+            else
+            {
+                _foundAvatar.Fill = _foundFriend.AvatarColor ?? ZaloAvatar.ColorFor(_foundFriend.Name);
+            }
+        }
+
+        private void OnAvatarUpdated(string url)
+        {
+            if (_foundFriend != null && !string.IsNullOrEmpty(_foundFriend.Avatar) && string.Equals(_foundFriend.Avatar, url, StringComparison.OrdinalIgnoreCase))
+            {
+                var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
+                {
+                    UpdateFoundAvatar();
+                });
+            }
         }
 
         private static Border CreateTouchBorder(double width, double height)

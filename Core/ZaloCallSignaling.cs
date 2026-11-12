@@ -72,6 +72,14 @@ namespace ZaloWP81.Core
             return 1000000000L + _rng.Next(0, 1147483647);
         }
 
+        public static string GenerateCallSession()
+        {
+            byte[] bytes = new byte[115];
+            _rng.NextBytes(bytes);
+            string b64 = Convert.ToBase64String(bytes);
+            return b64.Replace('+', '-').Replace('/', '_').TrimEnd('=');
+        }
+
         public static async Task<ZaloCallSession> StartCallAsync(string peerId, string peerName, string peerAvatar, bool isVideo)
         {
             if (CurrentSession != null && CurrentSession.State != ZaloCallState.Ended && CurrentSession.State != ZaloCallState.Rejected)
@@ -101,16 +109,28 @@ namespace ZaloWP81.Core
                 LocalSsrc = (uint)_rng.Next(1000000, 9999999)
             };
 
+            string callSessionToken = GenerateCallSession();
+            session.SessionId = callSessionToken;
+
             CurrentSession = session;
             NotifyState(ZaloCallState.Ringing);
 
             // Step 1: Initiate call session via Zalo HTTP VoIP API (/api/voicecall/requestcall)
             try
             {
+                string rtpIp = "171.244.128.61:4200";
+                string rtcpIp = "171.244.128.61:4200";
+                string codecStr = "[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n";
+                string extendDataStr = BuildExtendData(null, isVideo, rtpIp, rtcpIp);
+
                 var req401 = new JsonObject();
                 req401["calleeId"] = JsonValue.CreateStringValue(peerId);
                 req401["callId"] = JsonValue.CreateNumberValue(session.CallId);
-                req401["codec"] = JsonValue.CreateStringValue("[]");
+                req401["codec"] = JsonValue.CreateStringValue(codecStr);
+                req401["extendData"] = JsonValue.CreateStringValue(extendDataStr);
+                req401["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
+                req401["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
+                req401["session"] = JsonValue.CreateStringValue(callSessionToken);
                 req401["typeRequest"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
                 req401["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
 
@@ -130,14 +150,12 @@ namespace ZaloWP81.Core
 
                     long realCallId = GetSafeNumber(resp401, "id", session.CallId);
                     session.CallId = realCallId;
-                    string sessId = GetSafeString(resp401, "sessId", string.Empty);
-                    session.SessionId = sessId;
+                    string sessId = GetSafeString(resp401, "sessId", GetSafeString(resp401, "session", string.Empty));
+                    if (!string.IsNullOrEmpty(sessId)) session.SessionId = sessId;
 
                     // Parse relay servers from resp401
                     ParseRelayConfig(resp401, session);
 
-                    string rtpIp = "";
-                    string rtcpIp = "";
                     if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
                     {
                         rtpIp = session.RelayHost + ":" + session.RelayPort;
@@ -145,15 +163,18 @@ namespace ZaloWP81.Core
                     }
                     else
                     {
-                        rtpIp = GetSafeString(resp401, "rtpIP", GetSafeString(resp401, "rtpSerIp", ""));
-                        rtcpIp = GetSafeString(resp401, "rtcpIP", rtpIp);
+                        string srvRtp = GetSafeString(resp401, "rtpIP", GetSafeString(resp401, "rtpSerIp", ""));
+                        if (!string.IsNullOrEmpty(srvRtp))
+                        {
+                            rtpIp = srvRtp;
+                            rtcpIp = GetSafeString(resp401, "rtcpIP", rtpIp);
+                        }
                     }
 
-                    // Step 2: Send media invite via /api/voicecall/request (Signal 416)
-                    // This triggers the incoming call popup and ringing on the recipient's device!
-                    string codecStr = "[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n";
-                    string extendDataStr = BuildExtendData(resp401, isVideo, rtpIp, rtcpIp);
+                    extendDataStr = BuildExtendData(resp401, isVideo, rtpIp, rtcpIp);
 
+                    // Step 2: Send media invite via /api/voicecall/request (Signal 416)
+                    // subCommand = 3 is strictly required by Zalo official protocol when extendData is present!
                     var req416 = new JsonObject();
                     req416["callId"] = JsonValue.CreateNumberValue(realCallId);
                     req416["calleeId"] = JsonValue.CreateStringValue(peerId);
@@ -161,7 +182,8 @@ namespace ZaloWP81.Core
                     req416["extendData"] = JsonValue.CreateStringValue(extendDataStr);
                     req416["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
                     req416["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
-                    req416["session"] = JsonValue.CreateStringValue(sessId);
+                    req416["session"] = JsonValue.CreateStringValue(session.SessionId);
+                    req416["subCommand"] = JsonValue.CreateNumberValue(3);
                     req416["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
 
                     var resp416 = await SendVoiceCallApiAsync("/api/voicecall/request", req416, CancellationToken.None);
@@ -676,19 +698,22 @@ namespace ZaloWP81.Core
                 }
             }
 
-            if (serverAddr.Count == 0 && !string.IsNullOrEmpty(rtpIp))
+            if (serverAddr.Count == 0)
             {
+                string fallbackRtp = !string.IsNullOrEmpty(rtpIp) ? rtpIp : "171.244.128.61:4200";
+                string fallbackRtcp = !string.IsNullOrEmpty(rtcpIp) ? rtcpIp : fallbackRtp;
+
                 var a = new JsonObject();
-                a["rtp"] = JsonValue.CreateStringValue(rtpIp);
-                a["rtcp"] = JsonValue.CreateStringValue(rtcpIp);
+                a["rtp"] = JsonValue.CreateStringValue(fallbackRtp);
+                a["rtcp"] = JsonValue.CreateStringValue(fallbackRtcp);
                 a["rtpIPv6"] = JsonValue.CreateStringValue("");
                 a["rtcpIPv6"] = JsonValue.CreateStringValue("");
                 a["tpType"] = JsonValue.CreateNumberValue(0);
                 serverAddr.Add(a);
 
                 var r = new JsonObject();
-                r["rtp"] = JsonValue.CreateStringValue(rtpIp);
-                r["rtcp"] = JsonValue.CreateStringValue(rtcpIp);
+                r["rtp"] = JsonValue.CreateStringValue(fallbackRtp);
+                r["rtcp"] = JsonValue.CreateStringValue(fallbackRtcp);
                 r["rtpIPv6"] = JsonValue.CreateStringValue("");
                 r["rtcpIPv6"] = JsonValue.CreateStringValue("");
                 r["rtt"] = JsonValue.CreateNumberValue(25);
@@ -848,8 +873,20 @@ namespace ZaloWP81.Core
                 uint localSsrc = session.LocalSsrc != 0 ? session.LocalSsrc : (uint)_rng.Next(1000000, 9999999);
                 session.LocalSsrc = localSsrc;
 
-                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"callerId\":\"{2}\",\"codec\":\"[\\\"opus/48000/2\\\"]\\n\",\"sP2P\":0,\"ssrc\":{3},\"type\":{4},\"time\":{5},\"req_id\":\"req_{6}\"}}",
-                    session.CallId, calleeId, callerId, localSsrc, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
+                var s401 = new JsonObject();
+                s401["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                s401["calleeId"] = JsonValue.CreateStringValue(calleeId);
+                s401["callerId"] = JsonValue.CreateStringValue(callerId);
+                s401["receiverID"] = JsonValue.CreateStringValue(calleeId);
+                s401["senderID"] = JsonValue.CreateStringValue(callerId);
+                s401["session"] = JsonValue.CreateStringValue(session.SessionId ?? string.Empty);
+                s401["codec"] = JsonValue.CreateStringValue("[\"opus/48000/2\"]\n");
+                s401["sP2P"] = JsonValue.CreateNumberValue(0);
+                s401["ssrc"] = JsonValue.CreateNumberValue(localSsrc);
+                s401["type"] = JsonValue.CreateNumberValue((int)session.CallType);
+                s401["time"] = JsonValue.CreateNumberValue(nowMs);
+                s401["req_id"] = JsonValue.CreateStringValue("req_" + _rng.Next(1000, 9999));
+                string json = s401.Stringify();
                 ZaloLog.Add("ZRTC Signal 401 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {

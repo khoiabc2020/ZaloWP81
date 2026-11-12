@@ -160,6 +160,9 @@
     <Compile Include="Views\LoginPage.cs" />
     <Compile Include="Views\MainPage.cs" />
     <Compile Include="Views\ChatPage.cs" />
+    <Compile Include="Views\ChatPage.Bubbles.cs" />
+    <Compile Include="Views\ChatPage.Media.cs" />
+    <Compile Include="Views\ChatPage.Actions.cs" />
     <Compile Include="Views\SettingsPage.cs" />
     <Compile Include="Views\ProfilePage.cs" />
     <Compile Include="Views\FriendProfilePage.cs" />

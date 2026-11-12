@@ -511,6 +511,10 @@ namespace ZaloLite
                     if (title.Length > 0 || href.Length > 0)
                         return (title + " " + href).Trim();
                 }
+                if (text.Contains("artboard_5_4_x_2x") || text.Contains("artboard"))
+                {
+                    return "Đã trở thành bạn bè";
+                }
                 return SanitizePreviewText(text);
             }
 

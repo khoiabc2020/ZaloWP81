@@ -1018,7 +1018,6 @@ namespace ZaloLite
         private int _typingRevision;
         private Brush _colorBrush;
         private Brush _imageBrush;
-        private bool _imageMade;
 
         public string Key { get; set; }
         public string ThreadId { get; set; }
@@ -1200,7 +1199,6 @@ namespace ZaloLite
                 if (_avatarUrl == value) return;
                 _avatarUrl = value;
                 _imageBrush = null;
-                _imageMade = false;
                 Raise("AvatarImageBrush");
             }
         }
@@ -1220,12 +1218,16 @@ namespace ZaloLite
         {
             get
             {
-                if (!_imageMade)
+                if (_imageBrush == null && !string.IsNullOrEmpty(_avatarUrl))
                 {
                     _imageBrush = ZaloAvatar.ImageFor(_avatarUrl);
-                    _imageMade = true;
                 }
                 return _imageBrush;
+            }
+            set
+            {
+                _imageBrush = value;
+                Raise("AvatarImageBrush");
             }
         }
 
