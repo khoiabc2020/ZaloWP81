@@ -1013,39 +1013,40 @@ namespace ZaloWP81.Views
 
         private Grid CreateDiscoveryTab()
         {
+            double scale = ZaloSettingsService.Current.UiScaleFactor;
             var grid = new Grid { Background = new SolidColorBrush(Colors.White) };
-            var scroll = new ScrollViewer { Padding = new Thickness(14, 14, 14, 14) };
+            var scroll = new ScrollViewer { Padding = new Thickness(Math.Round(14 * scale)) };
             var stack = new StackPanel();
 
             stack.Children.Add(new TextBlock
             {
                 Text = "Khám phá",
-                FontSize = 21,
+                FontSize = Math.Round(22 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.Bold,
                 Foreground = _textDark,
-                Margin = new Thickness(2, 2, 0, 12)
+                Margin = new Thickness(Math.Round(2 * scale), Math.Round(2 * scale), 0, Math.Round(12 * scale))
             });
 
-            // 1. "Gợi ý kết bạn" Card (matching WP10)
+            // 1. "Gợi ý kết bạn" Card (matching WP10 & modern Zalo)
             var recBorder = new Border
             {
                 Background = new SolidColorBrush(Colors.White),
                 BorderBrush = ColorBrush(0xFF, 0xE6, 0xEB, 0xF1),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                Padding = new Thickness(12),
-                Margin = new Thickness(0, 0, 0, 14)
+                CornerRadius = new CornerRadius(Math.Round(12 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(14 * scale))
             };
             var recStack = new StackPanel();
 
-            var recHeaderGrid = new Grid { Margin = new Thickness(2, 0, 0, 4) };
+            var recHeaderGrid = new Grid { Margin = new Thickness(Math.Round(2 * scale), 0, 0, Math.Round(4 * scale)) };
             recHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             recHeaderGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
             var recTitle = new TextBlock
             {
                 Text = "Gợi ý kết bạn",
-                FontSize = 16,
+                FontSize = Math.Round(17 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = ColorBrush(0xFF, 0x17, 0x21, 0x2B),
                 VerticalAlignment = VerticalAlignment.Center
@@ -1056,10 +1057,10 @@ namespace ZaloWP81.Views
             var recRefreshBtn = new TextBlock
             {
                 Text = "Làm mới",
-                FontSize = 12,
+                FontSize = Math.Round(13.5 * scale, 1),
                 Foreground = _activeBlue,
                 VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(8, 5, 8, 5)
+                Padding = new Thickness(Math.Round(8 * scale), Math.Round(4 * scale), Math.Round(8 * scale), Math.Round(4 * scale))
             };
             recRefreshBtn.Tapped += (s, e) => RefreshRecommendations();
             Grid.SetColumn(recRefreshBtn, 1);
@@ -1069,10 +1070,10 @@ namespace ZaloWP81.Views
             _recommendationsStatusText = new TextBlock
             {
                 Text = "Chạm để tải gợi ý từ Zalo",
-                FontSize = 12,
+                FontSize = Math.Round(13 * scale, 1),
                 Foreground = _textSub,
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(2, 2, 2, 6)
+                Margin = new Thickness(Math.Round(2 * scale), Math.Round(2 * scale), Math.Round(2 * scale), Math.Round(8 * scale))
             };
             recStack.Children.Add(_recommendationsStatusText);
 
@@ -1086,10 +1087,10 @@ namespace ZaloWP81.Views
             stack.Children.Add(new TextBlock
             {
                 Text = "TIỆN ÍCH THIẾT YẾU",
-                FontSize = 11.5,
+                FontSize = Math.Round(12.5 * scale, 1),
                 FontWeight = Windows.UI.Text.FontWeights.SemiBold,
                 Foreground = _inactiveGray,
-                Margin = new Thickness(4, 4, 0, 8)
+                Margin = new Thickness(Math.Round(4 * scale), Math.Round(6 * scale), 0, Math.Round(8 * scale))
             });
 
             var utilityBorder = new Border
@@ -1097,20 +1098,20 @@ namespace ZaloWP81.Views
                 Background = ColorBrush(0xFF, 0xFA, 0xFA, 0xFA),
                 BorderBrush = ColorBrush(0xFF, 0xE5, 0xE7, 0xEB),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(10),
-                Margin = new Thickness(0, 0, 0, 14)
+                CornerRadius = new CornerRadius(Math.Round(12 * scale)),
+                Margin = new Thickness(0, 0, 0, Math.Round(14 * scale))
             };
             var utilityStack = new StackPanel();
 
             // Row 1: Tạo nhóm mới -> CreateGroupPage
-            var createGroupRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_group_action_blue.png", "Tạo nhóm mới", "Trò chuyện nhóm công việc hoặc bạn bè", Color.FromArgb(0xFF, 0xEF, 0xF6, 0xFF));
+            var createGroupRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_group_action_blue.png", "Tạo nhóm mới", "Trò chuyện nhóm công việc hoặc bạn bè", Color.FromArgb(0xFF, 0xEF, 0xF6, 0xFF), scale);
             createGroupRow.Tapped += (s, e) => NavigationManager.NavigateTo(new CreateGroupPage());
             utilityStack.Children.Add(createGroupRow);
 
-            utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(52, 0, 0, 0) });
+            utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(Math.Round(56 * scale), 0, 0, 0) });
 
             // Row 2: Tìm và thêm bạn -> AddFriendPage
-            var addFriendRow = CreateUtilityRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Tìm và thêm bạn", "Tìm bạn bằng số điện thoại hoặc Zalo ID", Color.FromArgb(0xFF, 0xEC, 0xFD, 0xF5));
+            var addFriendRow = CreateUtilityRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Tìm và thêm bạn", "Tìm bạn bằng số điện thoại hoặc Zalo ID", Color.FromArgb(0xFF, 0xEC, 0xFD, 0xF5), scale);
             addFriendRow.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
             utilityStack.Children.Add(addFriendRow);
 
@@ -1122,11 +1123,11 @@ namespace ZaloWP81.Views
             return grid;
         }
 
-        private Border CreateUtilityRow(string iconUri, string title, string subtitle, Color bg)
+        private Border CreateUtilityRow(string iconUri, string title, string subtitle, Color bg, double scale)
         {
             var border = new Border
             {
-                Padding = new Thickness(14, 12, 14, 12),
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(12 * scale), Math.Round(14 * scale), Math.Round(12 * scale)),
                 Background = new SolidColorBrush(Colors.Transparent),
                 IsTapEnabled = true
             };
@@ -1138,16 +1139,16 @@ namespace ZaloWP81.Views
             var iconBox = new Border
             {
                 Background = new SolidColorBrush(bg),
-                Width = 40,
-                Height = 40,
-                CornerRadius = new CornerRadius(20),
-                Margin = new Thickness(0, 0, 12, 0)
+                Width = Math.Round(44 * scale),
+                Height = Math.Round(44 * scale),
+                CornerRadius = new CornerRadius(Math.Round(22 * scale)),
+                Margin = new Thickness(0, 0, Math.Round(12 * scale), 0)
             };
             var img = new Image
             {
                 Source = new BitmapImage(new Uri(iconUri)),
-                Width = 22,
-                Height = 22,
+                Width = Math.Round(24 * scale),
+                Height = Math.Round(24 * scale),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1156,15 +1157,15 @@ namespace ZaloWP81.Views
             grid.Children.Add(iconBox);
 
             var txtStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-            txtStack.Children.Add(new TextBlock { Text = title, FontSize = 13.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x1E, 0x29, 0x3B) });
-            txtStack.Children.Add(new TextBlock { Text = subtitle, FontSize = 11, Foreground = ColorBrush(0xFF, 0x64, 0x74, 0x8B), Margin = new Thickness(0, 2, 0, 0) });
+            txtStack.Children.Add(new TextBlock { Text = title, FontSize = Math.Round(15.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x1E, 0x29, 0x3B) });
+            txtStack.Children.Add(new TextBlock { Text = subtitle, FontSize = Math.Round(12.5 * scale, 1), Foreground = ColorBrush(0xFF, 0x64, 0x74, 0x8B), Margin = new Thickness(0, Math.Round(2 * scale), 0, 0) });
             Grid.SetColumn(txtStack, 1);
             grid.Children.Add(txtStack);
 
             var chevron = new TextBlock
             {
                 Text = "›",
-                FontSize = 18,
+                FontSize = Math.Round(20 * scale, 1),
                 Foreground = ColorBrush(0xFF, 0x94, 0xA3, 0xB8),
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -1185,6 +1186,7 @@ namespace ZaloWP81.Views
             if (_recommendationsStatusText != null) _recommendationsStatusText.Text = "Đang tải gợi ý kết bạn…";
             try
             {
+                double scale = ZaloSettingsService.Current.UiScaleFactor;
                 var suggested = await ZaloAuth.GetRecommendedFriendsAsync(ZaloApp.Session, CancellationToken.None);
                 var existingIds = new HashSet<string>((ZaloApp.Friends ?? new List<ZaloFriend>()).Select(f => f.UserId).Where(id => !string.IsNullOrEmpty(id)), StringComparer.Ordinal);
                 var recs = suggested.Where(f => !existingIds.Contains(f.UserId)).GroupBy(f => f.UserId).Select(g => g.First()).Take(15).ToList();
@@ -1199,7 +1201,7 @@ namespace ZaloWP81.Views
                     if (_recommendationsStatusText != null) _recommendationsStatusText.Text = $"Gợi ý cho bạn ({recs.Count}):";
                     foreach (var rec in recs)
                     {
-                        var recItem = CreateRecommendationItem(rec);
+                        var recItem = CreateRecommendationItem(rec, scale);
                         _recommendationsStack.Children.Add(recItem);
                     }
                 }
@@ -1216,30 +1218,31 @@ namespace ZaloWP81.Views
             }
         }
 
-        private Border CreateRecommendationItem(ZaloFriend friend)
+        private Border CreateRecommendationItem(ZaloFriend friend, double scale)
         {
             var border = new Border
             {
-                Padding = new Thickness(0, 6, 0, 6),
+                Padding = new Thickness(0, Math.Round(8 * scale), 0, Math.Round(8 * scale)),
                 Background = new SolidColorBrush(Colors.White)
             };
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(Math.Round(48 * scale)) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            var avaGrid = new Grid { Width = 36, Height = 36, VerticalAlignment = VerticalAlignment.Center };
+            double avaSize = Math.Round(40 * scale);
+            var avaGrid = new Grid { Width = avaSize, Height = avaSize, VerticalAlignment = VerticalAlignment.Center };
             avaGrid.Children.Add(new Ellipse { Fill = friend.AvatarColor ?? _activeBlue });
-            avaGrid.Children.Add(new TextBlock { Text = friend.Initial ?? "Z", Foreground = new SolidColorBrush(Colors.White), FontSize = 14, FontWeight = Windows.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
+            avaGrid.Children.Add(new TextBlock { Text = friend.Initial ?? "Z", Foreground = new SolidColorBrush(Colors.White), FontSize = Math.Round(16 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center });
             if (friend.AvatarImageBrush != null) avaGrid.Children.Add(new Ellipse { Fill = friend.AvatarImageBrush });
             Grid.SetColumn(avaGrid, 0);
             grid.Children.Add(avaGrid);
 
-            var txtStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0) };
-            txtStack.Children.Add(new TextBlock { Text = friend.Name ?? "Người dùng Zalo", FontSize = 13.5, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x17, 0x21, 0x2B), TextTrimming = TextTrimming.CharacterEllipsis });
+            var txtStack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(Math.Round(8 * scale), 0, Math.Round(8 * scale), 0) };
+            txtStack.Children.Add(new TextBlock { Text = friend.Name ?? "Người dùng Zalo", FontSize = Math.Round(15.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = ColorBrush(0xFF, 0x17, 0x21, 0x2B), TextTrimming = TextTrimming.CharacterEllipsis });
             if (!string.IsNullOrEmpty(friend.Subtitle))
             {
-                txtStack.Children.Add(new TextBlock { Text = friend.Subtitle, FontSize = 11.5, Foreground = _textSub, TextTrimming = TextTrimming.CharacterEllipsis });
+                txtStack.Children.Add(new TextBlock { Text = friend.Subtitle, FontSize = Math.Round(12.5 * scale, 1), Foreground = _textSub, TextTrimming = TextTrimming.CharacterEllipsis });
             }
             Grid.SetColumn(txtStack, 1);
             grid.Children.Add(txtStack);
@@ -1247,12 +1250,12 @@ namespace ZaloWP81.Views
             var addBtn = new Border
             {
                 Background = ColorBrush(0xFF, 0xEA, 0xF3, 0xFF),
-                CornerRadius = new CornerRadius(14),
-                Padding = new Thickness(12, 5, 12, 5),
+                CornerRadius = new CornerRadius(Math.Round(16 * scale)),
+                Padding = new Thickness(Math.Round(14 * scale), Math.Round(6 * scale), Math.Round(14 * scale), Math.Round(6 * scale)),
                 VerticalAlignment = VerticalAlignment.Center,
                 IsTapEnabled = true
             };
-            var addBtnText = new TextBlock { Text = "Kết bạn", FontSize = 12, FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
+            var addBtnText = new TextBlock { Text = "Kết bạn", FontSize = Math.Round(13.5 * scale, 1), FontWeight = Windows.UI.Text.FontWeights.SemiBold, Foreground = _activeBlue };
             addBtn.Child = addBtnText;
             addBtn.Tapped += async (s, e) =>
             {
