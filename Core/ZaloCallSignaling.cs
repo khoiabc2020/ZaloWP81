@@ -37,6 +37,14 @@ namespace ZaloWP81.Core
         public bool IsMuted { get; set; }
         public bool IsSpeakerOn { get; set; }
         public bool IsVideoEnabled { get; set; }
+
+        // ZRTC Relay & Media parameters
+        public string RelayHost { get; set; }
+        public int RelayPort { get; set; }
+        public string RelayToken { get; set; }
+        public uint LocalSsrc { get; set; }
+        public uint RemoteSsrc { get; set; }
+        public string NegotiatedCodec { get; set; } = "opus";
     }
 
     /// <summary>
@@ -121,6 +129,13 @@ namespace ZaloWP81.Core
 
             // Send Signal 402 status 0
             await SendSignal402Async(CurrentSession, 0);
+
+            // If relay server was already received via Signal 407, start UDP streaming
+            if (!string.IsNullOrEmpty(CurrentSession.RelayHost))
+            {
+                _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
+                ZaloUdpRelayEngine.Current.StartStreaming();
+            }
         }
 
         public static async Task RejectCallAsync()
@@ -129,6 +144,7 @@ namespace ZaloWP81.Core
             CurrentSession.State = ZaloCallState.Rejected;
             NotifyState(ZaloCallState.Rejected);
             StopTimers();
+            ZaloUdpRelayEngine.Current.StopSession();
 
             // Send Signal 402 status 3 (rejected)
             await SendSignal402Async(CurrentSession, 3);
@@ -142,6 +158,7 @@ namespace ZaloWP81.Core
             session.State = ZaloCallState.Ended;
             StopTimers();
             NotifyState(ZaloCallState.Ended);
+            ZaloUdpRelayEngine.Current.StopSession();
 
             // Send Signal 405 (cancel) or 409 (hangup)
             if (wasConnected)
@@ -261,7 +278,8 @@ namespace ZaloWP81.Core
                             PeerAvatar = callerAvatar,
                             CallType = type == 1 ? ZaloCallType.Video : ZaloCallType.Voice,
                             IsOutgoing = false,
-                            State = ZaloCallState.Calling
+                            State = ZaloCallState.Calling,
+                            LocalSsrc = (uint)_rng.Next(1000000, 9999999)
                         };
                         CurrentSession = session;
                         NotifyState(ZaloCallState.Calling);
@@ -270,6 +288,36 @@ namespace ZaloWP81.Core
                         {
                             NavigationManager.NavigateTo(new Views.CallPage(session, type == 1));
                         });
+                    }
+                }
+                else if (cmd == 416)
+                {
+                    // Server ACK for call request
+                    if (CurrentSession != null && CurrentSession.IsOutgoing)
+                    {
+                        CurrentSession.State = ZaloCallState.Ringing;
+                        NotifyState(ZaloCallState.Ringing);
+                    }
+                }
+                else if (cmd == 407)
+                {
+                    // Server assigns media relay server
+                    if (CurrentSession != null)
+                    {
+                        ParseRelayConfig(parsed, CurrentSession);
+                        _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
+                    }
+                }
+                else if (cmd == 408)
+                {
+                    // Call bridged / connected
+                    if (CurrentSession != null)
+                    {
+                        CurrentSession.State = ZaloCallState.Connected;
+                        NotifyState(ZaloCallState.Connected);
+                        StartDurationTimer();
+                        StopTimeoutTimer();
+                        ZaloUdpRelayEngine.Current.StartStreaming();
                     }
                 }
                 else if (cmd == 402)
@@ -283,12 +331,14 @@ namespace ZaloWP81.Core
                             NotifyState(ZaloCallState.Connected);
                             StartDurationTimer();
                             StopTimeoutTimer();
+                            ZaloUdpRelayEngine.Current.StartStreaming();
                         }
                         else if (status == 1 || status == 3)
                         {
                             CurrentSession.State = ZaloCallState.Rejected;
                             NotifyState(ZaloCallState.Rejected);
                             StopTimers();
+                            ZaloUdpRelayEngine.Current.StopSession();
                         }
                     }
                 }
@@ -299,12 +349,99 @@ namespace ZaloWP81.Core
                         CurrentSession.State = ZaloCallState.Ended;
                         NotifyState(ZaloCallState.Ended);
                         StopTimers();
+                        ZaloUdpRelayEngine.Current.StopSession();
                     }
                 }
             }
             catch (Exception ex)
             {
                 ZaloLog.Add("ProcessIncomingSignal error: " + ex.Message);
+            }
+        }
+
+        private static void ParseRelayConfig(JsonObject parsed, ZaloCallSession session)
+        {
+            try
+            {
+                if (parsed.ContainsKey("token"))
+                {
+                    var tokenVal = parsed.GetNamedValue("token");
+                    if (tokenVal.ValueType == JsonValueType.String) session.RelayToken = tokenVal.GetString();
+                    else if (tokenVal.ValueType == JsonValueType.Number) session.RelayToken = tokenVal.GetNumber().ToString();
+                }
+
+                if (parsed.ContainsKey("ssrc"))
+                {
+                    session.LocalSsrc = (uint)parsed.GetNamedNumber("ssrc");
+                }
+                else if (parsed.ContainsKey("local_ssrc"))
+                {
+                    session.LocalSsrc = (uint)parsed.GetNamedNumber("local_ssrc");
+                }
+
+                if (parsed.ContainsKey("remote_ssrc"))
+                {
+                    session.RemoteSsrc = (uint)parsed.GetNamedNumber("remote_ssrc");
+                }
+
+                string host = null;
+                int port = 0;
+
+                if (parsed.ContainsKey("servers"))
+                {
+                    var serversVal = parsed.GetNamedValue("servers");
+                    if (serversVal.ValueType == JsonValueType.Array)
+                    {
+                        var arr = serversVal.GetArray();
+                        foreach (var item in arr)
+                        {
+                            if (item.ValueType == JsonValueType.Object)
+                            {
+                                var obj = item.GetObject();
+                                if (obj.ContainsKey("ip")) host = obj.GetNamedString("ip");
+                                else if (obj.ContainsKey("host")) host = obj.GetNamedString("host");
+
+                                if (obj.ContainsKey("port")) port = (int)obj.GetNamedNumber("port");
+                                if (!string.IsNullOrEmpty(host) && port > 0) break;
+                            }
+                            else if (item.ValueType == JsonValueType.String)
+                            {
+                                string str = item.GetString();
+                                string[] parts = str.Split(':');
+                                if (parts.Length == 2 && int.TryParse(parts[1], out port))
+                                {
+                                    host = parts[0];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (string.IsNullOrEmpty(host))
+                {
+                    if (parsed.ContainsKey("ip")) host = parsed.GetNamedString("ip");
+                    else if (parsed.ContainsKey("host")) host = parsed.GetNamedString("host");
+                    else if (parsed.ContainsKey("server")) host = parsed.GetNamedString("server");
+
+                    if (parsed.ContainsKey("port")) port = (int)parsed.GetNamedNumber("port");
+                }
+
+                if (!string.IsNullOrEmpty(host) && port > 0)
+                {
+                    session.RelayHost = host;
+                    session.RelayPort = port;
+                    ZaloLog.Add(string.Format("ZRTC Parsed Relay Config: Host={0}, Port={1}, Token={2}, SSRC={3}",
+                        host, port, session.RelayToken, session.LocalSsrc));
+                }
+                else
+                {
+                    ZaloLog.Add("ZRTC Signal 407 parsed but no valid host/port found.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("ParseRelayConfig error: " + ex.Message);
             }
         }
 
@@ -316,8 +453,10 @@ namespace ZaloWP81.Core
             {
                 string callerId = ZaloApp.Session?.Uid ?? string.Empty;
                 long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"callerId\":\"{2}\",\"codec\":\"[]\\n\",\"type\":{3},\"time\":{4},\"req_id\":\"req_{5}\"}}",
-                    session.CallId, session.PeerId, callerId, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
+                uint localSsrc = session.LocalSsrc != 0 ? session.LocalSsrc : (uint)_rng.Next(1000000, 9999999);
+                session.LocalSsrc = localSsrc;
+                string json = string.Format("{{\"callId\":{0},\"calleeId\":\"{1}\",\"callerId\":\"{2}\",\"codec\":\"[\\\"opus/48000/2\\\"]\\n\",\"sP2P\":0,\"ssrc\":{3},\"type\":{4},\"time\":{5},\"req_id\":\"req_{6}\"}}",
+                    session.CallId, session.PeerId, callerId, localSsrc, (int)session.CallType, nowMs, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 401 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {
@@ -334,8 +473,10 @@ namespace ZaloWP81.Core
         {
             try
             {
-                string json = string.Format("{{\"callId\":{0},\"status\":{1},\"callerId\":\"{2}\",\"req_id\":\"req_{3}\"}}",
-                    session.CallId, status, session.PeerId, _rng.Next(1000, 9999));
+                uint localSsrc = session.LocalSsrc != 0 ? session.LocalSsrc : (uint)_rng.Next(1000000, 9999999);
+                session.LocalSsrc = localSsrc;
+                string json = string.Format("{{\"callId\":{0},\"status\":{1},\"callerId\":\"{2}\",\"ssrc\":{3},\"sP2P\":0,\"req_id\":\"req_{4}\"}}",
+                    session.CallId, status, session.PeerId, localSsrc, _rng.Next(1000, 9999));
                 ZaloLog.Add("ZRTC Signal 402 payload: " + json);
                 if (ZaloApp.Listener != null)
                 {

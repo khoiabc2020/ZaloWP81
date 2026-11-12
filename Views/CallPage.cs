@@ -278,6 +278,11 @@ namespace ZaloWP81.Views
             {
                 ZaloCallSignaling.ToggleSpeaker();
                 UpdateControlStates();
+                var session = ZaloCallSignaling.CurrentSession;
+                if (session != null)
+                {
+                    ZaloUdpRelayEngine.Current.SetSpeakerphone(session.IsSpeakerOn);
+                }
             };
             var speakerLabel = new TextBlock
             {
@@ -587,6 +592,19 @@ namespace ZaloWP81.Views
                         _callStatusText.Text = "00:00";
                         _callStatusText.FontWeight = Windows.UI.Text.FontWeights.SemiBold;
                         _callStatusText.FontSize = 20;
+
+                        // Attach live MediaStreamSource to _audioPlayer for real-time VoIP voice
+                        try
+                        {
+                            var mss = ZaloUdpRelayEngine.Current.CreateMediaStreamSource();
+                            _audioPlayer.SetMediaStreamSource(mss);
+                            _audioPlayer.Play();
+                            ZaloUdpRelayEngine.Current.SetSpeakerphone(session?.IsSpeakerOn ?? false);
+                        }
+                        catch (Exception ex)
+                        {
+                            ZaloLog.Add("CallPage attach audio stream error: " + ex.Message);
+                        }
                         break;
 
                     case ZaloCallState.Ended:

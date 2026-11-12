@@ -412,7 +412,7 @@ namespace ZaloLite
             else if (cmd == 502) EmitReceipts(parsed, false);
             else if (cmd == 522) EmitReceipts(parsed, true);
             else if (version == 1 && cmd == 612 && sub == 0) EmitReactions(parsed);
-            else if (cmd == 401 || cmd == 402 || cmd == 405 || cmd == 406 || cmd == 409)
+            else if (cmd >= 400 && cmd <= 420)
             {
                 ZaloCallSignaling.ProcessIncomingSignal(cmd, parsed);
             }
