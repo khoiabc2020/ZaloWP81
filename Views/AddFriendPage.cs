@@ -338,6 +338,7 @@ namespace ZaloWP81.Views
             {
                 var _ = Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
                 {
+                    _foundFriend.AvatarImageBrush = null;
                     UpdateFoundAvatar();
                 });
             }

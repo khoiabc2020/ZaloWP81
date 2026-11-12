@@ -28,6 +28,7 @@ namespace ZaloWP81.Views
                 if (_conversation != null && (string.Equals(_conversation.AvatarUrl, url, StringComparison.OrdinalIgnoreCase)
                     || (_recipientInitial != null && _recipientInitial.Text.Length > 0)))
                 {
+                    _conversation.AvatarImageBrush = null;
                     UpdateHeaderAvatar();
                 }
                 RequestRenderMessages();
@@ -222,8 +223,8 @@ namespace ZaloWP81.Views
                 stack.Children.Add(quoteBorder);
             }
 
-            bool isFriendshipCard = (!string.IsNullOrEmpty(msg.MediaUrl) && msg.MediaUrl.Contains("artboard"))
-                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.Contains("artboard") || msg.Text.Contains("trở thành bạn bè")));
+            bool isFriendshipCard = (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("artboard") || msg.MediaUrl.Contains("74009")))
+                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.Contains("artboard") || msg.Text.Contains("74009") || msg.Text.Contains("trở thành bạn bè") || msg.Text.Contains("thành bạn bè")));
 
             bool isSticker = !isFriendshipCard && (msg.IsSticker || msg.MsgType == "chat.sticker" || msg.MsgType == "5"
                 || (!string.IsNullOrEmpty(msg.MediaUrl) && (msg.MediaUrl.Contains("emo_") || msg.MediaUrl.Contains("sticker_"))));
@@ -428,7 +429,7 @@ namespace ZaloWP81.Views
 
                 bool isTextUrl = !string.IsNullOrWhiteSpace(msg.Text) &&
                     (msg.Text.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || msg.Text.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) &&
-                    (msg.Text.Contains("res-zalo") || msg.Text.Contains("zadn.vn") || msg.Text == msg.MediaUrl || msg.Text == msg.ViewerUrl
+                    (msg.Text.Contains("res-zalo") || msg.Text.Contains("zadn.vn") || msg.Text.Contains("artboard") || msg.Text.Contains("74009") || msg.Text == msg.MediaUrl || msg.Text == msg.ViewerUrl
                      || msg.Text.EndsWith(".png", StringComparison.OrdinalIgnoreCase) || msg.Text.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
                      || msg.Text.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) || msg.Text.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
 
@@ -1021,6 +1022,82 @@ namespace ZaloWP81.Views
             BindMessageImage(bannerImg, ring, null, tempMsg);
 
             string partnerName = _conversation?.Name ?? "bạn bè";
+
+            // Linked Avatars row (User avatar + Cheers + Partner avatar)
+            var avatarsRow = new Grid
+            {
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 10, 0, 4)
+            };
+            avatarsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            avatarsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            avatarsRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            // User Avatar
+            var myAvatarGrid = new Grid { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Center };
+            var myEllipse = new Ellipse { Width = 52, Height = 52, Fill = _activeBlue };
+            var myInitial = new TextBlock
+            {
+                Text = ZaloAvatar.InitialOf(ZaloApp.Session?.DisplayName ?? "Tôi"),
+                FontSize = 18,
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            myAvatarGrid.Children.Add(myEllipse);
+            myAvatarGrid.Children.Add(myInitial);
+            if (!string.IsNullOrEmpty(ZaloApp.Session?.AvatarUrl))
+            {
+                var brush = ZaloAvatar.ImageFor(ZaloApp.Session.AvatarUrl, 80);
+                if (brush != null) { myEllipse.Fill = brush; myInitial.Text = string.Empty; }
+            }
+            Grid.SetColumn(myAvatarGrid, 0);
+            avatarsRow.Children.Add(myAvatarGrid);
+
+            // Toast / Celebration Icon in center
+            var centerToast = new Border
+            {
+                Width = 36,
+                Height = 36,
+                CornerRadius = new CornerRadius(18),
+                Background = new SolidColorBrush(Color.FromArgb(0xFF, 0xFE, 0xF3, 0xC7)),
+                Margin = new Thickness(8, 0, 8, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            centerToast.Child = new TextBlock
+            {
+                Text = "🍻",
+                FontSize = 18,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(centerToast, 1);
+            avatarsRow.Children.Add(centerToast);
+
+            // Partner Avatar
+            var partnerAvatarGrid = new Grid { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Center };
+            var partnerEllipse = new Ellipse { Width = 52, Height = 52, Fill = _conversation?.AvatarColor ?? _activeBlue };
+            var partnerInitial = new TextBlock
+            {
+                Text = _conversation?.Initial ?? ZaloAvatar.InitialOf(partnerName),
+                FontSize = 18,
+                FontWeight = Windows.UI.Text.FontWeights.Bold,
+                Foreground = new SolidColorBrush(Colors.White),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            partnerAvatarGrid.Children.Add(partnerEllipse);
+            partnerAvatarGrid.Children.Add(partnerInitial);
+            if (_conversation != null && !string.IsNullOrEmpty(_conversation.AvatarUrl))
+            {
+                var brush = _conversation.AvatarImageBrush ?? ZaloAvatar.ImageFor(_conversation.AvatarUrl, 80);
+                if (brush != null) { partnerEllipse.Fill = brush; partnerInitial.Text = string.Empty; }
+            }
+            Grid.SetColumn(partnerAvatarGrid, 2);
+            avatarsRow.Children.Add(partnerAvatarGrid);
+
+            stack.Children.Add(avatarsRow);
             var titleBlock = new TextBlock
             {
                 Text = $"Bạn và {partnerName} đã trở thành bạn bè",

@@ -123,26 +123,30 @@ namespace ZaloLite
                 if (onDisk)
                 {
                     bmp = new BitmapImage(new Uri("ms-appdata:///local/avatars/" + fileName)) { DecodePixelWidth = decodeWidth };
+                    lock (_cacheLock)
+                    {
+                        if (_bitmapCache.Count > 500) _bitmapCache.Clear();
+                        _bitmapCache[url] = bmp;
+                    }
                 }
                 else
                 {
-                    bmp = new BitmapImage(uri) { DecodePixelWidth = decodeWidth };
                     if (uri.Scheme == "https" || uri.Scheme == "http")
                     {
                         _ = CacheAvatarToDiskAsync(url, fileName);
                     }
+                    else if (uri.Scheme == "ms-appx" || uri.Scheme == "ms-appdata")
+                    {
+                        bmp = new BitmapImage(uri) { DecodePixelWidth = decodeWidth };
+                        lock (_cacheLock)
+                        {
+                            if (_bitmapCache.Count > 500) _bitmapCache.Clear();
+                            _bitmapCache[url] = bmp;
+                        }
+                    }
                 }
             }
             catch { }
-
-            if (bmp != null)
-            {
-                lock (_cacheLock)
-                {
-                    if (_bitmapCache.Count > 500) _bitmapCache.Clear();
-                    _bitmapCache[url] = bmp;
-                }
-            }
 
             return bmp;
         }
@@ -167,9 +171,23 @@ namespace ZaloLite
                 }
 
                 byte[] bytes = null;
-                using (var client = new System.Net.Http.HttpClient())
+                if (ZaloApp.Session?.Http != null)
                 {
-                    bytes = await client.GetByteArrayAsync(url);
+                    try
+                    {
+                        bytes = await ZaloApp.Session.Http.DownloadBytesAsync(url, System.Threading.CancellationToken.None);
+                    }
+                    catch { }
+                }
+
+                if (bytes == null || bytes.Length == 0)
+                {
+                    using (var client = new System.Net.Http.HttpClient())
+                    {
+                        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                        client.DefaultRequestHeaders.TryAddWithoutValidation("Referer", "https://chat.zalo.me/");
+                        bytes = await client.GetByteArrayAsync(url);
+                    }
                 }
 
                 if (bytes != null && bytes.Length > 0)

@@ -24,6 +24,7 @@ namespace ZaloWP81.Views
         private TextBlock _avatarInitial;
         private TextBlock _calleeNameText;
         private TextBlock _callStatusText;
+        private TextBlock _debugStatusText;
         private TextBlock _callTypeHeaderText;
         private Border _micButtonBorder;
         private Border _speakerButtonBorder;
@@ -212,6 +213,19 @@ namespace ZaloWP81.Views
                 Margin = new Thickness(0, Math.Round(10 * scale), 0, 0)
             };
             centerStack.Children.Add(_callStatusText);
+
+            _debugStatusText = new TextBlock
+            {
+                Text = "",
+                FontSize = Math.Round(11 * scale, 1),
+                Foreground = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = Math.Round(300 * scale),
+                Margin = new Thickness(0, Math.Round(6 * scale), 0, 0)
+            };
+            centerStack.Children.Add(_debugStatusText);
 
             Grid.SetRow(centerStack, 1);
             rootGrid.Children.Add(centerStack);
@@ -472,8 +486,14 @@ namespace ZaloWP81.Views
 
             ZaloCallSignaling.StateChanged -= OnCallStateChanged;
             ZaloCallSignaling.DurationTick -= OnDurationTick;
+            ZaloCallSignaling.DiagnosticUpdated -= OnDiagnosticUpdated;
             ZaloCallSignaling.StateChanged += OnCallStateChanged;
             ZaloCallSignaling.DurationTick += OnDurationTick;
+            ZaloCallSignaling.DiagnosticUpdated += OnDiagnosticUpdated;
+            if (!string.IsNullOrEmpty(ZaloCallSignaling.LastDiagnostic))
+            {
+                _debugStatusText.Text = ZaloCallSignaling.LastDiagnostic;
+            }
 
             if (_isIncoming)
             {
@@ -658,8 +678,20 @@ namespace ZaloWP81.Views
             base.OnNavigatedFrom(e);
             ZaloCallSignaling.StateChanged -= OnCallStateChanged;
             ZaloCallSignaling.DurationTick -= OnDurationTick;
+            ZaloCallSignaling.DiagnosticUpdated -= OnDiagnosticUpdated;
             StopAudioPlayback();
             _sessionInitialized = false;
+        }
+
+        private void OnDiagnosticUpdated(string text)
+        {
+            var ignored = Dispatcher.RunAsync(CoreDispatcherPriority.Low, () =>
+            {
+                if (_debugStatusText != null)
+                {
+                    _debugStatusText.Text = text ?? string.Empty;
+                }
+            });
         }
 
         private void PopulateTarget(object target)

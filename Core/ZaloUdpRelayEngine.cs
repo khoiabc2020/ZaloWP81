@@ -168,6 +168,20 @@ namespace ZaloWP81.Core
             }
         }
 
+        private static void WriteBigEndian(byte[] dest, int offset, ushort value)
+        {
+            dest[offset] = (byte)((value >> 8) & 0xFF);
+            dest[offset + 1] = (byte)(value & 0xFF);
+        }
+
+        private static void WriteBigEndian(byte[] dest, int offset, uint value)
+        {
+            dest[offset] = (byte)((value >> 24) & 0xFF);
+            dest[offset + 1] = (byte)((value >> 16) & 0xFF);
+            dest[offset + 2] = (byte)((value >> 8) & 0xFF);
+            dest[offset + 3] = (byte)(value & 0xFF);
+        }
+
         private async Task SendRelayAuthPingAsync()
         {
             if (_writer == null || _session == null) return;
@@ -188,12 +202,12 @@ namespace ZaloWP81.Core
                 byte[] zrtpInit = new byte[21 + 10 + sessBytes.Length];
                 zrtpInit[0] = 0x01; // magic
                 zrtpInit[1] = 0x7E; // payload_type InitZRTP
-                Array.Copy(BitConverter.GetBytes(fromUid), 0, zrtpInit, 10, 4);
-                Array.Copy(BitConverter.GetBytes(cmd), 0, zrtpInit, 18, 2);
+                WriteBigEndian(zrtpInit, 10, fromUid);
+                WriteBigEndian(zrtpInit, 18, cmd);
                 zrtpInit[20] = subCmd;
-                Array.Copy(BitConverter.GetBytes(callId), 0, zrtpInit, 21, 4);
-                Array.Copy(BitConverter.GetBytes(partnerUid), 0, zrtpInit, 25, 4);
-                Array.Copy(BitConverter.GetBytes((ushort)sessBytes.Length), 0, zrtpInit, 29, 2);
+                WriteBigEndian(zrtpInit, 21, callId);
+                WriteBigEndian(zrtpInit, 25, partnerUid);
+                WriteBigEndian(zrtpInit, 29, (ushort)sessBytes.Length);
                 if (sessBytes.Length > 0)
                 {
                     Array.Copy(sessBytes, 0, zrtpInit, 31, sessBytes.Length);
@@ -205,13 +219,14 @@ namespace ZaloWP81.Core
                 byte[] echoPkt = new byte[21 + 2 + 10];
                 echoPkt[0] = 0x01;
                 echoPkt[1] = 0x01;
-                Array.Copy(BitConverter.GetBytes(fromUid), 0, echoPkt, 10, 4);
-                Array.Copy(BitConverter.GetBytes((ushort)0x0005), 0, echoPkt, 18, 2);
+                WriteBigEndian(echoPkt, 10, fromUid);
+                WriteBigEndian(echoPkt, 18, (ushort)0x0005);
                 echoPkt[20] = 0x00;
                 string tsNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
                 byte[] tsBytes = Encoding.UTF8.GetBytes(tsNow);
-                Array.Copy(BitConverter.GetBytes((ushort)Math.Min(10, tsBytes.Length)), 0, echoPkt, 21, 2);
-                Array.Copy(tsBytes, 0, echoPkt, 23, Math.Min(10, tsBytes.Length));
+                ushort tsLen = (ushort)Math.Min(10, tsBytes.Length);
+                WriteBigEndian(echoPkt, 21, tsLen);
+                Array.Copy(tsBytes, 0, echoPkt, 23, tsLen);
                 _writer.WriteBytes(echoPkt);
 
                 // 3. Format ZRTC Relay Auth Frame if token exists
@@ -225,12 +240,8 @@ namespace ZaloWP81.Core
                     long cid = _session.CallId;
                     for (int i = 0; i < 8; i++) authPacket[2 + i] = (byte)((cid >> ((7 - i) * 8)) & 0xFF);
                     uint ssrc = _session.LocalSsrc;
-                    authPacket[10] = (byte)((ssrc >> 24) & 0xFF);
-                    authPacket[11] = (byte)((ssrc >> 16) & 0xFF);
-                    authPacket[12] = (byte)((ssrc >> 8) & 0xFF);
-                    authPacket[13] = (byte)(ssrc & 0xFF);
-                    authPacket[14] = (byte)((tokenBytes.Length >> 8) & 0xFF);
-                    authPacket[15] = (byte)(tokenBytes.Length & 0xFF);
+                    WriteBigEndian(authPacket, 10, ssrc);
+                    WriteBigEndian(authPacket, 14, (ushort)tokenBytes.Length);
                     Array.Copy(tokenBytes, 0, authPacket, 16, tokenBytes.Length);
                     _writer.WriteBytes(authPacket);
                 }
@@ -239,7 +250,7 @@ namespace ZaloWP81.Core
 
                 // Send initial RTP dummy packet to establish bidirectional relay mapping
                 await SendRtpPacketAsync(new byte[0]);
-                ZaloLog.Add("ZRTC UDP Relay ZRTP Init & Echo ping sent.");
+                ZaloLog.Add("ZRTC UDP Relay ZRTP Init & Echo ping sent (Big-Endian wire format).");
             }
             catch (Exception ex)
             {
@@ -341,7 +352,7 @@ namespace ZaloWP81.Core
 
                 // RFC 3550 RTP Header
                 rtp[0] = 0x80; // V=2, P=0, X=0, CC=0
-                rtp[1] = 97;   // PT=97 (Opus)
+                rtp[1] = 112;  // PT=112 (Opus audio matching codec string)
 
                 // Sequence Number
                 rtp[2] = (byte)((_sequenceNumber >> 8) & 0xFF);

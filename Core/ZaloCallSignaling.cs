@@ -62,9 +62,29 @@ namespace ZaloWP81.Core
         private static DispatcherTimer _timeoutTimer;
 
         public static ZaloCallSession CurrentSession { get; private set; }
+        public static string LastDiagnostic { get; private set; } = string.Empty;
 
         public static event Action<ZaloCallSession, ZaloCallState> StateChanged;
         public static event Action<ZaloCallSession, int> DurationTick;
+        public static event Action<string> DiagnosticUpdated;
+
+        public static void SetDiagnostic(string text)
+        {
+            LastDiagnostic = text ?? string.Empty;
+            ZaloLog.Add("[VoIP Diag] " + LastDiagnostic);
+            try
+            {
+                var d = Windows.ApplicationModel.Core.CoreApplication.MainView?.CoreWindow?.Dispatcher;
+                if (d != null)
+                {
+                    var _ = d.RunAsync(CoreDispatcherPriority.Low, () =>
+                    {
+                        DiagnosticUpdated?.Invoke(LastDiagnostic);
+                    });
+                }
+            }
+            catch { }
+        }
 
         public static long GenerateCallId()
         {
@@ -114,22 +134,17 @@ namespace ZaloWP81.Core
 
             CurrentSession = session;
             NotifyState(ZaloCallState.Ringing);
+            SetDiagnostic("Đang khởi tạo cuộc gọi (401)...");
 
             // Step 1: Initiate call session via Zalo HTTP VoIP API (/api/voicecall/requestcall)
             try
             {
-                string rtpIp = "171.244.128.61:4200";
-                string rtcpIp = "171.244.128.61:4200";
                 string codecStr = "[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n";
-                string extendDataStr = BuildExtendData(null, isVideo, rtpIp, rtcpIp);
 
                 var req401 = new JsonObject();
                 req401["calleeId"] = JsonValue.CreateStringValue(peerId);
                 req401["callId"] = JsonValue.CreateNumberValue(session.CallId);
                 req401["codec"] = JsonValue.CreateStringValue(codecStr);
-                req401["extendData"] = JsonValue.CreateStringValue(extendDataStr);
-                req401["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
-                req401["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
                 req401["session"] = JsonValue.CreateStringValue(callSessionToken);
                 req401["typeRequest"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
                 req401["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
@@ -142,6 +157,7 @@ namespace ZaloWP81.Core
                     {
                         string msg = GetSafeString(resp401, "msg", "Không thể khởi tạo cuộc gọi (mã " + status + ")");
                         ZaloLog.Add("VoiceCall requestcall rejected: " + msg);
+                        SetDiagnostic($"401 lỗi ({status}): {msg}");
                         session.State = ZaloCallState.Ended;
                         NotifyState(ZaloCallState.Ended);
                         RecordCallHistory(session, false, isMissed: false);
@@ -156,6 +172,8 @@ namespace ZaloWP81.Core
                     // Parse relay servers from resp401
                     ParseRelayConfig(resp401, session);
 
+                    string rtpIp = "";
+                    string rtcpIp = "";
                     if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
                     {
                         rtpIp = session.RelayHost + ":" + session.RelayPort;
@@ -171,7 +189,9 @@ namespace ZaloWP81.Core
                         }
                     }
 
-                    extendDataStr = BuildExtendData(resp401, isVideo, rtpIp, rtcpIp);
+                    SetDiagnostic($"401: OK, Relay={session.RelayHost}:{session.RelayPort}. Đang gửi chuông (416)...");
+
+                    string extendDataStr = BuildExtendData(resp401, isVideo, rtpIp, rtcpIp);
 
                     // Step 2: Send media invite via /api/voicecall/request (Signal 416)
                     // subCommand = 3 is strictly required by Zalo official protocol when extendData is present!
@@ -180,24 +200,19 @@ namespace ZaloWP81.Core
                     req416["calleeId"] = JsonValue.CreateStringValue(peerId);
                     req416["codec"] = JsonValue.CreateStringValue(codecStr);
                     req416["extendData"] = JsonValue.CreateStringValue(extendDataStr);
-                    req416["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
-                    req416["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
+                    if (!string.IsNullOrEmpty(rtcpIp)) req416["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
+                    if (!string.IsNullOrEmpty(rtpIp)) req416["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
                     req416["session"] = JsonValue.CreateStringValue(session.SessionId);
                     req416["subCommand"] = JsonValue.CreateNumberValue(3);
                     req416["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
 
                     var resp416 = await SendVoiceCallApiAsync("/api/voicecall/request", req416, CancellationToken.None);
                     ZaloLog.Add("VoiceCall /api/voicecall/request completed, recipient is now ringing!");
+                    SetDiagnostic($"416: Đã đổ chuông bên kia! Đang chờ trả lời...");
 
                     if (resp416 != null)
                     {
                         ParseRelayConfig(resp416, session);
-                    }
-
-                    // If relay server was obtained, initialize UDP session immediately
-                    if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
-                    {
-                        _ = ZaloUdpRelayEngine.Current.StartSessionAsync(session);
                     }
                 }
                 else
@@ -461,7 +476,13 @@ namespace ZaloWP81.Core
             {
                 var val = obj.GetNamedValue(key);
                 if (val.ValueType == JsonValueType.String) return val.GetString();
-                if (val.ValueType == JsonValueType.Number) return val.GetNumber().ToString();
+                if (val.ValueType == JsonValueType.Number)
+                {
+                    double d = val.GetNumber();
+                    if (d == Math.Floor(d) && d >= long.MinValue && d <= long.MaxValue)
+                        return ((long)d).ToString("D");
+                    return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
                 if (val.ValueType == JsonValueType.Boolean) return val.GetBoolean().ToString();
             }
             catch { }
@@ -637,38 +658,49 @@ namespace ZaloWP81.Core
                     else if (cmd == 402)
                     {
                         int status = (int)GetSafeNumber(parsed, "status", -1);
+                        SetDiagnostic($"WS 402: status={status}");
                         if (CurrentSession.IsOutgoing)
                         {
-                            if (status == 0 || (status == -1 && !parsed.ContainsKey("status") && !parsed.ContainsKey("reason")))
+                            if (status == 2)
+                            {
+                                CurrentSession.State = ZaloCallState.Ringing;
+                                NotifyState(ZaloCallState.Ringing);
+                                ParseRelayConfig(parsed, CurrentSession);
+                                SetDiagnostic("402: Đối phương đang đổ chuông (status 2)...");
+                            }
+                            else if (status == 0)
                             {
                                 CurrentSession.State = ZaloCallState.Connected;
                                 NotifyState(ZaloCallState.Connected);
                                 StartDurationTimer();
                                 StopTimeoutTimer();
                                 ParseRelayConfig(parsed, CurrentSession);
+                                SetDiagnostic("402: Đối phương đã nhấc máy! Bắt đầu thoại...");
                                 _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
                                 ZaloUdpRelayEngine.Current.StartStreaming();
                             }
-                            else if (status == 1 || status == 3 || status == 103 || parsed.ContainsKey("reason"))
+                            else if (status == 1 || status == 3 || status == 4 || status == 5 || status == 50 || status == 103 || parsed.ContainsKey("reason") || parsed.ContainsKey("msg"))
                             {
                                 var session = CurrentSession;
                                 session.State = ZaloCallState.Rejected;
                                 NotifyState(ZaloCallState.Rejected);
                                 StopTimers();
                                 ZaloUdpRelayEngine.Current.StopSession();
+                                SetDiagnostic($"402: Đối phương từ chối/bận (status={status}).");
                                 RecordCallHistory(session, false, isRejected: true);
                             }
                         }
                         else
                         {
                             // In incoming call: if caller cancels
-                            if (status == 103 || status == 1 || status == 3)
+                            if (status == 103 || status == 1 || status == 3 || status == 50)
                             {
                                 var session = CurrentSession;
                                 session.State = ZaloCallState.Ended;
                                 NotifyState(ZaloCallState.Ended);
                                 StopTimers();
                                 ZaloUdpRelayEngine.Current.StopSession();
+                                SetDiagnostic($"402: Người gọi đã hủy (status={status}).");
                                 RecordCallHistory(session, false, isMissed: true);
                             }
                         }
@@ -677,7 +709,7 @@ namespace ZaloWP81.Core
                     {
                         // Server media relay config
                         ParseRelayConfig(parsed, CurrentSession);
-                        _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
+                        SetDiagnostic($"407: Nhận relay server {CurrentSession.RelayHost}:{CurrentSession.RelayPort}");
                     }
                     else if (cmd == 408)
                     {
@@ -687,6 +719,7 @@ namespace ZaloWP81.Core
                         StartDurationTimer();
                         StopTimeoutTimer();
                         ParseRelayConfig(parsed, CurrentSession);
+                        SetDiagnostic("408: Đã thông kênh (Bridged)! Bắt đầu thoại...");
                         _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
                         ZaloUdpRelayEngine.Current.StartStreaming();
                     }
@@ -695,11 +728,13 @@ namespace ZaloWP81.Core
                         var session = CurrentSession;
                         bool wasConnected = session.State == ZaloCallState.Connected;
                         int status = (int)GetSafeNumber(parsed, "status", 0);
-                        session.State = ZaloCallState.Ended;
-                        NotifyState(ZaloCallState.Ended);
+                        bool isRej = status == 3 || status == 1;
+                        session.State = isRej ? ZaloCallState.Rejected : ZaloCallState.Ended;
+                        NotifyState(session.State);
                         StopTimers();
                         ZaloUdpRelayEngine.Current.StopSession();
-                        RecordCallHistory(session, wasConnected, isRejected: status == 3 || status == 1);
+                        SetDiagnostic($"{cmd}: Cuộc gọi kết thúc (status={status})");
+                        RecordCallHistory(session, wasConnected, isRejected: isRej);
                     }
                 }
             }
@@ -886,6 +921,10 @@ namespace ZaloWP81.Core
             ext["supportCallBusy"] = JsonValue.CreateNumberValue(1);
             ext["supportHevcDecode"] = JsonValue.CreateNumberValue(0);
             ext["tpType"] = JsonValue.CreateNumberValue(0);
+            ext["mProtocol"] = JsonValue.CreateStringValue("ZRTP");
+            ext["protocol"] = JsonValue.CreateNumberValue(3);
+            ext["proto"] = JsonValue.CreateNumberValue(3);
+            ext["zrtp"] = JsonValue.CreateNumberValue(1);
 
             var video = new JsonObject();
             var vCodecs = new JsonArray();

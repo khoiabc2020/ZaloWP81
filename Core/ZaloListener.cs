@@ -381,16 +381,31 @@ namespace ZaloLite
                 {
                     JsonObject callData = parsed.ContainsKey("data") && parsed.GetNamedValue("data").ValueType == JsonValueType.Object
                         ? parsed.GetNamedObject("data") : parsed;
-                    ZaloCallSignaling.ProcessIncomingSignal(402, callData);
+                    DispatchCallAct(act, actType, callData);
                 }
                 ZaloPhoneSync.ProcessEvent(parsed);
                 ProcessUploadEvents(parsed);
             }
-            else if (!string.IsNullOrEmpty(_cipherKey) && parsed.ContainsKey("data"))
+            else if (parsed.ContainsKey("data"))
             {
                 try
                 {
-                    JsonObject decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
+                    JsonObject decoded = null;
+                    IJsonValue dataVal = parsed.GetNamedValue("data");
+                    if (dataVal.ValueType == JsonValueType.Object)
+                    {
+                        decoded = dataVal.GetObject();
+                    }
+                    else if (dataVal.ValueType == JsonValueType.String)
+                    {
+                        string rawStr = dataVal.GetString();
+                        decoded = ZaloJson.ParseObject(rawStr);
+                        if (decoded == null && !string.IsNullOrEmpty(_cipherKey))
+                        {
+                            decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
+                        }
+                    }
+
                     if (decoded != null)
                     {
                         if (decoded.ContainsKey("act"))
@@ -401,7 +416,7 @@ namespace ZaloLite
                             {
                                 JsonObject callData = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
                                     ? decoded.GetNamedObject("data") : decoded;
-                                ZaloCallSignaling.ProcessIncomingSignal(402, callData);
+                                DispatchCallAct(act, actType, callData);
                             }
                         }
                         ZaloPhoneSync.ProcessEvent(decoded);
@@ -441,21 +456,30 @@ namespace ZaloLite
                     {
                         effective = dataVal.GetObject();
                     }
-                    else if (dataVal.ValueType == JsonValueType.String && !string.IsNullOrEmpty(_cipherKey))
+                    else if (dataVal.ValueType == JsonValueType.String)
                     {
-                        try
+                        string rawStr = dataVal.GetString();
+                        JsonObject directObj = ZaloJson.ParseObject(rawStr);
+                        if (directObj != null)
                         {
-                            JsonObject decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
-                            if (decoded != null)
-                            {
-                                effective = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
-                                    ? decoded.GetNamedObject("data")
-                                    : decoded;
-                            }
+                            effective = directObj;
                         }
-                        catch (Exception ex)
+                        else if (!string.IsNullOrEmpty(_cipherKey))
                         {
-                            ZaloLog.Add("Call signal decode error: " + ex.Message);
+                            try
+                            {
+                                JsonObject decoded = ZaloEventDecoder.Decode(parsed, _cipherKey);
+                                if (decoded != null)
+                                {
+                                    effective = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
+                                        ? decoded.GetNamedObject("data")
+                                        : decoded;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                ZaloLog.Add("Call signal decode error: " + ex.Message);
+                            }
                         }
                     }
                 }
@@ -469,6 +493,18 @@ namespace ZaloLite
                 CloseSocket();
                 SetStatus("Tài khoản đang mở ở nơi khác (ví dụ Zalo Web) nên kết nối nhận tin bị đóng.");
             }
+        }
+
+        private static void DispatchCallAct(string act, string actType, JsonObject callData)
+        {
+            string combined = (act + " " + actType).ToLowerInvariant();
+            int cmd = 402;
+            if (combined.Contains("reject") || combined.Contains("cancel") || combined.Contains("end")
+                || combined.Contains("finish") || combined.Contains("miss") || combined.Contains("busy"))
+            {
+                cmd = 405;
+            }
+            ZaloCallSignaling.ProcessIncomingSignal(cmd, callData);
         }
 
         private void EmitTyping(JsonObject parsed)
