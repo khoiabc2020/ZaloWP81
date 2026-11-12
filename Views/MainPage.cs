@@ -53,7 +53,6 @@ namespace ZaloWP81.Views
 
         // Header Buttons matching WP10
         private Border _plusBtn;
-        private Border _contactGroupsHeaderBtn;
         private Border _contactRequestsHeaderBtn;
         private Border _profileSettingsHeaderBtn;
 
@@ -116,6 +115,7 @@ namespace ZaloWP81.Views
             public Image PinIcon;
             public Image MuteIcon;
             public Ellipse AvatarImageEllipse;
+            public Border OnlineDot;
         }
 
         private readonly Dictionary<string, ConversationItemViewHolder> _convItemCache = new Dictionary<string, ConversationItemViewHolder>();
@@ -406,22 +406,6 @@ namespace ZaloWP81.Views
             Grid.SetColumn(searchBorder, 0);
             header.Children.Add(searchBorder);
 
-            // Group Switcher Button (shown only on Tab 1 Contacts, matching WP10)
-            _contactGroupsHeaderBtn = CreateTouchBorder(Math.Round(42 * scale), Math.Round(42 * scale));
-            _contactGroupsHeaderBtn.Visibility = Visibility.Collapsed;
-            var groupIcon = new Image
-            {
-                Source = new BitmapImage(new Uri("ms-appx:///Assets/Icons/ic_group_clean_white.png")),
-                Width = Math.Round(24 * scale),
-                Height = Math.Round(24 * scale),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            _contactGroupsHeaderBtn.Child = groupIcon;
-            _contactGroupsHeaderBtn.Tapped += (s, e) => ToggleGroupsView();
-            Grid.SetColumn(_contactGroupsHeaderBtn, 1);
-            header.Children.Add(_contactGroupsHeaderBtn);
-
             // Action Button Container (Col 2)
             var actionGrid = new Grid();
 
@@ -503,6 +487,8 @@ namespace ZaloWP81.Views
             var sheet = new Common.ZaloActionSheet("Tùy chọn Zalo");
             sheet.AddAction("Tạo nhóm mới", () => NavigationManager.NavigateTo(new CreateGroupPage()));
             sheet.AddAction("Thêm bạn mới", () => NavigationManager.NavigateTo(new AddFriendPage()));
+            sheet.AddAction("Tin nhắn từ người lạ", () => NavigationManager.NavigateTo(new StrangerMessagesPage()));
+            sheet.AddAction("Mã QR của tôi", () => NavigationManager.NavigateTo(new ProfilePage()));
             sheet.AddAction("Cài đặt", () => NavigationManager.NavigateTo(new SettingsPage()));
             sheet.Show();
         }
@@ -1177,17 +1163,56 @@ namespace ZaloWP81.Views
             };
             var utilityStack = new StackPanel();
 
-            // Row 1: Tạo nhóm mới -> CreateGroupPage
+            // Row 1: Cloud của tôi (Truyền File)
+            var cloudRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_cloud_blue.png", "Cloud của tôi", "Lưu trữ hình ảnh, tài liệu và dữ liệu cá nhân", Color.FromArgb(0xFF, 0xEF, 0xF6, 0xFF), scale);
+            cloudRow.Tapped += (s, e) =>
+            {
+                if (ZaloApp.Session != null)
+                {
+                    var cloudConv = ZaloApp.Conversations.FirstOrDefault(c => c.ThreadId == ZaloApp.Session.Uid || (c.Name != null && c.Name.Contains("Cloud")));
+                    if (cloudConv == null)
+                    {
+                        cloudConv = new ZaloConversation
+                        {
+                            Key = ZaloApp.Session.Uid,
+                            ThreadId = ZaloApp.Session.Uid,
+                            Name = "Cloud của tôi",
+                            IsGroup = false
+                        };
+                        ZaloApp.Conversations.Add(cloudConv);
+                    }
+                    NavigationManager.NavigateTo(new ChatPage(cloudConv.Key));
+                }
+            };
+            utilityStack.Children.Add(cloudRow);
+
+            utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(Math.Round(56 * scale), 0, 0, 0) });
+
+            // Row 2: Tin nhắn từ người lạ -> StrangerMessagesPage
+            var strangerRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_chat_blue.png", "Tin nhắn từ người lạ", "Xem tin nhắn đang chờ từ người chưa kết bạn", Color.FromArgb(0xFF, 0xFE, 0xF3, 0xC7), scale);
+            strangerRow.Tapped += (s, e) => NavigationManager.NavigateTo(new StrangerMessagesPage());
+            utilityStack.Children.Add(strangerRow);
+
+            utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(Math.Round(56 * scale), 0, 0, 0) });
+
+            // Row 3: Tìm và thêm bạn -> AddFriendPage
+            var addFriendRow = CreateUtilityRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Tìm và thêm bạn", "Tìm bạn bằng số điện thoại hoặc Zalo ID", Color.FromArgb(0xFF, 0xEC, 0xFD, 0xF5), scale);
+            addFriendRow.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
+            utilityStack.Children.Add(addFriendRow);
+
+            utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(Math.Round(56 * scale), 0, 0, 0) });
+
+            // Row 4: Tạo nhóm mới -> CreateGroupPage
             var createGroupRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_group_action_blue.png", "Tạo nhóm mới", "Trò chuyện nhóm công việc hoặc bạn bè", Color.FromArgb(0xFF, 0xEF, 0xF6, 0xFF), scale);
             createGroupRow.Tapped += (s, e) => NavigationManager.NavigateTo(new CreateGroupPage());
             utilityStack.Children.Add(createGroupRow);
 
             utilityStack.Children.Add(new Border { Height = 1, Background = ColorBrush(0xFF, 0xF1, 0xF5, 0xF9), Margin = new Thickness(Math.Round(56 * scale), 0, 0, 0) });
 
-            // Row 2: Tìm và thêm bạn -> AddFriendPage
-            var addFriendRow = CreateUtilityRow("ms-appx:///Assets/Icons/Android/icn_header_addfriend.png", "Tìm và thêm bạn", "Tìm bạn bằng số điện thoại hoặc Zalo ID", Color.FromArgb(0xFF, 0xEC, 0xFD, 0xF5), scale);
-            addFriendRow.Tapped += (s, e) => NavigationManager.NavigateTo(new AddFriendPage());
-            utilityStack.Children.Add(addFriendRow);
+            // Row 5: Mã QR của tôi -> ProfilePage
+            var qrRow = CreateUtilityRow("ms-appx:///Assets/Icons/ic_qr_blue.png", "Mã QR của tôi", "Chia sẻ mã QR để bạn bè quét và kết bạn", Color.FromArgb(0xFF, 0xF5, 0xF3, 0xFF), scale);
+            qrRow.Tapped += (s, e) => NavigationManager.NavigateTo(new ProfilePage());
+            utilityStack.Children.Add(qrRow);
 
             utilityBorder.Child = utilityStack;
             stack.Children.Add(utilityBorder);
@@ -1929,7 +1954,6 @@ namespace ZaloWP81.Views
             }
 
             if (_plusBtn != null) _plusBtn.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
-            if (_contactGroupsHeaderBtn != null) _contactGroupsHeaderBtn.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
             if (_contactRequestsHeaderBtn != null) _contactRequestsHeaderBtn.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
             if (_profileSettingsHeaderBtn != null) _profileSettingsHeaderBtn.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -2021,6 +2045,11 @@ namespace ZaloWP81.Views
                     if (holder.MuteIcon != null) holder.MuteIcon.Visibility = conv.IsMuted ? Visibility.Visible : Visibility.Collapsed;
                     if (holder.AvatarImageEllipse != null && conv.AvatarImageBrush != null)
                         holder.AvatarImageEllipse.Fill = conv.AvatarImageBrush;
+                    if (holder.OnlineDot != null)
+                    {
+                        bool isOnline = ZaloApp.IsFriendOnline(conv.ThreadId);
+                        holder.OnlineDot.Visibility = (!conv.IsGroup && isOnline) ? Visibility.Visible : Visibility.Collapsed;
+                    }
                 }
                 _conversationStack.Children.Add(holder.Container);
                 count++;
@@ -2122,6 +2151,7 @@ namespace ZaloWP81.Views
             };
             avatarGrid.Children.Add(imgEllipse);
 
+            Border onlineDot = null;
             if (conv.IsGroup)
             {
                 var groupBadge = new Border
@@ -2142,6 +2172,23 @@ namespace ZaloWP81.Views
                     Height = Math.Round(12 * scale)
                 };
                 avatarGrid.Children.Add(groupBadge);
+            }
+            else
+            {
+                bool isOnline = ZaloApp.IsFriendOnline(conv.ThreadId);
+                onlineDot = new Border
+                {
+                    Width = Math.Round(14 * scale),
+                    Height = Math.Round(14 * scale),
+                    CornerRadius = new CornerRadius(Math.Round(7 * scale)),
+                    Background = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E)),
+                    BorderBrush = new SolidColorBrush(Colors.White),
+                    BorderThickness = new Thickness(2),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Bottom,
+                    Visibility = isOnline ? Visibility.Visible : Visibility.Collapsed
+                };
+                avatarGrid.Children.Add(onlineDot);
             }
 
             Grid.SetColumn(avatarGrid, 0);
@@ -2332,7 +2379,8 @@ namespace ZaloWP81.Views
                 UnreadText = unreadText,
                 PinIcon = pinIcon,
                 MuteIcon = muteIcon,
-                AvatarImageEllipse = imgEllipse
+                AvatarImageEllipse = imgEllipse,
+                OnlineDot = onlineDot
             };
         }
 
@@ -2540,10 +2588,10 @@ namespace ZaloWP81.Views
             voiceCallBtn.PointerPressed += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Color.FromArgb(0x1F, 0x00, 0x88, 0xFF));
             voiceCallBtn.PointerReleased += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Colors.Transparent);
             voiceCallBtn.PointerCanceled += (s, e) => voiceCallBtn.Background = new SolidColorBrush(Colors.Transparent);
-            voiceCallBtn.Tapped += (s, e) =>
+            voiceCallBtn.Tapped += async (s, e) =>
             {
                 e.Handled = true;
-                NavigationManager.NavigateTo(new CallPage(friend, false));
+                await PromptCallOptionAsync(friend, false);
             };
             Grid.SetColumn(voiceCallBtn, 2);
             itemGrid.Children.Add(voiceCallBtn);
@@ -2571,10 +2619,10 @@ namespace ZaloWP81.Views
             videoCallBtn.PointerPressed += (s, e) => videoCallBtn.Background = new SolidColorBrush(Color.FromArgb(0x1F, 0x00, 0x88, 0xFF));
             videoCallBtn.PointerReleased += (s, e) => videoCallBtn.Background = new SolidColorBrush(Colors.Transparent);
             videoCallBtn.PointerCanceled += (s, e) => videoCallBtn.Background = new SolidColorBrush(Colors.Transparent);
-            videoCallBtn.Tapped += (s, e) =>
+            videoCallBtn.Tapped += async (s, e) =>
             {
                 e.Handled = true;
-                NavigationManager.NavigateTo(new CallPage(friend, true));
+                await PromptCallOptionAsync(friend, true);
             };
             Grid.SetColumn(videoCallBtn, 3);
             itemGrid.Children.Add(videoCallBtn);
@@ -2709,6 +2757,26 @@ namespace ZaloWP81.Views
                 if (_selectedTab == 0) RefreshConversations();
                 UpdateUnreadBadge();
             });
+        }
+
+        private async Task PromptCallOptionAsync(ZaloFriend friend, bool isVideo)
+        {
+            if (friend == null) return;
+            string partner = friend.Name ?? "Bạn bè";
+            var dialog = new Windows.UI.Popups.MessageDialog(
+                "Tính năng gọi VoIP thoại/video đang được tối ưu hóa theo giao thức mới của Zalo.\n\nBạn có thể gửi tin nhắn thoại tức thì để kết nối trò chuyện nhanh chóng với " + partner + "!",
+                isVideo ? "Cuộc gọi video Zalo" : "Cuộc gọi thoại Zalo");
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Gửi tin nhắn thoại", c =>
+            {
+                var conv = ZaloApp.OpenFriend(friend);
+                if (conv != null) NavigationManager.NavigateTo(new ChatPage(conv.Key));
+            }));
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Vẫn thử gọi", c =>
+            {
+                NavigationManager.NavigateTo(new CallPage(friend, isVideo));
+            }));
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Đóng"));
+            await dialog.ShowAsync();
         }
 
         private static Border CreateTouchBorder(double width, double height)

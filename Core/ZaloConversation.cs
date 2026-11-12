@@ -1231,7 +1231,7 @@ namespace ZaloLite
             }
         }
 
-        public string TimeText { get { return ZaloFormat.Time(_lastTs); } }
+        public string TimeText { get { return ZaloFormat.ConversationTime(_lastTs); } }
         public string UnreadLabel
         {
             get { return _unread > 99 ? "99+" : _unread > 0 ? _unread.ToString() : IsMarkedUnread ? "1" : string.Empty; }

@@ -460,6 +460,60 @@ namespace ZaloLite
             return local.Date == DateTime.Today ? local.ToString("HH:mm") : local.ToString("dd/MM HH:mm");
         }
 
+        public static string ConversationTime(long unixMs)
+        {
+            if (unixMs <= 0) return string.Empty;
+            DateTime local = UnixTime.FromMilliseconds(unixMs).LocalDateTime;
+            DateTime today = DateTime.Today;
+            TimeSpan diff = today - local.Date;
+
+            if (diff.Days == 0) return local.ToString("HH:mm");
+            if (diff.Days == 1) return "Hôm qua";
+            if (diff.Days > 1 && diff.Days < 7)
+            {
+                switch (local.DayOfWeek)
+                {
+                    case DayOfWeek.Monday: return "T2";
+                    case DayOfWeek.Tuesday: return "T3";
+                    case DayOfWeek.Wednesday: return "T4";
+                    case DayOfWeek.Thursday: return "T5";
+                    case DayOfWeek.Friday: return "T6";
+                    case DayOfWeek.Saturday: return "T7";
+                    case DayOfWeek.Sunday: return "CN";
+                }
+            }
+            if (local.Year == today.Year) return local.ToString("dd/MM");
+            return local.ToString("dd/MM/yy");
+        }
+
+        public static string DateDividerText(long unixMs)
+        {
+            if (unixMs <= 0) return string.Empty;
+            DateTime local = UnixTime.FromMilliseconds(unixMs).LocalDateTime;
+            DateTime today = DateTime.Today;
+            TimeSpan diff = today - local.Date;
+
+            if (diff.Days == 0) return local.ToString("HH:mm") + " Hôm nay";
+            if (diff.Days == 1) return local.ToString("HH:mm") + " Hôm qua";
+            if (diff.Days > 1 && diff.Days < 7)
+            {
+                string dow = "T2";
+                switch (local.DayOfWeek)
+                {
+                    case DayOfWeek.Monday: dow = "T2"; break;
+                    case DayOfWeek.Tuesday: dow = "T3"; break;
+                    case DayOfWeek.Wednesday: dow = "T4"; break;
+                    case DayOfWeek.Thursday: dow = "T5"; break;
+                    case DayOfWeek.Friday: dow = "T6"; break;
+                    case DayOfWeek.Saturday: dow = "T7"; break;
+                    case DayOfWeek.Sunday: dow = "CN"; break;
+                }
+                return local.ToString("HH:mm") + " " + dow;
+            }
+            if (local.Year == today.Year) return local.ToString("HH:mm, dd/MM");
+            return local.ToString("HH:mm, dd/MM/yyyy");
+        }
+
         /// <summary>A short text for a message, including placeholders for what this version cannot show.</summary>
         public static string Describe(JsonObject m)
         {
@@ -522,7 +576,7 @@ namespace ZaloLite
                     if (title.Length > 0 || href.Length > 0)
                         return (title + " " + href).Trim();
                 }
-                if (text.Contains("artboard_5_4_x_2x") || text.Contains("artboard"))
+                if (text.Contains("artboard_5_4_x_2x") || text.Contains("artboard") || text.Contains("74009"))
                 {
                     return "Đã trở thành bạn bè";
                 }
@@ -534,6 +588,11 @@ namespace ZaloLite
                 JsonObject o = content.GetObject();
                 string title = ZaloAuth.Str(o, "title");
                 string href = ZaloAuth.Str(o, "href");
+                string url = ZaloAuth.Str(o, "url");
+                if (href.Contains("artboard") || href.Contains("74009") || url.Contains("artboard") || url.Contains("74009"))
+                {
+                    return "Đã trở thành bạn bè";
+                }
                 string text = (title + " " + href).Trim();
                 if (ZaloAuth.Str(m, "msgType") == "share.file") return "[Tệp] " + title;
                 if (text.Length > 0) return text;

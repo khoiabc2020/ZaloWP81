@@ -156,6 +156,7 @@ namespace ZaloWP81.Views
             moreDotsBtn.Tapped += (s, e) =>
             {
                 var sheet = new Common.ZaloActionSheet("Tùy chọn đính kèm");
+                sheet.AddAction("Gửi tài liệu / Tệp tin", () => PickDocumentFile());
                 sheet.AddAction("Gửi ảnh từ liên kết URL", async () => await ShowSendUrlPhotoDialog());
                 sheet.AddAction("Chia sẻ danh thiếp", async () => await ShowShareContactDialog());
                 sheet.Show();

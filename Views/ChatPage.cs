@@ -269,13 +269,7 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _audioCallBtn.Child = audioIcon;
-            _audioCallBtn.Tapped += (s, e) =>
-            {
-                if (_conversation != null)
-                {
-                    NavigationManager.NavigateTo(new CallPage(_conversation, false));
-                }
-            };
+            _audioCallBtn.Tapped += async (s, e) => await PromptCallOptionAsync(false);
             Grid.SetColumn(_audioCallBtn, 3);
             header.Children.Add(_audioCallBtn);
 
@@ -290,13 +284,7 @@ namespace ZaloWP81.Views
                 VerticalAlignment = VerticalAlignment.Center
             };
             _videoCallBtn.Child = videoIcon;
-            _videoCallBtn.Tapped += (s, e) =>
-            {
-                if (_conversation != null)
-                {
-                    NavigationManager.NavigateTo(new CallPage(_conversation, true));
-                }
-            };
+            _videoCallBtn.Tapped += async (s, e) => await PromptCallOptionAsync(true);
             Grid.SetColumn(_videoCallBtn, 4);
             header.Children.Add(_videoCallBtn);
 
@@ -955,6 +943,25 @@ namespace ZaloWP81.Views
             border.PointerReleased += (s, e) => border.Opacity = 1.0;
             border.PointerCanceled += (s, e) => border.Opacity = 1.0;
             return border;
+        }
+
+        private async System.Threading.Tasks.Task PromptCallOptionAsync(bool isVideo)
+        {
+            if (_conversation == null) return;
+            string partner = _conversation.Name ?? "Bạn bè";
+            var dialog = new Windows.UI.Popups.MessageDialog(
+                "Tính năng gọi VoIP thoại/video đang được tối ưu hóa theo giao thức mới của Zalo.\n\nBạn có thể gửi tin nhắn thoại tức thì để kết nối trò chuyện nhanh chóng với " + partner + "!",
+                isVideo ? "Cuộc gọi video Zalo" : "Cuộc gọi thoại Zalo");
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Gửi tin nhắn thoại", c =>
+            {
+                StartVoiceRecording();
+            }));
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Vẫn thử gọi", c =>
+            {
+                NavigationManager.NavigateTo(new CallPage(_conversation, isVideo));
+            }));
+            dialog.Commands.Add(new Windows.UI.Popups.UICommand("Đóng"));
+            await dialog.ShowAsync();
         }
 
         private static BitmapImage SafeAppxImage(string uriStr)

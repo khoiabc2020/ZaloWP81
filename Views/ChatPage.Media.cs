@@ -143,6 +143,40 @@ namespace ZaloWP81.Views
             }
         }
 
+        private void PickDocumentFile()
+        {
+            if (_conversation == null) return;
+            try
+            {
+                var picker = new FileOpenPicker
+                {
+                    SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+                    ViewMode = PickerViewMode.List
+                };
+                picker.FileTypeFilter.Add(".pdf");
+                picker.FileTypeFilter.Add(".doc");
+                picker.FileTypeFilter.Add(".docx");
+                picker.FileTypeFilter.Add(".xls");
+                picker.FileTypeFilter.Add(".xlsx");
+                picker.FileTypeFilter.Add(".ppt");
+                picker.FileTypeFilter.Add(".pptx");
+                picker.FileTypeFilter.Add(".zip");
+                picker.FileTypeFilter.Add(".rar");
+                picker.FileTypeFilter.Add(".7z");
+                picker.FileTypeFilter.Add(".txt");
+                picker.FileTypeFilter.Add(".mp3");
+                picker.FileTypeFilter.Add(".mp4");
+                picker.ContinuationData["ConversationKey"] = _conversation.Key;
+                picker.ContinuationData["Action"] = "SendFile";
+                picker.PickSingleFileAndContinue();
+            }
+            catch (Exception ex)
+            {
+                var md = new MessageDialog("Không thể mở bộ chọn tệp: " + ex.Message, "Lỗi tệp");
+                var ignore = md.ShowAsync();
+            }
+        }
+
         public async void ContinueWithFileOpenPicker(FileOpenPickerContinuationEventArgs args)
         {
             if (args == null || args.Files == null || args.Files.Count == 0) return;
@@ -157,7 +191,36 @@ namespace ZaloWP81.Views
             }
             if (_conversation == null) return;
 
-            await SendStorageFilePhotoAsync(args.Files[0]);
+            string action = (args.ContinuationData != null && args.ContinuationData.ContainsKey("Action"))
+                ? args.ContinuationData["Action"] as string : "SendPhoto";
+
+            if (string.Equals(action, "SendFile", StringComparison.OrdinalIgnoreCase))
+            {
+                await SendStorageFileDocumentAsync(args.Files[0]);
+            }
+            else
+            {
+                await SendStorageFilePhotoAsync(args.Files[0]);
+            }
+        }
+
+        private async Task SendStorageFileDocumentAsync(StorageFile file)
+        {
+            if (file == null || _conversation == null) return;
+            try
+            {
+                var props = await file.GetBasicPropertiesAsync();
+                ulong size = props.Size;
+                using (var stream = await file.OpenReadAsync())
+                {
+                    await ZaloApp.SendFileAsync(_conversation, file.Name, stream, (long)size);
+                }
+                RenderMessages();
+            }
+            catch (Exception ex)
+            {
+                await new MessageDialog("Không thể gửi tệp: " + ex.Message, "Gửi tệp thất bại").ShowAsync();
+            }
         }
 
         private async System.Threading.Tasks.Task CapturePhotoFromCameraAsync()

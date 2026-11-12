@@ -1384,9 +1384,7 @@ namespace ZaloLite
                 await _dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
                 {
                     conversation.HistoryLoadedCount = history.Count;
-                    conversation.HasMoreHistory = conversation.IsGroup
-                        ? history.Count >= 50
-                        : history.Count > 0 || conversation.Messages.Count > 0;
+                    conversation.HasMoreHistory = history.Count >= 50;
                     if (history.Count > 0 && !Conversations.Contains(conversation))
                         Conversations.Add(conversation);
                     foreach (ZaloChatMessage recall in history.Where(m => m.IsRecallEvent))
