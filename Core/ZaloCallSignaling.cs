@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Windows.Data.Json;
 using Windows.UI.Core;
 using Windows.UI.Xaml;
+using Windows.Web.Http;
 using ZaloLite;
 
 namespace ZaloWP81.Core
@@ -39,6 +42,7 @@ namespace ZaloWP81.Core
         public bool IsVideoEnabled { get; set; }
 
         // ZRTC Relay & Media parameters
+        public string SessionId { get; set; }
         public string RelayHost { get; set; }
         public int RelayPort { get; set; }
         public string RelayToken { get; set; }
@@ -100,7 +104,82 @@ namespace ZaloWP81.Core
             CurrentSession = session;
             NotifyState(ZaloCallState.Ringing);
 
-            // Send real ZRTC Signal 401 (requestCall) through WebSocket to server
+            // Step 1: Initiate call session via Zalo HTTP VoIP API (/api/voicecall/requestcall)
+            try
+            {
+                var req401 = new JsonObject();
+                req401["calleeId"] = JsonValue.CreateStringValue(peerId);
+                req401["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                req401["codec"] = JsonValue.CreateStringValue("[]");
+                req401["typeRequest"] = JsonValue.CreateNumberValue(isVideo ? 3 : 1);
+                req401["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+
+                var resp401 = await SendVoiceCallApiAsync("/api/voicecall/requestcall", req401, CancellationToken.None);
+                if (resp401 != null)
+                {
+                    long status = GetSafeNumber(resp401, "status", 0);
+                    if (status != 0)
+                    {
+                        string msg = GetSafeString(resp401, "msg", "Không thể khởi tạo cuộc gọi (mã " + status + ")");
+                        ZaloLog.Add("VoiceCall requestcall rejected: " + msg);
+                        session.State = ZaloCallState.Ended;
+                        NotifyState(ZaloCallState.Ended);
+                        RecordCallHistory(session, false, isMissed: false);
+                        return session;
+                    }
+
+                    long realCallId = GetSafeNumber(resp401, "id", session.CallId);
+                    session.CallId = realCallId;
+                    string sessId = GetSafeString(resp401, "sessId", string.Empty);
+                    session.SessionId = sessId;
+
+                    // Parse relay servers from resp401
+                    ParseRelayConfig(resp401, session);
+
+                    string rtpIp = "";
+                    string rtcpIp = "";
+                    if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
+                    {
+                        rtpIp = session.RelayHost + ":" + session.RelayPort;
+                        rtcpIp = rtpIp;
+                    }
+                    else
+                    {
+                        rtpIp = GetSafeString(resp401, "rtpIP", GetSafeString(resp401, "rtpSerIp", ""));
+                        rtcpIp = GetSafeString(resp401, "rtcpIP", rtpIp);
+                    }
+
+                    // Step 2: Send media invite via /api/voicecall/request (Signal 416)
+                    // This triggers the incoming call popup and ringing on the recipient's device!
+                    string codecStr = "[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n";
+                    string extendDataStr = BuildExtendData(resp401, isVideo, rtpIp, rtcpIp);
+
+                    var req416 = new JsonObject();
+                    req416["callId"] = JsonValue.CreateNumberValue(realCallId);
+                    req416["calleeId"] = JsonValue.CreateStringValue(peerId);
+                    req416["codec"] = JsonValue.CreateStringValue(codecStr);
+                    req416["extendData"] = JsonValue.CreateStringValue(extendDataStr);
+                    req416["rtcpAddress"] = JsonValue.CreateStringValue(rtcpIp);
+                    req416["rtpAddress"] = JsonValue.CreateStringValue(rtpIp);
+                    req416["session"] = JsonValue.CreateStringValue(sessId);
+                    req416["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+
+                    var resp416 = await SendVoiceCallApiAsync("/api/voicecall/request", req416, CancellationToken.None);
+                    ZaloLog.Add("VoiceCall /api/voicecall/request completed, recipient is now ringing!");
+
+                    // If relay server was obtained, initialize UDP session immediately
+                    if (!string.IsNullOrEmpty(session.RelayHost) && session.RelayPort > 0)
+                    {
+                        _ = ZaloUdpRelayEngine.Current.StartSessionAsync(session);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("StartCallAsync HTTP initiation error: " + ex.Message);
+            }
+
+            // Step 3: Also send dual ZRTC Signal 401 over WebSocket
             await SendSignal401Async(session);
 
             // Wait up to 60s for the other party to answer; if no answer, automatically cancel
@@ -134,11 +213,31 @@ namespace ZaloWP81.Core
             CurrentSession.State = ZaloCallState.Connected;
             NotifyState(ZaloCallState.Connected);
             StartDurationTimer();
+            StopTimeoutTimer();
 
-            // Send Signal 402 status 0
+            string peerId = CurrentSession.PeerId ?? string.Empty;
+            if (peerId.StartsWith("u:") || peerId.StartsWith("g:")) peerId = peerId.Substring(2);
+
+            try
+            {
+                // HTTP /api/voicecall/answer (Signal 402)
+                var reqAnswer = new JsonObject();
+                reqAnswer["callerId"] = JsonValue.CreateStringValue(peerId);
+                reqAnswer["callId"] = JsonValue.CreateNumberValue(CurrentSession.CallId);
+                reqAnswer["status"] = JsonValue.CreateNumberValue(0);
+                reqAnswer["codec"] = JsonValue.CreateStringValue("[{\"dynamicFptime\":0,\"frmPtime\":20,\"name\":\"opus/16000/1\",\"payload\":112}]\n");
+                reqAnswer["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+                _ = SendVoiceCallApiAsync("/api/voicecall/answer", reqAnswer, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("AnswerCallAsync HTTP error: " + ex.Message);
+            }
+
+            // WebSocket Signal 402 status 0
             await SendSignal402Async(CurrentSession, 0);
 
-            // If relay server was already received via Signal 407, start UDP streaming
+            // If relay server was already received via Signal 407 / resp401, start UDP streaming
             if (!string.IsNullOrEmpty(CurrentSession.RelayHost))
             {
                 _ = ZaloUdpRelayEngine.Current.StartSessionAsync(CurrentSession);
@@ -155,6 +254,25 @@ namespace ZaloWP81.Core
             StopTimers();
             ZaloUdpRelayEngine.Current.StopSession();
 
+            string peerId = session.PeerId ?? string.Empty;
+            if (peerId.StartsWith("u:") || peerId.StartsWith("g:")) peerId = peerId.Substring(2);
+
+            try
+            {
+                // HTTP /api/voicecall/cancel
+                var reqCancel = new JsonObject();
+                reqCancel["callerId"] = JsonValue.CreateStringValue(peerId);
+                reqCancel["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                reqCancel["callType"] = JsonValue.CreateNumberValue(session.CallType == ZaloCallType.Video ? 3 : 1);
+                reqCancel["status"] = JsonValue.CreateNumberValue(3); // 3 = rejected
+                reqCancel["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+                _ = SendVoiceCallApiAsync("/api/voicecall/cancel", reqCancel, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add("RejectCallAsync HTTP error: " + ex.Message);
+            }
+
             // Send Signal 402 status 3 (rejected)
             await SendSignal402Async(session, 3);
             RecordCallHistory(session, false, isRejected: true);
@@ -170,16 +288,42 @@ namespace ZaloWP81.Core
             NotifyState(ZaloCallState.Ended);
             ZaloUdpRelayEngine.Current.StopSession();
 
-            // Send Signal 405 (cancel) or 409 (hangup)
-            if (wasConnected)
+            string peerId = session.PeerId ?? string.Empty;
+            if (peerId.StartsWith("u:") || peerId.StartsWith("g:")) peerId = peerId.Substring(2);
+
+            try
             {
-                await SendSignal409Async(session);
-                await SendSignal406Async(session, 50); // status 50 = connected call
+                if (wasConnected)
+                {
+                    // HTTP /api/voicecall/endcall
+                    var reqEnd = new JsonObject();
+                    reqEnd["uidTo"] = JsonValue.CreateStringValue(peerId);
+                    reqEnd["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                    reqEnd["status"] = JsonValue.CreateNumberValue(3);
+                    reqEnd["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+                    _ = SendVoiceCallApiAsync("/api/voicecall/endcall", reqEnd, CancellationToken.None);
+
+                    await SendSignal409Async(session);
+                    await SendSignal406Async(session, 50); // status 50 = connected call
+                }
+                else
+                {
+                    // HTTP /api/voicecall/cancel
+                    var reqCancel = new JsonObject();
+                    reqCancel["callerId"] = JsonValue.CreateStringValue(peerId);
+                    reqCancel["callId"] = JsonValue.CreateNumberValue(session.CallId);
+                    reqCancel["callType"] = JsonValue.CreateNumberValue(session.CallType == ZaloCallType.Video ? 3 : 1);
+                    reqCancel["status"] = JsonValue.CreateNumberValue(0);
+                    reqCancel["imei"] = JsonValue.CreateStringValue(ZaloApp.Session?.Imei ?? string.Empty);
+                    _ = SendVoiceCallApiAsync("/api/voicecall/cancel", reqCancel, CancellationToken.None);
+
+                    await SendSignal405Async(session);
+                    await SendSignal406Async(session, 103); // status 103 = caller cancelled
+                }
             }
-            else
+            catch (Exception ex)
             {
-                await SendSignal405Async(session);
-                await SendSignal406Async(session, 103); // status 103 = caller cancelled
+                ZaloLog.Add("EndCallAsync error: " + ex.Message);
             }
 
             RecordCallHistory(session, wasConnected);
@@ -409,11 +553,200 @@ namespace ZaloWP81.Core
             }
         }
 
+        public static async Task<JsonObject> SendVoiceCallApiAsync(string endpointPath, JsonObject payload, CancellationToken ct)
+        {
+            var s = ZaloApp.Session;
+            if (s == null || string.IsNullOrEmpty(s.SecretKey))
+            {
+                ZaloLog.Add("VoiceCall API error: Chưa đăng nhập hoặc thiếu SecretKey");
+                return null;
+            }
+
+            string domain = "https://voicecall-wpa.chat.zalo.me";
+            if (s.ServiceMap != null && s.ServiceMap.ContainsKey("voice_call"))
+            {
+                try
+                {
+                    var arr = s.ServiceMap.GetNamedArray("voice_call");
+                    if (arr.Count > 0 && !string.IsNullOrEmpty(arr.GetStringAt(0)))
+                        domain = arr.GetStringAt(0).TrimEnd('/');
+                }
+                catch { }
+            }
+
+            try
+            {
+                string json = payload.Stringify();
+                string encrypted = ZaloCrypto.Encode(s.SecretKey, json);
+                string url = ZaloAuth.ApiUrl(domain + endpointPath, new KeyValuePair<string, string>("params", encrypted));
+
+                ZaloLog.Add("VoiceCall API > " + endpointPath);
+                var resp = await s.Http.SendAsync(HttpMethod.Get, url, null, null, ct);
+                if (resp == null || string.IsNullOrEmpty(resp.Body))
+                {
+                    ZaloLog.Add("VoiceCall API < " + endpointPath + " empty response");
+                    return null;
+                }
+
+                JsonObject outer;
+                if (!JsonObject.TryParse(resp.Body, out outer))
+                {
+                    ZaloLog.Add("VoiceCall API < " + endpointPath + " parse error: " + resp.Body);
+                    return null;
+                }
+
+                double errCode = ZaloAuth.Num(outer, "error_code");
+                if (errCode != 0)
+                {
+                    ZaloLog.Add(string.Format("VoiceCall API < {0} error {1}: {2}", endpointPath, errCode, ZaloAuth.Str(outer, "error_message")));
+                    return outer;
+                }
+
+                IJsonValue dataVal;
+                if (outer.TryGetValue("data", out dataVal))
+                {
+                    if (dataVal.ValueType == JsonValueType.String)
+                    {
+                        string b64 = dataVal.GetString();
+                        if (!string.IsNullOrEmpty(b64))
+                        {
+                            string decrypted = ZaloCrypto.Decode(s.SecretKey, b64);
+                            JsonObject inner;
+                            if (JsonObject.TryParse(decrypted, out inner))
+                            {
+                                ZaloLog.Add(string.Format("VoiceCall API < {0} decrypted {1} bytes", endpointPath, decrypted.Length));
+                                if (inner.ContainsKey("data") && inner.GetNamedValue("data").ValueType == JsonValueType.Object)
+                                    return inner.GetNamedObject("data");
+                                return inner;
+                            }
+                        }
+                    }
+                    else if (dataVal.ValueType == JsonValueType.Object)
+                    {
+                        return dataVal.GetObject();
+                    }
+                }
+                return outer;
+            }
+            catch (Exception ex)
+            {
+                ZaloLog.Add(string.Format("VoiceCall API < {0} exception: {1}", endpointPath, ex.Message));
+                return null;
+            }
+        }
+
+        private static string BuildExtendData(JsonObject resp401, bool isVideo, string rtpIp, string rtcpIp)
+        {
+            var serverAddr = new JsonArray();
+            var serverResult = new JsonArray();
+
+            if (resp401 != null && resp401.ContainsKey("servers") && resp401.GetNamedValue("servers").ValueType == JsonValueType.Array)
+            {
+                var srvArr = resp401.GetNamedArray("servers");
+                foreach (var s in srvArr)
+                {
+                    if (s.ValueType == JsonValueType.Object)
+                    {
+                        var sObj = s.GetObject();
+                        string rtp = GetSafeString(sObj, "rtpaddr", GetSafeString(sObj, "rtp", ""));
+                        string rtcp = GetSafeString(sObj, "rtcpaddr", GetSafeString(sObj, "rtcp", ""));
+                        string rtpV6 = GetSafeString(sObj, "rtpIPv6", "");
+                        string rtcpV6 = GetSafeString(sObj, "rtcpIPv6", "");
+                        int tpType = (int)GetSafeNumber(sObj, "tpType", 0);
+
+                        var a = new JsonObject();
+                        a["rtp"] = JsonValue.CreateStringValue(rtp);
+                        a["rtcp"] = JsonValue.CreateStringValue(rtcp);
+                        a["rtpIPv6"] = JsonValue.CreateStringValue(rtpV6);
+                        a["rtcpIPv6"] = JsonValue.CreateStringValue(rtcpV6);
+                        a["tpType"] = JsonValue.CreateNumberValue(tpType);
+                        serverAddr.Add(a);
+
+                        var r = new JsonObject();
+                        r["rtp"] = JsonValue.CreateStringValue(rtp);
+                        r["rtcp"] = JsonValue.CreateStringValue(rtcp);
+                        r["rtpIPv6"] = JsonValue.CreateStringValue(rtpV6);
+                        r["rtcpIPv6"] = JsonValue.CreateStringValue(rtcpV6);
+                        r["rtt"] = JsonValue.CreateNumberValue(25);
+                        r["recv"] = JsonValue.CreateNumberValue(14);
+                        r["spTcp"] = JsonValue.CreateNumberValue(1);
+                        r["tpType"] = JsonValue.CreateNumberValue(tpType);
+                        serverResult.Add(r);
+                    }
+                }
+            }
+
+            if (serverAddr.Count == 0 && !string.IsNullOrEmpty(rtpIp))
+            {
+                var a = new JsonObject();
+                a["rtp"] = JsonValue.CreateStringValue(rtpIp);
+                a["rtcp"] = JsonValue.CreateStringValue(rtcpIp);
+                a["rtpIPv6"] = JsonValue.CreateStringValue("");
+                a["rtcpIPv6"] = JsonValue.CreateStringValue("");
+                a["tpType"] = JsonValue.CreateNumberValue(0);
+                serverAddr.Add(a);
+
+                var r = new JsonObject();
+                r["rtp"] = JsonValue.CreateStringValue(rtpIp);
+                r["rtcp"] = JsonValue.CreateStringValue(rtcpIp);
+                r["rtpIPv6"] = JsonValue.CreateStringValue("");
+                r["rtcpIPv6"] = JsonValue.CreateStringValue("");
+                r["rtt"] = JsonValue.CreateNumberValue(25);
+                r["recv"] = JsonValue.CreateNumberValue(14);
+                r["spTcp"] = JsonValue.CreateNumberValue(1);
+                r["tpType"] = JsonValue.CreateNumberValue(0);
+                serverResult.Add(r);
+            }
+
+            var p2pArr = new JsonArray();
+            var p0 = new JsonObject();
+            p0["ip"] = JsonValue.CreateStringValue("0.0.0.0");
+            p0["port"] = JsonValue.CreateNumberValue(0);
+            p0["type"] = JsonValue.CreateNumberValue(0);
+            p2pArr.Add(p0);
+
+            var ext = new JsonObject();
+            ext["callType"] = JsonValue.CreateNumberValue(isVideo ? 1 : 0);
+            ext["fecTP"] = JsonValue.CreateNumberValue(0);
+            ext["gccAudio"] = JsonValue.CreateNumberValue(1);
+            ext["gccEarlyCall"] = JsonValue.CreateNumberValue(0);
+            ext["gccMode"] = JsonValue.CreateNumberValue(1);
+            ext["gccSVLR"] = JsonValue.CreateNumberValue(1);
+            ext["maxFT"] = JsonValue.CreateNumberValue(60);
+            ext["newZrtc"] = JsonValue.CreateNumberValue(1);
+            ext["numServers"] = JsonValue.CreateNumberValue(serverResult.Count);
+            ext["p2p"] = p2pArr;
+            ext["packetMode"] = JsonValue.CreateNumberValue(2);
+            ext["platform"] = JsonValue.CreateNumberValue(2);
+            ext["sP2P"] = JsonValue.CreateNumberValue(0);
+            ext["serverAddr"] = serverAddr;
+            ext["serverResult"] = serverResult;
+            ext["spTcp"] = JsonValue.CreateNumberValue(1);
+            ext["srtcp"] = JsonValue.CreateNumberValue(0);
+            ext["srtpMode"] = JsonValue.CreateNumberValue(0);
+            ext["supportCallBusy"] = JsonValue.CreateNumberValue(1);
+            ext["supportHevcDecode"] = JsonValue.CreateNumberValue(0);
+            ext["tpType"] = JsonValue.CreateNumberValue(0);
+
+            var video = new JsonObject();
+            var vCodecs = new JsonArray();
+            var h264 = new JsonObject();
+            h264["name"] = JsonValue.CreateStringValue("h264");
+            h264["payload"] = JsonValue.CreateNumberValue(97);
+            vCodecs.Add(h264);
+            video["codec"] = vCodecs;
+            ext["video"] = video;
+
+            return ext.Stringify() + "\n";
+        }
+
         private static void ParseRelayConfig(JsonObject parsed, ZaloCallSession session)
         {
             try
             {
                 session.RelayToken = GetSafeString(parsed, "token", session.RelayToken ?? string.Empty);
+                string sessId = GetSafeString(parsed, "sessId", GetSafeString(parsed, "session", string.Empty));
+                if (!string.IsNullOrEmpty(sessId)) session.SessionId = sessId;
 
                 uint ssrc = (uint)GetSafeNumber(parsed, "ssrc", (long)GetSafeNumber(parsed, "local_ssrc", session.LocalSsrc));
                 if (ssrc != 0) session.LocalSsrc = ssrc;
@@ -424,7 +757,19 @@ namespace ZaloWP81.Core
                 string host = null;
                 int port = 0;
 
-                if (parsed.ContainsKey("servers"))
+                // 1. Check direct fields (rtpIP, rtpSerIp, rtpAddress)
+                string rtpDirect = GetSafeString(parsed, "rtpIP", GetSafeString(parsed, "rtpSerIp", GetSafeString(parsed, "rtpAddress", "")));
+                if (!string.IsNullOrEmpty(rtpDirect))
+                {
+                    string[] parts = rtpDirect.Split(':');
+                    if (parts.Length == 2 && int.TryParse(parts[1], out port))
+                    {
+                        host = parts[0];
+                    }
+                }
+
+                // 2. Check servers array
+                if (string.IsNullOrEmpty(host) && parsed.ContainsKey("servers"))
                 {
                     var serversVal = parsed.GetNamedValue("servers");
                     if (serversVal.ValueType == JsonValueType.Array)
@@ -435,6 +780,16 @@ namespace ZaloWP81.Core
                             if (item.ValueType == JsonValueType.Object)
                             {
                                 var obj = item.GetObject();
+                                string rtpStr = GetSafeString(obj, "rtpaddr", GetSafeString(obj, "rtp", ""));
+                                if (!string.IsNullOrEmpty(rtpStr))
+                                {
+                                    string[] parts = rtpStr.Split(':');
+                                    if (parts.Length == 2 && int.TryParse(parts[1], out port))
+                                    {
+                                        host = parts[0];
+                                        break;
+                                    }
+                                }
                                 host = GetSafeString(obj, "ip", GetSafeString(obj, "host"));
                                 port = (int)GetSafeNumber(obj, "port", 0);
                                 if (!string.IsNullOrEmpty(host) && port > 0) break;

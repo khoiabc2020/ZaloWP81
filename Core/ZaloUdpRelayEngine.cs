@@ -173,41 +173,73 @@ namespace ZaloWP81.Core
             if (_writer == null || _session == null) return;
             try
             {
-                // Format ZRTC Relay Auth Frame:
-                // [0x00, 0x01] = magic
-                // 8 bytes = CallId (Big Endian)
-                // 4 bytes = SSRC (Big Endian)
-                // 2 bytes = Token length (Big Endian)
-                // N bytes = Token UTF-8
-                string token = _session.RelayToken ?? string.Empty;
-                byte[] tokenBytes = Encoding.UTF8.GetBytes(token);
+                uint fromUid = 0;
+                uint partnerUid = 0;
+                uint.TryParse(ZaloApp.Session?.Uid ?? "0", out fromUid);
+                uint.TryParse(_session.PeerId ?? "0", out partnerUid);
+                uint callId = (uint)_session.CallId;
+                string sessId = _session.SessionId ?? string.Empty;
+                byte[] sessBytes = Encoding.UTF8.GetBytes(sessId);
 
-                byte[] authPacket = new byte[2 + 8 + 4 + 2 + tokenBytes.Length];
-                authPacket[0] = 0x00;
-                authPacket[1] = 0x01;
+                // 1. Official Zalo ZRTP Init Packet (cmd 0x000B if caller, 0x000C if callee, sub_cmd 2)
+                ushort cmd = (ushort)(_session.IsOutgoing ? 0x000B : 0x000C);
+                byte subCmd = 2;
 
-                long callId = _session.CallId;
-                for (int i = 0; i < 8; i++)
+                byte[] zrtpInit = new byte[21 + 10 + sessBytes.Length];
+                zrtpInit[0] = 0x01; // magic
+                zrtpInit[1] = 0x7E; // payload_type InitZRTP
+                Array.Copy(BitConverter.GetBytes(fromUid), 0, zrtpInit, 10, 4);
+                Array.Copy(BitConverter.GetBytes(cmd), 0, zrtpInit, 18, 2);
+                zrtpInit[20] = subCmd;
+                Array.Copy(BitConverter.GetBytes(callId), 0, zrtpInit, 21, 4);
+                Array.Copy(BitConverter.GetBytes(partnerUid), 0, zrtpInit, 25, 4);
+                Array.Copy(BitConverter.GetBytes((ushort)sessBytes.Length), 0, zrtpInit, 29, 2);
+                if (sessBytes.Length > 0)
                 {
-                    authPacket[2 + i] = (byte)((callId >> ((7 - i) * 8)) & 0xFF);
+                    Array.Copy(sessBytes, 0, zrtpInit, 31, sessBytes.Length);
                 }
 
-                uint ssrc = _session.LocalSsrc;
-                authPacket[10] = (byte)((ssrc >> 24) & 0xFF);
-                authPacket[11] = (byte)((ssrc >> 16) & 0xFF);
-                authPacket[12] = (byte)((ssrc >> 8) & 0xFF);
-                authPacket[13] = (byte)(ssrc & 0xFF);
+                _writer.WriteBytes(zrtpInit);
 
-                authPacket[14] = (byte)((tokenBytes.Length >> 8) & 0xFF);
-                authPacket[15] = (byte)(tokenBytes.Length & 0xFF);
-                Array.Copy(tokenBytes, 0, authPacket, 16, tokenBytes.Length);
+                // 2. ZRTP Echo Packet (payload_type 0x01, cmd 0x0005)
+                byte[] echoPkt = new byte[21 + 2 + 10];
+                echoPkt[0] = 0x01;
+                echoPkt[1] = 0x01;
+                Array.Copy(BitConverter.GetBytes(fromUid), 0, echoPkt, 10, 4);
+                Array.Copy(BitConverter.GetBytes((ushort)0x0005), 0, echoPkt, 18, 2);
+                echoPkt[20] = 0x00;
+                string tsNow = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString();
+                byte[] tsBytes = Encoding.UTF8.GetBytes(tsNow);
+                Array.Copy(BitConverter.GetBytes((ushort)Math.Min(10, tsBytes.Length)), 0, echoPkt, 21, 2);
+                Array.Copy(tsBytes, 0, echoPkt, 23, Math.Min(10, tsBytes.Length));
+                _writer.WriteBytes(echoPkt);
 
-                _writer.WriteBytes(authPacket);
+                // 3. Format ZRTC Relay Auth Frame if token exists
+                string token = _session.RelayToken ?? string.Empty;
+                if (!string.IsNullOrEmpty(token))
+                {
+                    byte[] tokenBytes = Encoding.UTF8.GetBytes(token);
+                    byte[] authPacket = new byte[2 + 8 + 4 + 2 + tokenBytes.Length];
+                    authPacket[0] = 0x00;
+                    authPacket[1] = 0x01;
+                    long cid = _session.CallId;
+                    for (int i = 0; i < 8; i++) authPacket[2 + i] = (byte)((cid >> ((7 - i) * 8)) & 0xFF);
+                    uint ssrc = _session.LocalSsrc;
+                    authPacket[10] = (byte)((ssrc >> 24) & 0xFF);
+                    authPacket[11] = (byte)((ssrc >> 16) & 0xFF);
+                    authPacket[12] = (byte)((ssrc >> 8) & 0xFF);
+                    authPacket[13] = (byte)(ssrc & 0xFF);
+                    authPacket[14] = (byte)((tokenBytes.Length >> 8) & 0xFF);
+                    authPacket[15] = (byte)(tokenBytes.Length & 0xFF);
+                    Array.Copy(tokenBytes, 0, authPacket, 16, tokenBytes.Length);
+                    _writer.WriteBytes(authPacket);
+                }
+
                 await _writer.StoreAsync();
 
                 // Send initial RTP dummy packet to establish bidirectional relay mapping
                 await SendRtpPacketAsync(new byte[0]);
-                ZaloLog.Add("ZRTC UDP Relay Auth ping sent.");
+                ZaloLog.Add("ZRTC UDP Relay ZRTP Init & Echo ping sent.");
             }
             catch (Exception ex)
             {
