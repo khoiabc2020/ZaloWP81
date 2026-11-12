@@ -373,20 +373,9 @@ namespace ZaloLite
             if (parsed == null) return;
 
             // Hook for Phone Sync events (act=user_confirm, syncmsg_info, transfer_error) & Call events
-            if (parsed.ContainsKey("act"))
-            {
-                string act = ZaloAuth.Str(parsed, "act");
-                string actType = ZaloAuth.Str(parsed, "act_type");
-                if (act.Contains("call") || actType.Contains("call"))
-                {
-                    JsonObject callData = parsed.ContainsKey("data") && parsed.GetNamedValue("data").ValueType == JsonValueType.Object
-                        ? parsed.GetNamedObject("data") : parsed;
-                    DispatchCallAct(act, actType, callData);
-                }
-                ZaloPhoneSync.ProcessEvent(parsed);
-                ProcessUploadEvents(parsed);
-            }
-            else if (parsed.ContainsKey("data"))
+            ProcessRealtimeActions(parsed);
+
+            if (parsed.ContainsKey("data"))
             {
                 try
                 {
@@ -408,19 +397,7 @@ namespace ZaloLite
 
                     if (decoded != null)
                     {
-                        if (decoded.ContainsKey("act"))
-                        {
-                            string act = ZaloAuth.Str(decoded, "act");
-                            string actType = ZaloAuth.Str(decoded, "act_type");
-                            if (act.Contains("call") || actType.Contains("call"))
-                            {
-                                JsonObject callData = decoded.ContainsKey("data") && decoded.GetNamedValue("data").ValueType == JsonValueType.Object
-                                    ? decoded.GetNamedObject("data") : decoded;
-                                DispatchCallAct(act, actType, callData);
-                            }
-                        }
-                        ZaloPhoneSync.ProcessEvent(decoded);
-                        ProcessUploadEvents(decoded);
+                        ProcessRealtimeActions(decoded);
                     }
                 }
                 catch { }
@@ -446,7 +423,7 @@ namespace ZaloLite
             else if (cmd == 502) EmitReceipts(parsed, false);
             else if (cmd == 522) EmitReceipts(parsed, true);
             else if (version == 1 && cmd == 612 && sub == 0) EmitReactions(parsed);
-            else if (cmd >= 400 && cmd <= 440)
+            else if (cmd >= 400 && cmd <= 465)
             {
                 JsonObject effective = parsed;
                 if (parsed.ContainsKey("data"))
@@ -492,6 +469,62 @@ namespace ZaloLite
                 _generation++;
                 CloseSocket();
                 SetStatus("Tài khoản đang mở ở nơi khác (ví dụ Zalo Web) nên kết nối nhận tin bị đóng.");
+            }
+        }
+
+        private void ProcessRealtimeActions(JsonObject root)
+        {
+            if (root == null) return;
+
+            // 1. Direct act
+            if (root.ContainsKey("act"))
+            {
+                string act = ZaloAuth.Str(root, "act");
+                string actType = ZaloAuth.Str(root, "act_type");
+                if (act.IndexOf("call", StringComparison.OrdinalIgnoreCase) >= 0 || actType.IndexOf("call", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    JsonObject callData = root.ContainsKey("data") && root.GetNamedValue("data").ValueType == JsonValueType.Object
+                        ? root.GetNamedObject("data") : root;
+                    DispatchCallAct(act, actType, callData);
+                }
+                ZaloPhoneSync.ProcessEvent(root);
+                ProcessUploadEvents(root);
+            }
+
+            // 2. Actions array at root
+            if (root.ContainsKey("actions") && root.GetNamedValue("actions").ValueType == JsonValueType.Array)
+            {
+                ProcessActionArray(root.GetNamedArray("actions"));
+            }
+
+            // 3. Actions array inside root["data"]
+            if (root.ContainsKey("data") && root.GetNamedValue("data").ValueType == JsonValueType.Object)
+            {
+                JsonObject dataObj = root.GetNamedObject("data");
+                if (dataObj.ContainsKey("actions") && dataObj.GetNamedValue("actions").ValueType == JsonValueType.Array)
+                {
+                    ProcessActionArray(dataObj.GetNamedArray("actions"));
+                }
+            }
+        }
+
+        private void ProcessActionArray(JsonArray actions)
+        {
+            if (actions == null) return;
+            foreach (var item in actions)
+            {
+                if (item.ValueType != JsonValueType.Object) continue;
+                JsonObject action = item.GetObject();
+                string act = ZaloAuth.Str(action, "act");
+                string actType = ZaloAuth.Str(action, "act_type");
+                if (act.IndexOf("call", StringComparison.OrdinalIgnoreCase) >= 0 || actType.IndexOf("call", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    JsonObject callData = action.ContainsKey("data") && action.GetNamedValue("data").ValueType == JsonValueType.Object
+                        ? action.GetNamedObject("data") : action;
+                    DispatchCallAct(act, actType, callData);
+                }
+                ZaloPhoneSync.ProcessEvent(action);
+                ProcessUploadEvents(action);
             }
         }
 

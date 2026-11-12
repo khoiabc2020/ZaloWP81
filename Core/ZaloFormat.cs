@@ -483,6 +483,17 @@ namespace ZaloLite
                 case "chat.recommended":
                 case "6":
                 case "38": return "[Danh thiếp]";
+                case "chat.call":
+                case "chat.call.notify":
+                case "chat.call_notify":
+                case "chat.call_history":
+                case "100":
+                    if (content.ValueType == JsonValueType.String)
+                    {
+                        string cText = content.GetString();
+                        if (!string.IsNullOrEmpty(cText) && !cText.StartsWith("{")) return cText;
+                    }
+                    return "[Cuộc gọi]";
             }
 
             if (content.ValueType == JsonValueType.String)

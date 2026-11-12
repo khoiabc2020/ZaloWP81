@@ -1445,14 +1445,25 @@ namespace ZaloLite
                 throw new InvalidOperationException("Không tìm thấy tài khoản Zalo phù hợp.");
 
             JsonObject user = result.GetObject();
+            if (user.ContainsKey("data") && user.GetNamedValue("data").ValueType == JsonValueType.Object)
+            {
+                user = user.GetNamedObject("data");
+            }
+            else if (user.ContainsKey("profile") && user.GetNamedValue("profile").ValueType == JsonValueType.Object)
+            {
+                user = user.GetNamedObject("profile");
+            }
+
             string userId = Str(user, "uid");
             if (userId.Length == 0) userId = Str(user, "userId");
+            if (userId.Length == 0) userId = Str(user, "id");
             if (userId.Length == 0) throw new InvalidOperationException("Máy chủ không trả về mã người dùng.");
 
             string name = Str(user, "display_name");
             if (name.Length == 0) name = Str(user, "displayName");
             if (name.Length == 0) name = Str(user, "zalo_name");
             if (name.Length == 0) name = Str(user, "zaloName");
+            if (name.Length == 0) name = Str(user, "name");
 
             string avatar = Str(user, "avatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avatar_url");
@@ -1461,6 +1472,10 @@ namespace ZaloLite
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "thumbAvatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "global_avatar");
             if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "globalAvatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "avt");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "fullAvt");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "userAvatar");
+            if (string.IsNullOrEmpty(avatar)) avatar = Str(user, "picture");
 
             return new ZaloFriend { UserId = userId, Name = name, Avatar = avatar };
         }

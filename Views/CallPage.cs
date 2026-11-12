@@ -364,7 +364,10 @@ namespace ZaloWP81.Views
             endButtonBorder.Child = endIcon;
             endButtonBorder.Tapped += async (s, e) =>
             {
+                StopAudioPlayback();
                 await ZaloCallSignaling.EndCallAsync();
+                if (NavigationManager.CanGoBack) NavigationManager.GoBack();
+                else NavigationManager.NavigateTo(new MainPage(), clearStack: true);
             };
             var endLabel = new TextBlock
             {
@@ -873,9 +876,9 @@ namespace ZaloWP81.Views
                             _callResultOverlay.Visibility = Visibility.Visible;
                         }
 
-                        // Auto-return after 10 seconds if user doesn't tap "Gọi lại" or "Đóng"
+                        // Auto-return after 4 seconds if user doesn't tap "Gọi lại" or "Đóng"
                         DismissOverlayTimer();
-                        _overlayDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(10.0) };
+                        _overlayDismissTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(4.0) };
                         _overlayDismissTimer.Tick += (s, e) =>
                         {
                             DismissOverlay();

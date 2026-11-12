@@ -698,7 +698,8 @@ namespace ZaloWP81.Views
                 };
                 stack.Children.Add(fileCard);
             }
-            else if (msg.MsgType == "chat.call" || msg.MsgType == "chat.call.notify" || msg.MsgType == "100" || msg.MsgType == "chat.call_history")
+            else if (msg.MsgType == "chat.call" || msg.MsgType == "chat.call.notify" || msg.MsgType == "chat.call_notify" || msg.MsgType == "100" || msg.MsgType == "chat.call_history"
+                || (!string.IsNullOrEmpty(msg.Text) && (msg.Text.StartsWith("Cuộc gọi") || msg.Text.Contains("cuộc gọi nhỡ"))))
             {
                 double scale = ZaloSettingsService.Current.UiScaleFactor;
                 var callCard = new Border
